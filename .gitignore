@@ -1,0 +1,5 @@
+/dist
+/.agents
+/node_modules
+/.codex
+/work
