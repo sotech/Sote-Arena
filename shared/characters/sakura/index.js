@@ -19,7 +19,8 @@ export const sakura = {
       chakra: { ninjutsu: 1 },
       targetType: "ally",
       description: "Cura 25 de vida a un aliado.",
-      effects: [{ type: "heal", value: 25, targets: "target" }]
+      effects: [{ type: "heal", value: 25, targets: "target" }],
+      cooldown: 1
     },
     {
       id: "team-medical-care",
@@ -27,7 +28,8 @@ export const sakura = {
       chakra: { ninjutsu: 1, genjutsu: 1 },
       targetType: "allies",
       description: "Cura 15 de vida a todos los aliados.",
-      effects: [{ type: "heal", value: 15, targets: "target" }]
+      effects: [{ type: "heal", value: 15, targets: "target" }],
+      cooldown: 1
     },
     {
       id: "substitution-jutsu",
@@ -35,7 +37,8 @@ export const sakura = {
       chakra: { taijutsu: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }]
+      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      cooldown: 4
     }
   ]
 };

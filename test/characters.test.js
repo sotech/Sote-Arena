@@ -4,6 +4,8 @@ import { characters, getCharacterById } from "../shared/characters.js";
 import { naruto } from "../shared/characters/naruto/index.js";
 import { effectTypes, supportedEffectTypes } from "../shared/effects.js";
 
+const chakraTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
+
 test("catalog exposes exactly six playable characters", () => {
   assert.equal(characters.length, 6);
   assert.equal(new Set(characters.map((character) => character.id)).size, 6);
@@ -29,6 +31,7 @@ test("every character has substitution jutsu as the final skill", () => {
     assert.equal(lastSkill.id, "substitution-jutsu");
     assert.equal(lastSkill.name, "Jutsu de sustitucion");
     assert.equal(lastSkill.targetType, "self");
+    assert.equal(lastSkill.cooldown, 4);
     assert.deepEqual(lastSkill.effects, [{ type: "invulnerable", value: 1, targets: "self" }]);
   }
 });
@@ -51,7 +54,12 @@ test("skill effects use the documented effect system", () => {
         assert.ok(supportedEffectTypes.includes(effect.type));
         assert.ok(effect.value > 0);
         assert.ok(effect.targets);
-        if (effect.type === "leech") assert.ok(effect.heal > 0);
+        if (effect.type === "damage") assert.ok(!effect.damageType || ["basic", "piercing", "affliction"].includes(effect.damageType));
+        if (effect.type === "shield") assert.equal(typeof effect.isStackable, "boolean");
+        if (effect.type === "damage-reduction") assert.ok(effect.duration > 0);
+        if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
+          assert.ok(!effect.chakraType || chakraTypes.includes(effect.chakraType));
+        }
       }
     }
   }

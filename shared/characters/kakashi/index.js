@@ -10,8 +10,8 @@ export const kakashi = {
       name: "Raikiri",
       chakra: { ninjutsu: 2 },
       targetType: "enemy",
-      description: "Inflige 30 de dano preciso a un enemigo.",
-      effects: [{ type: "damage", value: 30, targets: "target" }]
+      description: "Inflige 30 de dano perforante a un enemigo.",
+      effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }]
     },
     {
       id: "tactical-read",
@@ -41,7 +41,8 @@ export const kakashi = {
       chakra: { taijutsu: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }]
+      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      cooldown: 4
     }
   ]
 };

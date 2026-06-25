@@ -5,8 +5,8 @@ export const effectTargetRefs = {
 
 export const effectTypes = {
   damage: {
-    description: "Inflige dano a cada objetivo, consumiendo escudo antes de vida.",
-    fields: ["type", "value", "targets"]
+    description: "Inflige dano a cada objetivo. damageType puede ser basic, piercing o affliction.",
+    fields: ["type", "value", "targets", "damageType"]
   },
   heal: {
     description: "Restaura vida a cada objetivo hasta su vida maxima.",
@@ -16,13 +16,13 @@ export const effectTypes = {
     description: "Restaura vida al lanzador. Normalmente usa targets: self.",
     fields: ["type", "value", "targets"]
   },
-  leech: {
-    description: "Dana al primer objetivo por value y cura al lanzador por heal.",
-    fields: ["type", "value", "heal", "targets"]
-  },
   shield: {
-    description: "Otorga escudo a cada objetivo.",
-    fields: ["type", "value", "targets"]
+    description: "Otorga escudo destruible a cada objetivo. isStackable permite acumular escudo consigo mismo.",
+    fields: ["type", "value", "targets", "isStackable"]
+  },
+  "damage-reduction": {
+    description: "Otorga reduccion de dano durante una duracion en turnos. Puede restaurarse al inicio de cada turno.",
+    fields: ["type", "value", "duration", "targets", "restoresEachTurn"]
   },
   stun: {
     description: "Impide que cada objetivo use habilidades durante la cantidad indicada de turnos.",
@@ -31,6 +31,14 @@ export const effectTypes = {
   invulnerable: {
     description: "Impide que enemigos puedan seleccionar al objetivo durante la cantidad indicada de turnos.",
     fields: ["type", "value", "targets"]
+  },
+  "gain-chakra": {
+    description: "Otorga chakra al jugador dueno del objetivo. chakraType puede ser un tipo especifico; si se omite, se otorga al azar.",
+    fields: ["type", "value", "targets", "chakraType"]
+  },
+  "remove-chakra": {
+    description: "Elimina chakra del jugador dueno del objetivo. chakraType puede ser un tipo especifico; si se omite, se elimina al azar.",
+    fields: ["type", "value", "targets", "chakraType"]
   }
 };
 

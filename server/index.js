@@ -6,7 +6,7 @@ import { Server } from "socket.io";
 import { characters, getCharacterById } from "../shared/characters.js";
 import { supportedEffectTypes } from "../shared/effects.js";
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://127.0.0.1:5173";
 
 const app = express();
@@ -31,6 +31,22 @@ function emptyChakra() {
 
 function cloneChakra(chakra) {
   return { ...emptyChakra(), ...chakra };
+}
+
+function cloneCooldowns(cooldowns) {
+  return { ...(cooldowns || {}) };
+}
+
+function totalChakra(chakra) {
+  return CHAKRA_TYPES.reduce((total, type) => total + (chakra?.[type] || 0), 0);
+}
+
+function cleanChakraSelection(chakra = {}) {
+  return CHAKRA_TYPES.reduce((selection, type) => {
+    const amount = Number(chakra[type] || 0);
+    selection[type] = Number.isInteger(amount) && amount > 0 ? amount : 0;
+    return selection;
+  }, emptyChakra());
 }
 
 function chakraLabel(cost) {
@@ -61,6 +77,35 @@ function grantPlayerRandomChakra(player) {
   player.chakra[type] = (player.chakra[type] || 0) + 1;
 }
 
+function randomAvailableChakraType(chakra) {
+  const availableTypes = CHAKRA_TYPES.filter((type) => (chakra?.[type] || 0) > 0);
+  if (!availableTypes.length) return null;
+  return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+}
+
+function applyChakraGain(player, amount, chakraType) {
+  const gained = emptyChakra();
+  for (let i = 0; i < amount; i += 1) {
+    const type = CHAKRA_TYPES.includes(chakraType)
+      ? chakraType
+      : CHAKRA_TYPES[Math.floor(Math.random() * CHAKRA_TYPES.length)];
+    player.chakra[type] = (player.chakra[type] || 0) + 1;
+    gained[type] += 1;
+  }
+  return gained;
+}
+
+function applyChakraRemoval(player, amount, chakraType) {
+  const removed = emptyChakra();
+  for (let i = 0; i < amount; i += 1) {
+    const type = CHAKRA_TYPES.includes(chakraType) ? chakraType : randomAvailableChakraType(player.chakra);
+    if (!type || (player.chakra[type] || 0) <= 0) break;
+    player.chakra[type] -= 1;
+    removed[type] += 1;
+  }
+  return removed;
+}
+
 function grantTurnChakra(player, setAmount) {
   if (setAmount) {
     grantPlayerRandomChakra(player);
@@ -81,6 +126,11 @@ function createRoomCode() {
   return code;
 }
 
+function cleanPlayerName(name) {
+  const playerName = String(name || "").trim().slice(0, 18);
+  return playerName || null;
+}
+
 function publicRoom(room) {
   return {
     code: room.code,
@@ -88,7 +138,8 @@ function publicRoom(room) {
     activePlayerId: room.activePlayerId,
     winnerId: room.winnerId,
     turn: room.turn,
-    log: room.log.slice(0, 8),
+    log: room.log.slice(0, 80),
+    chat: (room.chat || []).slice(-40),
     players: room.players.map((player) => ({
       id: player.id,
       name: player.name,
@@ -96,6 +147,14 @@ function publicRoom(room) {
       ready: player.ready,
       connected: player.connected,
       chakra: cloneChakra(player.chakra),
+      chakraExchange: player.chakraExchange
+        ? {
+            turn: player.chakraExchange.turn,
+            receivedType: player.chakraExchange.receivedType,
+            spent: cloneChakra(player.chakraExchange.spent),
+            undone: Boolean(player.chakraExchange.undone)
+          }
+        : null,
       queue: player.queue.map((item) => ({
         id: item.id,
         actorId: item.actorId,
@@ -108,6 +167,8 @@ function publicRoom(room) {
       })),
       team: player.team.map((member) => ({
         ...member,
+        skillCooldowns: cloneCooldowns(member.skillCooldowns),
+        shield: shieldValue(member),
         character: getCharacterById(member.characterId)
       }))
     }))
@@ -126,6 +187,10 @@ function opponentOf(room, playerId) {
   return room.players.find((player) => player.id !== playerId);
 }
 
+function ownerOfMember(room, member) {
+  return room.players.find((player) => player.team.includes(member));
+}
+
 function createTeam(characterIds) {
   return characterIds.map((characterId) => {
     const character = getCharacterById(characterId);
@@ -134,6 +199,7 @@ function createTeam(characterIds) {
       characterId,
       hp: character.maxHp,
       shield: 0,
+      skillCooldowns: {},
       statusEffects: []
     };
   });
@@ -175,6 +241,7 @@ function maybeStart(room) {
   room.players.forEach((player) => {
     player.chakra = emptyChakra();
     player.queue = [];
+    player.chakraExchange = null;
   });
   grantTurnChakra(room.players[0], );
   room.log.unshift("La batalla comenzo. Cada turno otorga 1 chakra aleatorio por cada personaje vivo del jugador activo.");
@@ -195,11 +262,112 @@ function removeQueuedSkill(room, playerId, actionId) {
   return null;
 }
 
+function queuedSkillFor(player, actorId, skillId) {
+  return player.queue.some((item) => item.actorId === actorId && item.skillId === skillId);
+}
+
+function queuedActorFor(player, actorId) {
+  return player.queue.some((item) => item.actorId === actorId);
+}
+
+function skillCooldown(member, skillId) {
+  return Math.max(0, member.skillCooldowns?.[skillId] || 0);
+}
+
+function setSkillCooldown(member, skillId, cooldown) {
+  const value = Math.max(0, cooldown || 0);
+  member.skillCooldowns = member.skillCooldowns || {};
+  if (value > 0) {
+    member.skillCooldowns[skillId] = value;
+  } else {
+    delete member.skillCooldowns[skillId];
+  }
+}
+
+function reduceCooldowns(player) {
+  player.team.forEach((member) => {
+    const cooldowns = member.skillCooldowns || {};
+    for (const [skillId, amount] of Object.entries(cooldowns)) {
+      const next = Math.max(0, amount - 1);
+      if (next > 0) {
+        cooldowns[skillId] = next;
+      } else {
+        delete cooldowns[skillId];
+      }
+    }
+    member.skillCooldowns = cooldowns;
+  });
+}
+
+function moveQueuedSkill(room, playerId, actionId, direction) {
+  if (room.phase !== "battle") return "La batalla todavia no esta activa.";
+  if (room.activePlayerId !== playerId) return "No es tu turno.";
+
+  const player = findPlayer(room, playerId);
+  const index = player.queue.findIndex((item) => item.id === actionId);
+  if (index === -1) return "Esa habilidad ya no esta en cola.";
+
+  const offset = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+  if (offset === 0) return "Direccion invalida.";
+
+  const nextIndex = index + offset;
+  if (nextIndex < 0 || nextIndex >= player.queue.length) return null;
+
+  const [action] = player.queue.splice(index, 1);
+  player.queue.splice(nextIndex, 0, action);
+  return null;
+}
+
+function exchangeChakra(room, playerId, receivedType, spent) {
+  if (room.phase !== "battle") return "La batalla todavia no esta activa.";
+  if (room.activePlayerId !== playerId) return "No es tu turno.";
+  if (!CHAKRA_TYPES.includes(receivedType)) return "El chakra elegido no es valido.";
+
+  const player = findPlayer(room, playerId);
+  if (player.chakraExchange?.turn === room.turn) return "Ya intercambiaste chakra este turno.";
+  if (totalChakra(player.chakra) < 5) return "Necesitas al menos 5 chakras para intercambiar.";
+
+  const selected = cleanChakraSelection(spent);
+  if (totalChakra(selected) !== 5) return "Debes entregar exactamente 5 chakras.";
+  if (!canPay(player.chakra, selected)) return "No tienes esos chakras disponibles.";
+
+  payChakra(player, selected);
+  player.chakra[receivedType] = (player.chakra[receivedType] || 0) + 1;
+  player.chakraExchange = {
+    turn: room.turn,
+    receivedType,
+    spent: selected
+  };
+  room.log.unshift(`${player.name} intercambio ${chakraLabel(selected)} por 1 ${receivedType}.`);
+
+  return null;
+}
+
+function undoChakraExchange(room, playerId) {
+  if (room.phase !== "battle") return "La batalla todavia no esta activa.";
+  if (room.activePlayerId !== playerId) return "No es tu turno.";
+
+  const player = findPlayer(room, playerId);
+  const exchange = player.chakraExchange;
+  if (!exchange || exchange.turn !== room.turn || exchange.undone) return "No hay intercambio de chakra para deshacer.";
+  if ((player.chakra[exchange.receivedType] || 0) <= 0) return "Ya no queda el chakra obtenido por el intercambio.";
+
+  player.chakra[exchange.receivedType] -= 1;
+  refundChakra(player, exchange.spent);
+  player.chakraExchange = { ...exchange, undone: true };
+  room.log.unshift(`${player.name} deshizo el intercambio de chakra y recupero ${chakraLabel(exchange.spent)}.`);
+
+  return null;
+}
+
 function advanceTurn(room) {
   const currentIndex = room.players.findIndex((player) => player.id === room.activePlayerId);
   const next = room.players[(currentIndex + 1) % room.players.length];
   next.queue = [];
+  next.chakraExchange = null;
+  reduceCooldowns(next);
   grantTurnChakra(next);
+  restoreDamageReduction(next);
   room.activePlayerId = next.id;
   room.turn += 1;
 }
@@ -207,8 +375,11 @@ function advanceTurn(room) {
 function expireStatusEffects(player, currentTurn) {
   player.team.forEach((member) => {
     member.statusEffects = (member.statusEffects || [])
-      .map((effect) => (effect.createdTurn === currentTurn ? effect : { ...effect, turns: effect.turns - 1 }))
-      .filter((effect) => effect.turns > 0);
+      .map((effect) => {
+        if (effect.type === "shield") return effect;
+        return effect.createdTurn === currentTurn ? effect : { ...effect, turns: effect.turns - 1 };
+      })
+      .filter((effect) => (effect.type === "shield" ? (effect.remainingShield || 0) > 0 : effect.turns > 0));
   });
 }
 
@@ -218,6 +389,36 @@ function hasStatus(member, type) {
 
 function addStatus(member, status) {
   const existing = (member.statusEffects || []).find((effect) => effect.type === status.type && effect.sourceSkillId === status.sourceSkillId);
+  if (status.type === "shield") {
+    if (existing) {
+      existing.remainingShield = status.isStackable
+        ? (existing.remainingShield || 0) + (status.remainingShield || 0)
+        : status.remainingShield || 0;
+      existing.value = existing.remainingShield;
+      existing.isStackable = status.isStackable;
+      existing.descriptions = shieldDescriptions(existing);
+      existing.createdTurn = status.createdTurn;
+      return;
+    }
+    status.value = status.remainingShield;
+    status.descriptions = shieldDescriptions(status);
+    member.statusEffects = [...(member.statusEffects || []), status];
+    return;
+  }
+  if (status.type === "damage-reduction") {
+    if (existing) {
+      existing.value = status.value;
+      existing.remainingReduction = status.remainingReduction;
+      existing.turns = Math.max(existing.turns, status.turns);
+      existing.restoresEachTurn = status.restoresEachTurn;
+      existing.descriptions = damageReductionDescriptions(existing);
+      existing.createdTurn = status.createdTurn;
+      return;
+    }
+    status.descriptions = damageReductionDescriptions(status);
+    member.statusEffects = [...(member.statusEffects || []), status];
+    return;
+  }
   if (existing) {
     existing.turns = Math.max(existing.turns, status.turns);
     existing.descriptions = status.descriptions;
@@ -228,9 +429,79 @@ function addStatus(member, status) {
 }
 
 function statusDescription(effect, actorCharacter) {
+  if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo destruible.`;
+  if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value} de reduccion de dano.`;
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
   if (effect.type === "invulnerable") return `${actorCharacter.name} ha vuelto invulnerable a este personaje.`;
   return `${actorCharacter.name} ha aplicado ${effect.type} a este personaje.`;
+}
+
+function shieldDescriptions(effect) {
+  return [`Este personaje tiene ${effect.remainingShield || 0} de escudo destruible.`];
+}
+
+function damageReductionDescriptions(effect) {
+  return [`${effect.sourceActorName || "Un personaje"} ha obtenido ${effect.value} de reduccion de dano.`];
+}
+
+function shieldValue(member) {
+  return (member.statusEffects || [])
+    .filter((effect) => effect.type === "shield")
+    .reduce((total, effect) => total + (effect.remainingShield || 0), 0);
+}
+
+function absorbShield(member, damage) {
+  let remainingDamage = damage;
+  for (const effect of member.statusEffects || []) {
+    if (effect.type !== "shield" || remainingDamage <= 0) continue;
+    const blocked = Math.min(effect.remainingShield || 0, remainingDamage);
+    effect.remainingShield = (effect.remainingShield || 0) - blocked;
+    effect.value = effect.remainingShield;
+    effect.descriptions = shieldDescriptions(effect);
+    remainingDamage -= blocked;
+  }
+  member.statusEffects = (member.statusEffects || []).filter((effect) => effect.type !== "shield" || (effect.remainingShield || 0) > 0);
+  member.shield = shieldValue(member);
+  return damage - remainingDamage;
+}
+
+function absorbDamageReduction(member, damage) {
+  let remainingDamage = damage;
+  for (const effect of member.statusEffects || []) {
+    if (effect.type !== "damage-reduction" || remainingDamage <= 0) continue;
+    const blocked = Math.min(effect.remainingReduction || 0, remainingDamage);
+    effect.remainingReduction = (effect.remainingReduction || 0) - blocked;
+    effect.descriptions = damageReductionDescriptions(effect);
+    remainingDamage -= blocked;
+  }
+  return damage - remainingDamage;
+}
+
+function restoreDamageReduction(player) {
+  player.team.forEach((member) => {
+    member.statusEffects = (member.statusEffects || []).map((effect) => {
+      if (effect.type !== "damage-reduction" || effect.restoresEachTurn === false) return effect;
+      return {
+        ...effect,
+        remainingReduction: effect.value,
+        descriptions: damageReductionDescriptions({ ...effect, remainingReduction: effect.value })
+      };
+    });
+  });
+}
+
+function applyDamage(target, value, damageType = "basic") {
+  const type = ["basic", "piercing", "affliction"].includes(damageType) ? damageType : "basic";
+  let remainingDamage = value;
+  if (type === "basic") {
+    remainingDamage -= absorbDamageReduction(target, remainingDamage);
+  }
+  if (type === "basic" || type === "piercing") {
+    remainingDamage -= absorbShield(target, remainingDamage);
+  }
+  const dealt = Math.max(0, remainingDamage);
+  target.hp = Math.max(0, target.hp - dealt);
+  return dealt;
 }
 
 function aliveMembers(player) {
@@ -289,6 +560,9 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   const actorCharacter = getCharacterById(actor.characterId);
   const skill = actorCharacter.skills.find((item) => item.id === skillId);
   if (!skill) return "Habilidad invalida.";
+  if (queuedActorFor(player, actor.id)) return `${actorCharacter.name} ya tiene una habilidad en cola este turno.`;
+  if (skillCooldown(actor, skill.id) > 0) return `${skill.name} esta en cooldown.`;
+  if (queuedSkillFor(player, actor.id, skill.id)) return `${skill.name} ya esta en cola.`;
   if (!canPay(player.chakra, skill.chakra)) return `No tienes chakra suficiente: requiere ${chakraLabel(skill.chakra)}.`;
 
   const targets = targetsForSkill(room, player, actor, targetId, skill);
@@ -346,6 +620,9 @@ function applyQueuedSkill(room, player, action) {
   let totalShield = 0;
   let totalStun = 0;
   let totalInvulnerable = 0;
+  let totalDamageReduction = 0;
+  let gainedChakra = emptyChakra();
+  let removedChakra = emptyChakra();
 
   for (const effect of skill.effects || []) {
     if (!supportedEffectTypes.includes(effect.type)) {
@@ -358,10 +635,7 @@ function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "damage") {
       for (const target of targets) {
-        const blocked = Math.min(target.shield, effect.value);
-        target.shield -= blocked;
-        const dealt = effect.value - blocked;
-        target.hp = Math.max(0, target.hp - dealt);
+        const dealt = applyDamage(target, effect.value, effect.damageType || "basic");
         totalDamage += dealt;
       }
       continue;
@@ -377,25 +651,44 @@ function applyQueuedSkill(room, player, action) {
       continue;
     }
 
-    if (effect.type === "leech") {
-      const leechTarget = targets[0];
-      const blocked = Math.min(leechTarget.shield, effect.value);
-      leechTarget.shield -= blocked;
-      const dealt = effect.value - blocked;
-      leechTarget.hp = Math.max(0, leechTarget.hp - dealt);
-      totalDamage += dealt;
-
-      const actorCharacterMax = getCharacterById(actor.characterId).maxHp;
-      const before = actor.hp;
-      actor.hp = Math.min(actorCharacterMax, actor.hp + (effect.heal ?? dealt));
-      totalHeal += actor.hp - before;
+    if (effect.type === "damage-reduction") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "damage-reduction",
+          turns: effect.duration,
+          value: effect.value,
+          remainingReduction: effect.value,
+          restoresEachTurn: effect.restoresEachTurn !== false,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          createdTurn: room.turn,
+          descriptions: [statusDescription({ ...effect, remainingReduction: effect.value }, actorCharacter)]
+        });
+        totalDamageReduction += effect.value;
+      }
       continue;
     }
 
     if (effect.type === "shield") {
       for (const target of targets) {
-        target.shield = Math.min(45, target.shield + effect.value);
-        totalShield += effect.value;
+        const shieldBefore = shieldValue(target);
+        addStatus(target, {
+          id: randomUUID(),
+          type: "shield",
+          turns: null,
+          value: effect.value,
+          remainingShield: effect.value,
+          isStackable: effect.isStackable,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          createdTurn: room.turn,
+          descriptions: [statusDescription({ ...effect, remainingShield: effect.value }, actorCharacter)]
+        });
+        target.shield = shieldValue(target);
+        totalShield += Math.max(0, target.shield - shieldBefore);
       }
       continue;
     }
@@ -431,13 +724,36 @@ function applyQueuedSkill(room, player, action) {
         totalInvulnerable += effect.value;
       }
     }
+
+    if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
+      const affectedPlayers = [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
+      const amount = Math.max(0, Number(effect.value || 0));
+      for (const affectedPlayer of affectedPlayers) {
+        const changed = effect.type === "gain-chakra"
+          ? applyChakraGain(affectedPlayer, amount, effect.chakraType)
+          : applyChakraRemoval(affectedPlayer, amount, effect.chakraType);
+
+        for (const type of CHAKRA_TYPES) {
+          if (effect.type === "gain-chakra") {
+            gainedChakra[type] += changed[type] || 0;
+          } else {
+            removedChakra[type] += changed[type] || 0;
+          }
+        }
+      }
+    }
   }
 
   if (totalDamage > 0) events.push(`${actorCharacter.name} uso ${skill.name} e hizo ${totalDamage} dano.`);
   if (totalHeal > 0) events.push(`${actorCharacter.name} curo ${totalHeal} de vida.`);
-  if (totalShield > 0) events.push(`${actorCharacter.name} otorgo ${totalShield} de escudo.`);
+  if (totalShield > 0) events.push(`${actorCharacter.name} gano ${totalShield} de escudo.`);
+  if (totalDamageReduction > 0) events.push(`${actorCharacter.name} otorgo ${totalDamageReduction} de reduccion de dano.`);
   if (totalStun > 0) events.push(`${actorCharacter.name} aturdio por ${totalStun} turno(s).`);
   if (totalInvulnerable > 0) events.push(`${actorCharacter.name} gano invulnerabilidad por ${totalInvulnerable} turno(s).`);
+  if (totalChakra(gainedChakra) > 0) events.push(`${actorCharacter.name} gano ${chakraLabel(gainedChakra)}.`);
+  if (totalChakra(removedChakra) > 0) events.push(`${actorCharacter.name} elimino ${chakraLabel(removedChakra)}.`);
+
+  setSkillCooldown(actor, skill.id, skill.cooldown || 0);
 
   return events.join(" ") || `${actorCharacter.name} uso ${skill.name}.`;
 }
@@ -488,14 +804,21 @@ io.on("connection", (socket) => {
   socket.emit("characters", characters);
 
   socket.on("room:create", ({ name }, callback) => {
+    const playerName = cleanPlayerName(name);
+    if (!playerName) {
+      callback?.({ ok: false, error: "Debes ingresar un nombre para jugar." });
+      return;
+    }
+
     const code = createRoomCode();
     const player = {
       id: socket.id,
-      name: String(name || "Jugador 1").slice(0, 18),
+      name: playerName,
       side: "red",
       connected: true,
       ready: false,
       chakra: emptyChakra(),
+      chakraExchange: null,
       queue: [],
       team: []
     };
@@ -506,6 +829,7 @@ io.on("connection", (socket) => {
       activePlayerId: null,
       winnerId: null,
       turn: 0,
+      chat: [],
       log: ["Sala creada. Esperando al segundo jugador."]
     };
     rooms.set(code, room);
@@ -516,6 +840,12 @@ io.on("connection", (socket) => {
   });
 
   socket.on("room:join", ({ code, name }, callback) => {
+    const playerName = cleanPlayerName(name);
+    if (!playerName) {
+      callback?.({ ok: false, error: "Debes ingresar un nombre para jugar." });
+      return;
+    }
+
     const room = rooms.get(String(code || "").toUpperCase());
     if (!room) {
       callback?.({ ok: false, error: "Sala no encontrada." });
@@ -528,11 +858,12 @@ io.on("connection", (socket) => {
 
     const player = {
       id: socket.id,
-      name: String(name || "Jugador 2").slice(0, 18),
+      name: playerName,
       side: "blue",
       connected: true,
       ready: false,
       chakra: emptyChakra(),
+      chakraExchange: null,
       queue: [],
       team: []
     };
@@ -603,6 +934,42 @@ io.on("connection", (socket) => {
     broadcast(room);
   });
 
+  socket.on("battle:exchangeChakra", ({ receivedType, spent }, callback) => {
+    const code = socketRooms.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) {
+      callback?.({ ok: false, error: "No estas en una sala." });
+      return;
+    }
+
+    const error = exchangeChakra(room, socket.id, receivedType, spent);
+    if (error) {
+      callback?.({ ok: false, error });
+      return;
+    }
+
+    callback?.({ ok: true });
+    broadcast(room);
+  });
+
+  socket.on("battle:undoChakraExchange", (_payload, callback) => {
+    const code = socketRooms.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) {
+      callback?.({ ok: false, error: "No estas en una sala." });
+      return;
+    }
+
+    const error = undoChakraExchange(room, socket.id);
+    if (error) {
+      callback?.({ ok: false, error });
+      return;
+    }
+
+    callback?.({ ok: true });
+    broadcast(room);
+  });
+
   socket.on("battle:removeQueuedSkill", ({ actionId }, callback) => {
     const code = socketRooms.get(socket.id);
     const room = rooms.get(code);
@@ -617,6 +984,49 @@ io.on("connection", (socket) => {
       return;
     }
 
+    callback?.({ ok: true });
+    broadcast(room);
+  });
+
+  socket.on("battle:moveQueuedSkill", ({ actionId, direction }, callback) => {
+    const code = socketRooms.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) {
+      callback?.({ ok: false, error: "No estas en una sala." });
+      return;
+    }
+
+    const error = moveQueuedSkill(room, socket.id, actionId, direction);
+    if (error) {
+      callback?.({ ok: false, error });
+      return;
+    }
+
+    callback?.({ ok: true });
+    broadcast(room);
+  });
+
+  socket.on("chat:send", ({ message }, callback) => {
+    const code = socketRooms.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) {
+      callback?.({ ok: false, error: "No estas en una sala." });
+      return;
+    }
+
+    const player = findPlayer(room, socket.id);
+    if (!player) {
+      callback?.({ ok: false, error: "No estas en una sala." });
+      return;
+    }
+
+    const text = String(message || "").trim().slice(0, 180);
+    if (!text) {
+      callback?.({ ok: false, error: "El mensaje no puede estar vacio." });
+      return;
+    }
+
+    room.chat = [...(room.chat || []), { id: randomUUID(), playerId: player.id, playerName: player.name, message: text }].slice(-80);
     callback?.({ ok: true });
     broadcast(room);
   });
