@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
 import "./styles.css";
@@ -22,6 +22,7 @@ const NOTIFIER_END_TIME = 3;
 const MESSAGE_SOUND_START_TIME = 0.5;
 const MESSAGE_SOUND_END_TIME = 1.5;
 const AUDIO_FADE_MS = 450;
+const MOBILE_QUERY = "(max-width: 768px)";
 const skullImage = `data:image/svg+xml;utf8,${encodeURIComponent(`
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
     <rect width="80" height="80" rx="10" fill="#111827"/>
@@ -286,10 +287,11 @@ function App() {
     return response.ok;
   }
 
-  async function endTurn() {
+  async function endTurn(neutralChakra = emptyChakra()) {
     setError("");
-    const response = await callSocket("battle:endTurn", {});
+    const response = await callSocket("battle:endTurn", { neutralChakra });
     if (!response.ok) setError(response.error);
+    return response.ok;
   }
 
   async function removeQueuedSkill(actionId) {
@@ -366,6 +368,12 @@ function App() {
         </div>
         {room && (
           <div className="topbar-actions">
+            {room.phase === "lobby" && (
+              <button className="secondary" onClick={returnHome}>
+                <ChevronLeft size={16} />
+                Menu
+              </button>
+            )}
             <button className="secondary" onClick={() => setOptionsOpen(true)}>
               <Shield size={16} />
               Opciones
@@ -623,6 +631,9 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
   const pageCharacters = characters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = characters.find((character) => character.id === inspectedCharacterId);
   const inspectedSkill = inspectedCharacter?.skills.find((skill) => skill.id === inspectedSkillId) || inspectedCharacter?.skills[0];
+  const selectedCharacters = selected
+    .map((characterId) => characters.find((character) => character.id === characterId))
+    .filter(Boolean);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -641,7 +652,24 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
         <div className="section-head">
           <div>
             <p className="eyebrow">Equipo</p>
-            <h2>Elige 3 personajes</h2>
+            <div className="selection-title">
+              <h2>Elige 3 personajes</h2>
+              {selectedCharacters.length > 0 && (
+                <div className="selected-character-strip" aria-label="Personajes elegidos">
+                  {selectedCharacters.map((character) => (
+                    <button
+                      type="button"
+                      key={character.id}
+                      onClick={() => onToggle(character.id)}
+                      disabled={me?.ready}
+                      aria-label={`Quitar ${character.name}`}
+                    >
+                      <SquareImage alt={character.name} src={characterImage(character.id)} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <button disabled={selected.length !== 3 || me?.ready} onClick={onConfirm}>
             <Shield size={18} />
@@ -652,7 +680,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
           {pageCharacters.map((character) => (
             <button
               key={character.id}
-              className={`character-card ${selected.includes(character.id) ? "selected" : ""} ${inspectedCharacterId === character.id ? "inspected" : ""}`}
+              className={`character-card ${selected.includes(character.id) ? "selected" : ""}`}
               onClick={() => clickCharacter(character.id)}
               disabled={me?.ready}
             >
@@ -718,6 +746,8 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const [inspectedMemberId, setInspectedMemberId] = useState("");
   const [pendingSkillId, setPendingSkillId] = useState("");
   const [chakraExchangeOpen, setChakraExchangeOpen] = useState(false);
+  const [neutralChakraOpen, setNeutralChakraOpen] = useState(false);
+  const [emptyQueueConfirmOpen, setEmptyQueueConfirmOpen] = useState(false);
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
     .find((member) => member.id === inspectedMemberId) || selectedActor;
@@ -729,6 +759,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const canUndoExchange = Boolean(exchange && (me?.chakra?.[exchange.receivedType] || 0) > 0);
   const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchangeRecord && totalChakra(me?.chakra) >= 5;
   const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar chakra";
+  const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
 
   useEffect(() => {
     setPendingSkillId("");
@@ -758,7 +789,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       && skillCooldownFor(selectedActor, skill.id) <= 0
       && !isQueuedActor(me, selectedActor?.id)
       && !isQueuedSkill(me, selectedActor?.id, skill.id)
-      && canPayChakra(me?.chakra, skill.chakra)
+      && canPaySkillChakra(me?.chakra, skill.chakra, queuedNeutralChakra)
       && eligibleTargetsForSkill(skill, me, opponent, selectedActor).length > 0;
   }
 
@@ -788,9 +819,22 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
     setChakraExchangeOpen(true);
   }
 
+  function clickEndTurn() {
+    if (!isMyTurn || room.phase === "finished") return;
+    if ((me?.queue || []).length === 0) {
+      setEmptyQueueConfirmOpen(true);
+      return;
+    }
+    if (queuedNeutralChakra > 0) {
+      setNeutralChakraOpen(true);
+      return;
+    }
+    onEndTurn(emptyChakra());
+  }
+
   return (
     <section className="battle">
-      <BalanceBar players={room.players} />
+      <BalanceBar me={me} opponent={opponent} />
       <div className="arena">
         <Team
           title={me?.name || "Tu equipo"}
@@ -804,28 +848,32 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           onPick={pickFighter}
           ownTeam
         />
-        <div className="turn-panel">
-          <p className="eyebrow">Turno {room.turn}</p>
-          {room.phase === "finished" ? (
-            <h2>Gano {winner?.name}</h2>
-          ) : (
-            <h2 className={isMyTurn ? "turn-title active-turn-title" : "turn-title"}>
-              <span>{isMyTurn ? "Tu turno" : "Turno rival"}</span>
-            </h2>
-          )}
-          <button
-            className={`chakra-exchange-button ${exchange ? "undo" : ""}`}
-            disabled={exchange ? !isMyTurn || room.phase === "finished" || !canUndoExchange : !canOpenExchange}
-            onClick={clickChakraExchange}
-          >
-            <ArrowLeftRight size={18} />
-            {exchangeButtonLabel}
-          </button>
-          <div className="chakra">
-            <Zap size={18} />
-            <span>Chakra</span>
+        <div className="turn-panel card-combate" id="card-combate">
+          <header className="turn-panel-header">
+            <p className="eyebrow">Turno {room.turn}</p>
+            {room.phase === "finished" ? (
+              <h2>Gano {winner?.name}</h2>
+            ) : (
+              <h2 className={isMyTurn ? "turn-title active-turn-title" : "turn-title"}>
+                <span>{isMyTurn ? "Tu turno" : "Turno rival"}</span>
+              </h2>
+            )}
+          </header>
+          <div className="turn-chakra-column">
+            <div className="chakra">
+              <Zap size={18} />
+              <span>Chakra</span>
+            </div>
+            <ChakraPool chakra={me?.chakra} />
+            <button
+              className={`chakra-exchange-button ${exchange ? "undo" : ""}`}
+              disabled={exchange ? !isMyTurn || room.phase === "finished" || !canUndoExchange : !canOpenExchange}
+              onClick={clickChakraExchange}
+            >
+              <ArrowLeftRight size={18} />
+              {exchangeButtonLabel}
+            </button>
           </div>
-          <ChakraPool chakra={me?.chakra} />
           <div className="skill-list">
             {selectedActor?.character.skills.map((skill) => {
               const isPending = pendingSkillId === skill.id;
@@ -852,7 +900,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
               );
             })}
           </div>
-          <button className="end-turn" disabled={!isMyTurn || room.phase === "finished"} onClick={onEndTurn}>
+          <button className="end-turn" disabled={!isMyTurn || room.phase === "finished"} onClick={clickEndTurn}>
             <CheckCircle2 size={18} />
             Finalizar turno
           </button>
@@ -877,15 +925,14 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
         />
       </div>
       <aside className="side-stack">
-        <section className="panel combat-log side-main">
-          <h2>Registro</h2>
+        <CollapsiblePanel title="Registro" className="combat-log side-main">
           <div className="log">
             {room.log.map((item, index) => (
               <p key={`${item}-${index}`}>{item}</p>
             ))}
           </div>
-        </section>
-        <ChatPanel messages={room.chat || []} onSend={onSendChat} />
+        </CollapsiblePanel>
+        <ChatPanel messages={room.chat || []} onSend={onSendChat} collapsible />
       </aside>
       <BattleSkillFooter member={inspectedMember} skill={inspectedSkill} onSkill={setInspectedSkillId} />
       {chakraExchangeOpen && (
@@ -898,11 +945,31 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           }}
         />
       )}
+      {neutralChakraOpen && (
+        <NeutralChakraModal
+          chakra={me?.chakra}
+          required={queuedNeutralChakra}
+          onClose={() => setNeutralChakraOpen(false)}
+          onConfirm={async (spent) => {
+            const ok = await onEndTurn(spent);
+            if (ok) setNeutralChakraOpen(false);
+          }}
+        />
+      )}
+      {emptyQueueConfirmOpen && (
+        <EndTurnConfirmModal
+          onClose={() => setEmptyQueueConfirmOpen(false)}
+          onConfirm={async () => {
+            const ok = await onEndTurn(emptyChakra());
+            if (ok) setEmptyQueueConfirmOpen(false);
+          }}
+        />
+      )}
     </section>
   );
 }
 
-function ChatPanel({ messages, onSend }) {
+function ChatPanel({ messages, onSend, collapsible = false }) {
   const [message, setMessage] = useState("");
 
   async function submit(event) {
@@ -911,9 +978,8 @@ function ChatPanel({ messages, onSend }) {
     if (sent) setMessage("");
   }
 
-  return (
-    <section className="panel chat-panel">
-      <h2>Chat</h2>
+  const content = (
+    <>
       <div className="chat-messages" aria-live="polite">
         {messages.length === 0 ? (
           <p className="chat-empty">No hay mensajes.</p>
@@ -931,6 +997,49 @@ function ChatPanel({ messages, onSend }) {
           Enviar
         </button>
       </form>
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <CollapsiblePanel title="Chat" className="chat-panel">
+        {content}
+      </CollapsiblePanel>
+    );
+  }
+
+  return (
+    <section className="panel chat-panel">
+      <h2>Chat</h2>
+      {content}
+    </section>
+  );
+}
+
+function CollapsiblePanel({ title, className = "", children }) {
+  const [open, setOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !window.matchMedia(MOBILE_QUERY).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia(MOBILE_QUERY);
+    const syncOpen = () => setOpen(!media.matches);
+    syncOpen();
+    media.addEventListener("change", syncOpen);
+    return () => media.removeEventListener("change", syncOpen);
+  }, []);
+
+  return (
+    <section className={`panel collapsible-panel ${className} ${open ? "open" : ""}`}>
+      <button type="button" className="collapsible-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span>{title}</span>
+        <ChevronDown size={18} />
+      </button>
+      <div className="collapsible-content" hidden={!open}>
+        {children}
+      </div>
     </section>
   );
 }
@@ -1019,6 +1128,96 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
   );
 }
 
+function NeutralChakraModal({ chakra, required, onClose, onConfirm }) {
+  const [spent, setSpent] = useState(() => emptyChakra());
+  const spentTotal = totalChakra(spent);
+
+  function addPayment(type) {
+    setSpent((current) => {
+      if (totalChakra(current) >= required) return current;
+      if ((chakra?.[type] || 0) - (current[type] || 0) <= 0) return current;
+      return { ...current, [type]: (current[type] || 0) + 1 };
+    });
+  }
+
+  function removePayment(type) {
+    setSpent((current) => {
+      if ((current[type] || 0) <= 0) return current;
+      return { ...current, [type]: current[type] - 1 };
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="neutral-chakra-title">
+      <div className="chakra-exchange-modal neutral-chakra-modal">
+        <header>
+          <div>
+            <p className="eyebrow">Finalizar turno</p>
+            <h2 id="neutral-chakra-title">Pagar chakra neutral</h2>
+          </div>
+          <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar pago neutral">
+            <X size={18} />
+          </button>
+        </header>
+        <p className="modal-copy">Completa {required} chakra neutral con tus chakras disponibles.</p>
+        <div className="exchange-columns">
+          <section>
+            <h3>Tus chakras</h3>
+            {chakraTypes.map((type) => (
+              <div className="exchange-row" key={type.id}>
+                <span className={`chakra-dot ${type.className}`} />
+                <strong>{type.label}</strong>
+                <b>{(chakra?.[type.id] || 0) - (spent[type.id] || 0)}</b>
+                <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || (chakra?.[type.id] || 0) - (spent[type.id] || 0) <= 0} aria-label={`Agregar ${type.label} al pago neutral`}>
+                  <Plus size={16} />
+                </button>
+              </div>
+            ))}
+          </section>
+          <section>
+            <h3>Pago neutral</h3>
+            {chakraTypes.map((type) => (
+              <div className="exchange-row" key={type.id}>
+                <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={(spent[type.id] || 0) <= 0} aria-label={`Quitar ${type.label} del pago neutral`}>
+                  <Minus size={16} />
+                </button>
+                <b>{spent[type.id] || 0}</b>
+                <strong>{type.label}</strong>
+                <span className={`chakra-dot ${type.className}`} />
+              </div>
+            ))}
+          </section>
+        </div>
+        <footer>
+          <strong>{spentTotal} / {required}</strong>
+          <button type="button" disabled={spentTotal !== required} onClick={() => onConfirm(spent)}>
+            <CheckCircle2 size={18} />
+            Pagar y finalizar
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function EndTurnConfirmModal({ onClose, onConfirm }) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="empty-queue-title">
+      <div className="end-turn-confirm-modal">
+        <h2 id="empty-queue-title">No hay habilidades en cola</h2>
+        <p>Vas a finalizar el turno sin ejecutar acciones.</p>
+        <footer>
+          <button type="button" className="secondary" onClick={onClose}>Atras</button>
+          <button type="button" onClick={onConfirm}>
+            <CheckCircle2 size={18} />
+            Proceder
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function BattleSkillFooter({ member, skill, onSkill }) {
   if (!member) return null;
   return (
@@ -1065,27 +1264,25 @@ function SkillFooter({ skill, compact = false, inspectedName = "" }) {
   );
 }
 
-function BalanceBar({ players }) {
-  const red = players.find((player) => player.side === "red") || players[0];
-  const blue = players.find((player) => player.side === "blue") || players[1];
-  const redHealth = teamHealthPercent(red);
-  const blueHealth = teamHealthPercent(blue);
-  const arrow = Math.max(6, Math.min(94, 50 + (blueHealth - redHealth) * 50));
-  const redFill = Math.min(50, arrow);
-  const blueFill = Math.max(0, 100 - Math.max(50, arrow));
+function BalanceBar({ me, opponent }) {
+  const ownHealth = teamHealthPercent(me);
+  const enemyHealth = teamHealthPercent(opponent);
+  const arrow = Math.max(6, Math.min(94, 50 + (enemyHealth - ownHealth) * 50));
+  const ownFill = Math.min(50, arrow);
+  const enemyFill = Math.max(0, 100 - Math.max(50, arrow));
 
   return (
     <div className="balance-panel">
       <div className="balance-labels">
-        <span>{red?.name || "Rojo"} {Math.round(redHealth * 100)}%</span>
+        <span>{me?.name || "Tu equipo"} {Math.round(ownHealth * 100)}%</span>
         <strong>Balance</strong>
-        <span>{blue?.name || "Azul"} {Math.round(blueHealth * 100)}%</span>
+        <span>{opponent?.name || "Rival"} {Math.round(enemyHealth * 100)}%</span>
       </div>
       <div className="balance-track">
         <span className="balance-half red-half" />
         <span className="balance-half blue-half" />
-        <span className="balance-fill red-fill" style={{ width: `${redFill}%` }} />
-        <span className="balance-fill blue-fill" style={{ width: `${blueFill}%` }} />
+        <span className="balance-fill red-fill" style={{ width: `${ownFill}%` }} />
+        <span className="balance-fill blue-fill" style={{ width: `${enemyFill}%` }} />
         <span className="balance-arrow" style={{ left: `${arrow}%` }} />
       </div>
     </div>
@@ -1153,7 +1350,6 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
             >
               <div className="fighter-top">
                 <SquareImage alt={member.hp <= 0 ? `${member.character.name} derrotado` : member.character.name} src={member.hp <= 0 ? skullImage : characterImage(member.character.id)} />
-                <StatusEffects effects={member.statusEffects || []} />
               </div>
               <strong>{member.character.name}</strong>
               <Health current={member.hp} max={member.character.maxHp} />
@@ -1161,6 +1357,7 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
                 <HeartPulse size={14} /> {member.hp}
                 <Shield size={14} /> {member.shield}
               </span>
+              <StatusEffects effects={member.statusEffects || []} />
               <small>{eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : ownTeam ? "Atacante" : targetable ? "Rival" : "Objetivo"}</small>
             </div>
           );
@@ -1175,21 +1372,43 @@ function SquareImage({ alt, src }) {
 }
 
 function StatusEffects({ effects }) {
+  const [openEffectId, setOpenEffectId] = useState("");
+  const rowRef = useRef(null);
+
+  useEffect(() => {
+    if (!openEffectId) return undefined;
+    function closeOnOutsideClick(event) {
+      if (rowRef.current?.contains(event.target)) return;
+      setOpenEffectId("");
+    }
+    document.addEventListener("click", closeOnOutsideClick);
+    return () => document.removeEventListener("click", closeOnOutsideClick);
+  }, [openEffectId]);
+
   if (!effects.length) return <span className="status-row" aria-label="Sin efectos" />;
+  const groups = groupStatusEffects(effects);
   return (
-    <span className="status-row">
-      {effects.map((effect) => (
-        <span className={`status-icon ${effect.type}`} key={effect.id} tabIndex={0}>
-          <img src={skillImage(effect.sourceSkillId)} alt={effect.sourceSkillName} />
-          <b>{statusEffectValue(effect)}</b>
+    <span className="status-row" ref={rowRef}>
+      {groups.map((group) => (
+        <span
+          className={`status-icon ${group.className} ${openEffectId === group.id ? "open" : ""}`}
+          key={group.id}
+          tabIndex={0}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpenEffectId((current) => (current === group.id ? "" : group.id));
+          }}
+        >
+          <img src={skillImage(group.sourceSkillId)} alt={group.sourceSkillName} />
+          <b>{statusEffectGroupValue(group)}</b>
           <span className="status-tooltip" role="tooltip">
-            <strong>{effect.sourceSkillName}</strong>
+            <strong>{group.sourceSkillName}</strong>
             <ul>
-              {(effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]).map((description) => (
-                <li key={description}>{description}</li>
+              {group.effects.flatMap((effect) => effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]).map((description, index) => (
+                <li key={`${description}-${index}`}>{description}</li>
               ))}
             </ul>
-            <small>{statusEffectMeta(effect)}</small>
+            <small>{statusEffectGroupMeta(group)}</small>
           </span>
         </span>
       ))}
@@ -1213,6 +1432,13 @@ function ChakraPool({ chakra }) {
 
 function ChakraIcon({ type }) {
   const chakraType = chakraTypes.find((item) => item.id === type);
+  if (type === "neutralChakra") {
+    return (
+      <svg className="chakra-svg neutral" viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="2" y="2" width="12" height="12" rx="3" />
+      </svg>
+    );
+  }
   return (
     <svg className={`chakra-svg ${chakraType?.className || ""}`} viewBox="0 0 16 16" aria-hidden="true">
       <rect x="2" y="2" width="12" height="12" rx="3" />
@@ -1224,6 +1450,10 @@ function ChakraCost({ chakra = {} }) {
   const entries = chakraTypes
     .map((type) => ({ ...type, amount: chakra[type.id] || 0 }))
     .filter((type) => type.amount > 0);
+  const neutralAmount = neutralChakraCost(chakra);
+  if (neutralAmount > 0) {
+    entries.push({ id: "neutralChakra", label: "Neutral", amount: neutralAmount });
+  }
 
   if (!entries.length) return <span className="chakra-cost empty">Sin chakra</span>;
 
@@ -1246,6 +1476,17 @@ function emptyChakra() {
 
 function totalChakra(chakra = {}) {
   return chakraTypes.reduce((total, type) => total + (chakra?.[type.id] || 0), 0);
+}
+
+function neutralChakraCost(chakra = {}) {
+  return Math.max(0, Number(chakra?.neutralChakra || 0));
+}
+
+function specificChakraCost(chakra = {}) {
+  return chakraTypes.reduce((cost, type) => {
+    cost[type.id] = Math.max(0, Number(chakra?.[type.id] || 0));
+    return cost;
+  }, emptyChakra());
 }
 
 function teamHealthPercent(player) {
@@ -1271,7 +1512,12 @@ function chakraCostLabel(chakra = {}) {
 }
 
 function canPayChakra(available = {}, cost = {}) {
-  return Object.entries(cost).every(([type, amount]) => (available?.[type] || 0) >= amount);
+  return chakraTypes.every((type) => (available?.[type.id] || 0) >= (cost?.[type.id] || 0));
+}
+
+function canPaySkillChakra(available = {}, cost = {}, reservedNeutral = 0) {
+  const specificCost = specificChakraCost(cost);
+  return canPayChakra(available, specificCost) && totalChakra(available) >= reservedNeutral + totalChakra(specificCost) + neutralChakraCost(cost);
 }
 
 function skillCooldownFor(member, skillId) {
@@ -1303,9 +1549,43 @@ function hasStatus(member, type) {
   return (member?.statusEffects || []).some((effect) => effect.type === type && effect.turns > 0);
 }
 
+function groupStatusEffects(effects = []) {
+  const groups = new Map();
+  for (const effect of effects) {
+    const key = effect.sourceSkillId || effect.id;
+    const current = groups.get(key);
+    if (current) {
+      current.effects.push(effect);
+      current.className = current.effects.length > 1 ? `${current.effects[0].type} stacked-status` : current.className;
+      continue;
+    }
+    groups.set(key, {
+      id: key,
+      sourceSkillId: effect.sourceSkillId,
+      sourceSkillName: effect.sourceSkillName,
+      className: effect.type,
+      effects: [effect]
+    });
+  }
+  return [...groups.values()];
+}
+
+function statusEffectGroupValue(group) {
+  const timedEffects = group.effects.filter((effect) => Number.isFinite(effect.turns));
+  if (timedEffects.length > 0) {
+    return Math.max(...timedEffects.map((effect) => effect.turns));
+  }
+  return statusEffectValue(group.effects[0]);
+}
+
+function statusEffectGroupMeta(group) {
+  const metas = group.effects.map((effect) => statusEffectMeta(effect));
+  return [...new Set(metas)].join(" | ");
+}
+
 function statusEffectValue(effect) {
   if (effect.type === "shield") return effect.remainingShield || effect.value;
-  if (effect.type === "damage-reduction") return effect.remainingReduction ?? effect.value;
+  if (Number.isFinite(effect.turns)) return effect.turns;
   return effect.turns;
 }
 
@@ -1321,6 +1601,10 @@ function effectDescription(effect) {
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo destruible: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
   if (effect.type === "damage-reduction") return `Reduccion de dano: ${effect.value} por ${effect.duration} turno(s)`;
+  if (effect.type === "buffDamage") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.join(", ")})` : " (todas)";
+    return `Aumenta dano: +${effect.value} por ${effect.duration} turno(s)${scope}`;
+  }
   if (effect.type === "stun") return `Aturde: ${effect.value} turno(s)`;
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
   if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;

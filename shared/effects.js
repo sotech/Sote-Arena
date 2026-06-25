@@ -24,6 +24,10 @@ export const effectTypes = {
     description: "Otorga reduccion de dano durante una duracion en turnos. Puede restaurarse al inicio de cada turno.",
     fields: ["type", "value", "duration", "targets", "restoresEachTurn"]
   },
+  buffDamage: {
+    description: "Aumenta el dano de las habilidades del objetivo durante una duracion en turnos. skillIds permite limitar el bonus a habilidades especificas; si se omite, afecta a todas.",
+    fields: ["type", "value", "duration", "targets", "skillIds"]
+  },
   stun: {
     description: "Impide que cada objetivo use habilidades durante la cantidad indicada de turnos.",
     fields: ["type", "value", "targets"]

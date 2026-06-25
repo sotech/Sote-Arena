@@ -10,35 +10,40 @@ export const naruto = {
       name: "Rasengan",
       chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
-      description: "Inflige 30 de dano a un enemigo.",
-      effects: [{ type: "damage", value: 30, targets: "target" }]
+      description: "Preparando su tecnica insignia, Naruto inflige 35 de dano a un enemigo y lo aturde 1 turno.",
+      effects: [{ type: "damage", value: 35, targets: "target" }, 
+        { type: "stun", value: 1, targets: "target" }
+      ],
+      cooldown: 1
     },
     {
       id: "shadow-clones",
       name: "Clones de sombra",
-      chakra: { taijutsu: 2 },
+      chakra: { neutralChakra: 2 },
       targetType: "enemies",
-      description: "Inflige 15 de dano a todos los enemigos.",
+      description: "Una multitud de clones de sombra atacan a los enemigos y les inflige 15 de dano a todos los enemigos. Naruto obtiene 15 puntos de defensa destructible. No se puede acumularse consigo mismo.",
       effects: [
-        { type: "damage", value: 15, targets: "target" }
+        { type: "damage", value: 15, targets: "target" },
+        { type: "shield", value: 15, targets: "self", isStackable: false }
       ]
     },
     {
       id: "uzumaki-resolve",
       name: "Voluntad Uzumaki",
-      chakra: { genjutsu: 1 },
+      chakra: { bloodline: 2 },
       targetType: "self",
-      description: "Cura 15 de vida al lanzador y le otorga 10 de reduccion de dano durante 2 turnos.",
+      description: "Naruto recurre al zorro para obtener poder, recupera 15 de vida y gana 1 chakra de Taijutsu y 1 chakra de Ninjutsu.",
       effects: [
         { type: "self-heal", value: 15, targets: "self" },
-        { type: "damage-reduction", value: 10, duration: 2, targets: "self" }
+        { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
+        { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" }
       ],
       cooldown: 2
     },
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { taijutsu: 1 },
+      chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "invulnerable", value: 1, targets: "self" }],

@@ -10,35 +10,36 @@ export const kakashi = {
       name: "Raikiri",
       chakra: { ninjutsu: 2 },
       targetType: "enemy",
-      description: "Inflige 30 de dano perforante a un enemigo.",
-      effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }]
+      description: "Usando su habilidad ilustre, Kakashi inflige 40 de dano perforante a un enemigo.",
+      effects: [{ type: "damage", value: 40, damageType: "piercing", targets: "target" }],
+      cooldown: 1
     },
     {
       id: "tactical-read",
       name: "Lectura tactica",
-      chakra: { genjutsu: 2 },
+      chakra: { genjutsu: 2 , neutralChakra: 1 },
       targetType: "enemy",
-      description: "Inflige 15 de dano y aturde 2 turnos a un enemigo.",
+      description: "Leyendo sus novelas aburridas, Kakashi inflige 15 de dano y aturde 2 turnos a un enemigo.",
       effects: [
         { type: "damage", value: 15, targets: "target" },
         { type: "stun", value: 2, targets: "target" }
-      ]
+      ],
+      cooldown: 3
     },
     {
       id: "ninken-trap",
       name: "Trampa Ninken",
-      chakra: { taijutsu: 1, genjutsu: 2 },
+      chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Inflige 10 de dano y aturde 1 turno a todos los enemigos.",
+      description: "Una trampa de perros y herramientras ninja, infligen 15 de dano perforante a todos los enemigos.",
       effects: [
-        { type: "damage", value: 10, targets: "target" },
-        { type: "stun", value: 1, targets: "target" }
-      ]
+        { type: "damage", value: 15, damageType: "piercing", targets: "target" },
+      ],
     },
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { taijutsu: 1 },
+      chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "invulnerable", value: 1, targets: "self" }],

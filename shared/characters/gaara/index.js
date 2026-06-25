@@ -8,9 +8,10 @@ export const gaara = {
     {
       id: "sand-coffin",
       name: "Ataud de arena",
-      chakra: { bloodline: 1, ninjutsu: 1 },
+      chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Inflige 35 de dano a un enemigo y lo aturde 1 turno.",
+      description: `Gaara encierra en arena a su objetivo y lo comprime rompiendo huesos y carne. 
+                    Inflige 35 de dano a un enemigo y lo aturde 1 turno.`,
       effects: [
         { type: "damage", value: 35, targets: "target" },
         { type: "stun", value: 1, targets: "target" }
@@ -20,24 +21,25 @@ export const gaara = {
     {
       id: "sand-shield",
       name: "Escudo de arena",
-      chakra: { genjutsu: 2 },
+      chakra: { genjutsu: 1 },
       targetType: "allies",
-      description: "Otorga 15 de escudo a todos los aliados. No puede acumularse consigo mismo.",
+      description: "La arena protectora envuelve a todos los aliados. Otorga 15 de escudo a todos los aliados. No puede acumularse consigo mismo.",
       effects: [{ type: "shield", value: 15, targets: "target", isStackable: false }],
-      cooldown: 1
+      cooldown: 2
     },
     {
       id: "sand-armor",
       name: "Armadura de arena",
-      chakra: { bloodline: 2 },
+      chakra: { neutralChakra: 2 },
       targetType: "self",
-      description: "Otorga 35 de escudo al lanzador. No puede acumularse consigo mismo.",
-      effects: [{ type: "shield", value: 35, targets: "self", isStackable: false }]
+      description: "La arena forma una armadura alrededor del lanzador. Otorga 35 de escudo. No puede acumularse consigo mismo.",
+      effects: [{ type: "shield", value: 35, targets: "self", isStackable: false }],
+      cooldown: 1
     },
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { taijutsu: 1 },
+      chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "invulnerable", value: 1, targets: "self" }],
