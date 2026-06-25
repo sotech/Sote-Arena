@@ -51,6 +51,37 @@ Por defecto:
 - Cliente: `http://127.0.0.1:5173`
 - Servidor: `http://127.0.0.1:3002`
 
+Variables de entorno utiles:
+
+```bash
+VITE_SOCKET_URL=http://127.0.0.1:3002
+VITE_SOCKET_PATH=/socket.io
+CLIENT_ORIGIN=http://127.0.0.1:5173
+```
+
+## Deploy
+
+El cliente puede desplegarse en Vercel como una app Vite normal. El servidor de Socket.IO necesita ejecutarse en un entorno Node persistente, por ejemplo Render, Railway, Fly.io, un VPS u otro host que mantenga conexiones WebSocket.
+
+En Vercel configura:
+
+```bash
+VITE_SOCKET_URL=https://tu-backend.example.com
+VITE_SOCKET_PATH=/socket.io
+```
+
+En el backend configura:
+
+```bash
+CLIENT_ORIGIN=https://tu-frontend.vercel.app
+```
+
+Si queres permitir varios origenes para desarrollo y produccion:
+
+```bash
+CLIENT_ORIGIN=http://127.0.0.1:5173,https://tu-frontend.vercel.app
+```
+
 ## Scripts utiles
 
 ```bash
@@ -64,4 +95,3 @@ npm test
 ## Estado del proyecto
 
 Este proyecto esta en desarrollo activo como hobby. Varias mecanicas, balance de personajes, UI y reglas pueden cambiar con frecuencia mientras se prueban nuevas ideas.
-

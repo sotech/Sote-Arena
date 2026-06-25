@@ -6,7 +6,9 @@ import messageSound from "./assets/sounds/message.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
 import "./styles.css";
 
-const socket = io();
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
+const SOCKET_PATH = import.meta.env.VITE_SOCKET_PATH || "/socket.io";
+const socket = io(SOCKET_URL, { path: SOCKET_PATH });
 const characterImages = import.meta.glob("./assets/characters/*.png", { eager: true, query: "?url", import: "default" });
 const skillImages = import.meta.glob("./assets/skills/*.png", { eager: true, query: "?url", import: "default" });
 const chakraTypes = [
