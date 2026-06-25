@@ -4,6 +4,7 @@ import { sakura } from "./characters/sakura/index.js";
 import { kakashi } from "./characters/kakashi/index.js";
 import { hinata } from "./characters/hinata/index.js";
 import { gaara } from "./characters/gaara/index.js";
+import { kankurou } from "./characters/kankurou/index.js";
 
 function withSkillDefaults(character) {
   return {
@@ -12,7 +13,7 @@ function withSkillDefaults(character) {
   };
 }
 
-export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara].map(withSkillDefaults);
+export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kankurou].map(withSkillDefaults);
 
 export function getCharacterById(id) {
   return characters.find((character) => character.id === id);
