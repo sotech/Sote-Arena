@@ -1,7 +1,6 @@
 export const hinata = {
   id: "hinata",
   name: "Hinata Hyuga",
-  role: "Defensa",
   avatar: "HH",
   maxHp: 100,
   skills: [
@@ -14,7 +13,8 @@ export const hinata = {
       effects: [
         { type: "damage", value: 15, targets: "target" },
         { type: "remove-chakra", value: 1, targets: "target" }
-      ]
+      ],
+      family:["physical","instant"]
     },
     {
       id: "byakugan-guard",
@@ -36,7 +36,8 @@ export const hinata = {
             { type: "modifyDamage", value: 10, targets: "self", skillIds: ["gentle-fist", "chakra-seal"] }
           ]
         }
-      ]
+      ],
+      family:["chakra","instant"]
     },
     {
       id: "chakra-seal",
@@ -47,7 +48,8 @@ export const hinata = {
       effects: [
         { type: "damage", value: 15, targets: "target" },
         { type: "remove-chakra", value: 2, targets: "target" }
-      ]
+      ],
+      family:["chakra","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -56,7 +58,8 @@ export const hinata = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
     }
   ]
 };

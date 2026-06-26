@@ -1,7 +1,6 @@
 export const naruto = {
   id: "naruto",
   name: "Naruto Uzumaki",
-  role: "Ataque sostenido",
   avatar: "NU",
   maxHp: 100,
   skills: [
@@ -12,10 +11,11 @@ export const naruto = {
       targetType: "enemy",
       description: "Preparando su tecnica insignia, Naruto inflige 35 de dano a un enemigo y lo aturde 1 turno.",
       effects: [
-        { type: "damage", value: 35, targets: "target" },
+        { type: "damage", value: 35, targets: "target"},
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
       ],
-      cooldown: 1
+      cooldown: 1,
+      family:["chakra","instant"]
     },
     {
       id: "shadow-clones",
@@ -27,7 +27,8 @@ export const naruto = {
         { type: "damage", value: 15, targets: "target" },
         { type: "shield", value: 15, targets: "self", isStackable: false }
       ],
-      cooldown: 1
+      cooldown: 1,
+      family:["physical","instant"]
     },
     {
       id: "uzumaki-resolve",
@@ -40,7 +41,8 @@ export const naruto = {
         { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
         { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" }
       ],
-      cooldown: 2
+      cooldown: 2,
+      family:["mental","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -49,7 +51,8 @@ export const naruto = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
     }
   ]
 };

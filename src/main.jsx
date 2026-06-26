@@ -4,12 +4,15 @@ import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
 import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Search, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
+import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
 import { characterImage, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
-import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, meetsSkillRequirements, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
+import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
 import { effectDescription, groupStatusEffects, requirementDescription, statusEffectGroupMeta, statusEffectGroupValue, targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
+import { skillClassesLabel } from "../shared/effects.js";
+import { activeSkillsForMember, baseSkillsForCharacter } from "../shared/skillReplacements.js";
 import "./styles.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
@@ -20,7 +23,15 @@ const NOTIFIER_END_TIME = 3;
 const MESSAGE_SOUND_START_TIME = 0.5;
 const MESSAGE_SOUND_END_TIME = 1.5;
 const AUDIO_FADE_MS = 450;
+const RESULT_AUDIO_FADE_MS = 1000;
+const BGM_FADE_MS = 1000;
+const BGM_VOLUME_RATIO = 0.5;
+const ADVANTAGE_HEALTH_SHARE = 0.68;
+const GAME_VERSION = "1.1.3";
 const MOBILE_QUERY = "(max-width: 768px)";
+const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
+const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
+const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 function App() {
   const [characters, setCharacters] = useState([]);
   const [room, setRoom] = useState(null);
@@ -34,13 +45,27 @@ function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [sfxVolume, setSfxVolume] = useState(0.5);
+  const [musicVolume, setMusicVolume] = useState(0.5);
   const turnAudioRef = useRef(null);
   const messageAudioRef = useRef(null);
+  const resultAudioRef = useRef(null);
+  const bgmAudioRef = useRef(null);
   const audioFadeFrameRef = useRef(0);
   const audioFadeOutTimeoutRef = useRef(null);
   const audioStopTimeoutRef = useRef(null);
   const messageStopTimeoutRef = useRef(null);
+  const resultFadeFrameRef = useRef(0);
+  const resultFadeOutTimeoutRef = useRef(null);
+  const resultStopTimeoutRef = useRef(null);
+  const bgmFadeFrameRef = useRef(0);
+  const bgmLoopFrameRef = useRef(0);
+  const bgmBaseTrackRef = useRef("");
+  const bgmCurrentTrackRef = useRef("");
+  const bgmCurrentStateRef = useRef("idle");
+  const bgmBattleKeyRef = useRef("");
+  const playerBattleStateRef = useRef(new Map());
+  const lastResultAudioKeyRef = useRef("");
   const lastChatRoomRef = useRef("");
   const lastChatMessageRef = useRef("");
   const lastNotifiedTurnRef = useRef("");
@@ -113,12 +138,73 @@ function App() {
 
   useEffect(() => {
     if (turnAudioRef.current && turnAudioRef.current.paused) {
-      turnAudioRef.current.volume = volume;
+      turnAudioRef.current.volume = sfxVolume;
     }
     if (messageAudioRef.current && messageAudioRef.current.paused) {
-      messageAudioRef.current.volume = volume;
+      messageAudioRef.current.volume = sfxVolume;
     }
-  }, [volume]);
+    if (bgmAudioRef.current && !bgmAudioRef.current.paused) {
+      bgmAudioRef.current.volume = musicVolume * BGM_VOLUME_RATIO;
+    }
+    if (resultAudioRef.current && resultAudioRef.current.paused) {
+      resultAudioRef.current.volume = sfxVolume;
+    }
+  }, [sfxVolume, musicVolume]);
+
+  useEffect(() => {
+    return () => {
+      stopBgm(false);
+      stopResultAudio(false);
+      clearAudioTimers();
+      if (messageStopTimeoutRef.current) window.clearTimeout(messageStopTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!room?.players?.length) {
+      playerBattleStateRef.current.clear();
+      return;
+    }
+
+    const states = new Map();
+    for (const player of room.players) {
+      const rival = room.players.find((item) => item.id !== player.id);
+      states.set(player.id, battleAudioStateForPlayer(player, rival));
+    }
+    playerBattleStateRef.current = states;
+  }, [room?.players]);
+
+  useEffect(() => {
+    if (room?.phase !== "battle" || !me || !opponent) {
+      if (room?.phase !== "finished") {
+        bgmBattleKeyRef.current = "";
+        stopBgm(true);
+      }
+      return;
+    }
+
+    const battleKey = `${room.code}:${playerId}`;
+    if (bgmBattleKeyRef.current !== battleKey) {
+      bgmBattleKeyRef.current = battleKey;
+      bgmBaseTrackRef.current = randomTrack(bgmTracks);
+      bgmCurrentTrackRef.current = "";
+      bgmCurrentStateRef.current = "idle";
+    }
+
+    const state = battleAudioStateForPlayer(me, opponent);
+    const track = bgmTrackForState(state);
+    if (track) switchBgm(track, state);
+  }, [room?.phase, room?.code, room?.turn, room?.players, playerId, me, opponent]);
+
+  useEffect(() => {
+    if (room?.phase !== "finished" || !matchResult) return;
+
+    const resultKey = `${room.code}:${room.winnerId}:${matchResult}`;
+    if (lastResultAudioKeyRef.current === resultKey) return;
+    lastResultAudioKeyRef.current = resultKey;
+    stopBgm(true);
+    playResultAudio();
+  }, [room?.phase, room?.code, room?.winnerId, matchResult]);
 
   function clearAudioTimers() {
     if (audioFadeFrameRef.current) {
@@ -153,6 +239,223 @@ function App() {
     audioFadeFrameRef.current = window.requestAnimationFrame(tick);
   }
 
+  function fadeAudioWithFrame(audio, targetVolume, durationMs, frameRef, onDone) {
+    if (frameRef.current) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = 0;
+    }
+
+    const startedAt = performance.now();
+    const initialVolume = audio.volume;
+    const duration = Math.max(0, durationMs);
+
+    if (duration === 0) {
+      audio.volume = targetVolume;
+      onDone?.();
+      return;
+    }
+
+    function tick(now) {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      audio.volume = initialVolume + (targetVolume - initialVolume) * progress;
+      if (progress < 1) {
+        frameRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+      frameRef.current = 0;
+      onDone?.();
+    }
+
+    frameRef.current = window.requestAnimationFrame(tick);
+  }
+
+  function randomTrack(tracks) {
+    if (!tracks.length) return "";
+    return tracks[Math.floor(Math.random() * tracks.length)];
+  }
+
+  function battleAudioStateForPlayer(player, rival) {
+    const share = playerHealthShare(player, rival);
+    if (share >= ADVANTAGE_HEALTH_SHARE) return "advantage";
+    if (share <= 1 - ADVANTAGE_HEALTH_SHARE) return "disadvantage";
+    return "neutral";
+  }
+
+  function bgmTrackForState(state) {
+    if (bgmCurrentStateRef.current === state && bgmCurrentTrackRef.current) {
+      return bgmCurrentTrackRef.current;
+    }
+    if (state === "advantage") return randomTrack(advantageBgmTracks) || bgmBaseTrackRef.current;
+    if (state === "disadvantage") return randomTrack(disadvantageBgmTracks) || bgmBaseTrackRef.current;
+    return bgmBaseTrackRef.current || randomTrack(bgmTracks);
+  }
+
+  function cancelBgmLoopFrame() {
+    if (bgmLoopFrameRef.current) {
+      window.cancelAnimationFrame(bgmLoopFrameRef.current);
+      bgmLoopFrameRef.current = 0;
+    }
+  }
+
+  function scheduleBgmLoop(audio) {
+    cancelBgmLoopFrame();
+    let fadedOutForLoop = false;
+
+    function tick() {
+      if (!bgmAudioRef.current || bgmAudioRef.current !== audio || audio.paused) {
+        bgmLoopFrameRef.current = 0;
+        return;
+      }
+
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      if (duration > BGM_FADE_MS / 1000) {
+        const remainingMs = Math.max(0, (duration - audio.currentTime) * 1000);
+        if (!fadedOutForLoop && remainingMs <= BGM_FADE_MS) {
+          fadedOutForLoop = true;
+          fadeAudioWithFrame(audio, 0, remainingMs, bgmFadeFrameRef);
+        }
+        if (remainingMs <= 80) {
+          audio.currentTime = 0;
+          audio.volume = 0;
+          fadedOutForLoop = false;
+          audio.play().catch(() => {});
+          fadeAudioWithFrame(audio, musicVolume * BGM_VOLUME_RATIO, BGM_FADE_MS, bgmFadeFrameRef);
+        }
+      }
+
+      bgmLoopFrameRef.current = window.requestAnimationFrame(tick);
+    }
+
+    bgmLoopFrameRef.current = window.requestAnimationFrame(tick);
+  }
+
+  function switchBgm(track, state) {
+    if (!track) return;
+    const current = bgmAudioRef.current;
+    if (current && bgmCurrentTrackRef.current === track && bgmCurrentStateRef.current === state && !current.paused) {
+      return;
+    }
+
+    const startNext = () => {
+      const audio = new Audio(track);
+      bgmAudioRef.current = audio;
+      bgmCurrentTrackRef.current = track;
+      bgmCurrentStateRef.current = state;
+      audio.volume = 0;
+      audio.loop = false;
+      audio.play()
+        .then(() => {
+          fadeAudioWithFrame(audio, musicVolume * BGM_VOLUME_RATIO, BGM_FADE_MS, bgmFadeFrameRef);
+          scheduleBgmLoop(audio);
+        })
+        .catch(() => {
+          // Browsers can block audio until the user interacts with the page.
+        });
+    };
+
+    if (!current || current.paused) {
+      startNext();
+      return;
+    }
+
+    fadeAudioWithFrame(current, 0, BGM_FADE_MS, bgmFadeFrameRef, () => {
+      current.pause();
+      current.currentTime = 0;
+      if (bgmAudioRef.current === current) bgmAudioRef.current = null;
+      startNext();
+    });
+  }
+
+  function stopBgm(withFade) {
+    const audio = bgmAudioRef.current;
+    cancelBgmLoopFrame();
+    if (bgmFadeFrameRef.current) {
+      window.cancelAnimationFrame(bgmFadeFrameRef.current);
+      bgmFadeFrameRef.current = 0;
+    }
+    bgmCurrentTrackRef.current = "";
+    bgmCurrentStateRef.current = "idle";
+    if (!audio) return;
+
+    const stop = () => {
+      audio.pause();
+      audio.currentTime = 0;
+      if (bgmAudioRef.current === audio) bgmAudioRef.current = null;
+    };
+
+    if (withFade && !audio.paused) {
+      fadeAudioWithFrame(audio, 0, BGM_FADE_MS, bgmFadeFrameRef, stop);
+      return;
+    }
+    stop();
+  }
+
+  function stopResultAudio(withFade) {
+    const audio = resultAudioRef.current;
+    if (resultFadeFrameRef.current) {
+      window.cancelAnimationFrame(resultFadeFrameRef.current);
+      resultFadeFrameRef.current = 0;
+    }
+    if (resultFadeOutTimeoutRef.current) {
+      window.clearTimeout(resultFadeOutTimeoutRef.current);
+      resultFadeOutTimeoutRef.current = null;
+    }
+    if (resultStopTimeoutRef.current) {
+      window.clearTimeout(resultStopTimeoutRef.current);
+      resultStopTimeoutRef.current = null;
+    }
+    if (!audio) return;
+
+    const stop = () => {
+      audio.pause();
+      audio.currentTime = 0;
+      if (resultAudioRef.current === audio) resultAudioRef.current = null;
+    };
+
+    if (withFade && !audio.paused) {
+      fadeAudioWithFrame(audio, 0, RESULT_AUDIO_FADE_MS, resultFadeFrameRef, stop);
+      return;
+    }
+    stop();
+  }
+
+  function scheduleResultAudioEnd(audio) {
+    const schedule = () => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      if (duration <= 0) return;
+      const remainingMs = Math.max(0, (duration - audio.currentTime) * 1000);
+      const fadeOutDelay = Math.max(0, remainingMs - RESULT_AUDIO_FADE_MS);
+
+      resultFadeOutTimeoutRef.current = window.setTimeout(() => {
+        fadeAudioWithFrame(audio, 0, RESULT_AUDIO_FADE_MS, resultFadeFrameRef);
+      }, fadeOutDelay);
+
+      resultStopTimeoutRef.current = window.setTimeout(() => {
+        stopResultAudio(false);
+      }, remainingMs);
+    };
+
+    if (Number.isFinite(audio.duration)) {
+      schedule();
+    } else {
+      audio.addEventListener("loadedmetadata", schedule, { once: true });
+    }
+  }
+
+  function playResultAudio() {
+    stopResultAudio(false);
+    const audio = new Audio(ninjaSound);
+    resultAudioRef.current = audio;
+    audio.currentTime = 0;
+    audio.volume = 0;
+    scheduleResultAudioEnd(audio);
+    audio.play()
+      .then(() => fadeAudioWithFrame(audio, sfxVolume, RESULT_AUDIO_FADE_MS, resultFadeFrameRef))
+      .catch(() => {
+        // Browsers can block audio until the user interacts with the page.
+      });
+  }
+
   function scheduleNotifierEnd(audio) {
     const duration = Number.isFinite(audio.duration) ? audio.duration : NOTIFIER_END_TIME;
     const endAt = Math.min(NOTIFIER_END_TIME, duration);
@@ -171,7 +474,7 @@ function App() {
       }
       audio.pause();
       audio.currentTime = NOTIFIER_START_TIME;
-      audio.volume = volume;
+      audio.volume = sfxVolume;
     }, remainingMs);
   }
 
@@ -194,7 +497,7 @@ function App() {
     }
 
     audio.play()
-      .then(() => fadeAudioTo(audio, volume, Math.min(AUDIO_FADE_MS, 1200)))
+      .then(() => fadeAudioTo(audio, sfxVolume, Math.min(AUDIO_FADE_MS, 1200)))
       .catch(() => {
         // Browsers can block audio until the user interacts with the page.
       });
@@ -212,7 +515,7 @@ function App() {
     }
     audio.pause();
     audio.currentTime = MESSAGE_SOUND_START_TIME;
-    audio.volume = volume;
+    audio.volume = sfxVolume;
 
     audio.play().catch(() => {
       // Browsers can block audio until the user interacts with the page.
@@ -359,6 +662,10 @@ function App() {
   }
 
   function returnHome() {
+    stopBgm(true);
+    stopResultAudio(true);
+    bgmBattleKeyRef.current = "";
+    lastResultAudioKeyRef.current = "";
     setRoom(null);
     setHomeView("menu");
     setPlayerId("");
@@ -375,8 +682,9 @@ function App() {
   return (
     <main>
       <section className="topbar">
-        <div>
+        <div className="topbar-brand">
           <h1>Sote Arena</h1>
+          <span className="version-tag">v{GAME_VERSION}</span>
         </div>
         {room && (
           <div className="topbar-actions">
@@ -420,6 +728,10 @@ function App() {
 
       {!room && homeView === "play" && (
         <section className="panel entry">
+          <button type="button" className="secondary back-button" onClick={() => setHomeView("menu")}>
+            <ChevronLeft size={18} />
+            Volver
+          </button>
           <div className="entry-copy">
             <Swords size={44} />
             <h2>Duelo 3 vs 3 por turnos</h2>
@@ -492,9 +804,11 @@ function App() {
       {matchResult && <ResultModal title={matchResult} reason={matchResultReason} onReturnHome={returnHome} />}
       {optionsOpen && (
         <OptionsModal
-          volume={volume}
+          sfxVolume={sfxVolume}
+          musicVolume={musicVolume}
           canSurrender={room?.phase === "battle" && !me?.isBot}
-          onVolumeChange={setVolume}
+          onSfxVolumeChange={setSfxVolume}
+          onMusicVolumeChange={setMusicVolume}
           onSurrender={surrender}
           onClose={() => setOptionsOpen(false)}
         />
@@ -557,7 +871,7 @@ const chakraUsageTypes = [
 
 function characterChakraUsage(character) {
   const totals = chakraUsageTypes.reduce((usage, type) => ({ ...usage, [type.id]: 0 }), {});
-  for (const skill of character?.skills || []) {
+  for (const skill of baseSkillsForCharacter(character)) {
     for (const type of chakraUsageTypes) {
       totals[type.id] += Math.max(0, Number(skill.chakra?.[type.id] || 0));
     }
@@ -582,7 +896,7 @@ function CharacterChakraUsage({ character }) {
   );
 }
 
-function OptionsModal({ volume, canSurrender = false, onVolumeChange, onSurrender, onClose }) {
+function OptionsModal({ sfxVolume, musicVolume, canSurrender = false, onSfxVolumeChange, onMusicVolumeChange, onSurrender, onClose }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="options-title">
       <div className="options-modal">
@@ -593,13 +907,23 @@ function OptionsModal({ volume, canSurrender = false, onVolumeChange, onSurrende
           </button>
         </header>
         <label>
-          Volumen {Math.round(volume * 100)}%
+          SFX {Math.round(sfxVolume * 100)}%
           <input
             type="range"
             min="0"
             max="100"
-            value={Math.round(volume * 100)}
-            onChange={(event) => onVolumeChange(Number(event.target.value) / 100)}
+            value={Math.round(sfxVolume * 100)}
+            onChange={(event) => onSfxVolumeChange(Number(event.target.value) / 100)}
+          />
+        </label>
+        <label>
+          Musica {Math.round(musicVolume * 100)}%
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={Math.round(musicVolume * 100)}
+            onChange={(event) => onMusicVolumeChange(Number(event.target.value) / 100)}
           />
         </label>
         {canSurrender && (
@@ -639,7 +963,8 @@ function CharactersCatalog({ characters, onBack }) {
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
-  const inspectedSkill = inspectedCharacter?.skills.find((skill) => skill.id === inspectedSkillId) || inspectedCharacter?.skills[0];
+  const inspectedSkills = inspectedCharacter?.skills || [];
+  const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -648,7 +973,7 @@ function CharactersCatalog({ characters, onBack }) {
   useEffect(() => {
     if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
       setInspectedCharacterId(pageCharacters[0]?.id || "");
-      setInspectedSkillId(pageCharacters[0]?.skills[0]?.id || "");
+      setInspectedSkillId(pageCharacters[0]?.skills?.[0]?.id || "");
     } else if (!inspectedCharacterId && pageCharacters[0]) {
       setInspectedCharacterId(pageCharacters[0].id);
       setInspectedSkillId(pageCharacters[0].skills[0]?.id || "");
@@ -700,8 +1025,9 @@ function CharactersCatalog({ characters, onBack }) {
       </div>
       {inspectedCharacter && (
         <footer className="character-skill-footer">
+          <h3 className="inspected-character-name">{inspectedCharacter.name}</h3>
           <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
-            {inspectedCharacter.skills.map((skill) => (
+            {inspectedSkills.map((skill) => (
               <button
                 type="button"
                 key={skill.id}
@@ -732,7 +1058,8 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
-  const inspectedSkill = inspectedCharacter?.skills.find((skill) => skill.id === inspectedSkillId) || inspectedCharacter?.skills[0];
+  const inspectedSkills = inspectedCharacter?.skills || [];
+  const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
     .filter(Boolean);
@@ -814,8 +1141,9 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
         </div>
         {inspectedCharacter && (
           <footer className="character-skill-footer">
+            <h3 className="inspected-character-name">{inspectedCharacter.name}</h3>
             <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
-              {inspectedCharacter.skills.map((skill) => (
+              {inspectedSkills.map((skill) => (
                 <button
                   type="button"
                   key={skill.id}
@@ -833,7 +1161,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
           </footer>
         )}
       </div>
-      <aside className="side-stack">
+      <aside className={`side-stack ${room.mode === "bot" ? "single-panel" : ""}`}>
         <section className="panel status side-main">
           <p className="eyebrow">{room.mode === "bot" ? "Partida vs IA" : `Sala ${room.code}`}</p>
           <h2>Jugadores</h2>
@@ -849,7 +1177,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
             ))}
           </div>
         </section>
-        <ChatPanel messages={room.chat || []} onSend={onSendChat} />
+        {room.mode !== "bot" && <ChatPanel messages={room.chat || []} onSend={onSendChat} />}
       </aside>
     </section>
   );
@@ -866,8 +1194,10 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
     .find((member) => member.id === inspectedMemberId) || selectedActor;
-  const inspectedSkill = inspectedMember?.character.skills.find((skill) => skill.id === inspectedSkillId) || inspectedMember?.character.skills[0];
-  const pendingSkill = selectedActor?.character.skills.find((skill) => skill.id === pendingSkillId);
+  const inspectedSkills = inspectedMember?.character?.skills || [];
+  const selectedActorSkills = activeSkillsForMember(selectedActor, selectedActor?.character);
+  const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
+  const pendingSkill = selectedActorSkills.find((skill) => skill.id === pendingSkillId);
   const eligibleTargetIds = new Set(pendingSkill ? eligibleTargetsForSkill(pendingSkill, me, opponent, selectedActor).map((member) => member.id) : []);
   const hasQueuedSkills = (me?.queue || []).length > 0;
   const exchangeRecord = me?.chakraExchange?.turn === room.turn ? me.chakraExchange : null;
@@ -904,7 +1234,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
     const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
     return isMyTurn
       && room.phase !== "finished"
-      && !hasStatus(selectedActor, "stun")
+      && !isSkillStunned(selectedActor, skill)
       && skillCooldownFor(selectedActor, skill.id) <= 0
       && !isQueuedActor(me, selectedActor?.id)
       && !isQueuedSkill(me, selectedActor?.id, skill.id)
@@ -1000,7 +1330,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
             {exchange && hasQueuedSkills && <small className="chakra-exchange-hint">Hay habilidades en cola</small>}
           </div>
           <div className="skill-list">
-            {selectedActor?.character.skills.map((skill) => {
+            {selectedActorSkills.map((skill) => {
               const isPending = pendingSkillId === skill.id;
               const disabled = !isPending && !canPrepareSkill(skill);
               const cooldown = skillCooldownFor(selectedActor, skill.id);
@@ -1050,7 +1380,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           targetable
         />
       </div>
-      <aside className="side-stack">
+      <aside className={`side-stack ${room.mode === "bot" ? "single-panel" : ""}`}>
         <CollapsiblePanel title="Registro" className="combat-log side-main">
           <div className="log">
             {room.log.map((item, index) => (
@@ -1058,7 +1388,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
             ))}
           </div>
         </CollapsiblePanel>
-        <ChatPanel messages={room.chat || []} onSend={onSendChat} collapsible />
+        {room.mode !== "bot" && <ChatPanel messages={room.chat || []} onSend={onSendChat} collapsible />}
       </aside>
       <BattleSkillFooter member={inspectedMember} skill={inspectedSkill} onSkill={setInspectedSkillId} />
       {chakraExchangeOpen && (
@@ -1344,10 +1674,11 @@ function EndTurnConfirmModal({ onClose, onConfirm }) {
 
 function BattleSkillFooter({ member, skill, onSkill }) {
   if (!member) return null;
+  const skills = member.character.skills || [];
   return (
     <section className="battle-skill-footer">
       <div className="battle-skill-strip" aria-label={`Habilidades de ${member.character.name}`}>
-        {member.character.skills.map((item) => (
+        {skills.map((item) => (
           <button
             type="button"
             key={item.id}
@@ -1386,6 +1717,7 @@ function SkillFooter({ skill, compact = false, inspectedName = "" }) {
         {(skill.requires || []).map((requirement, index) => (
           <li key={`requirement-${index}`}>Requiere: {requirementDescription(requirement)}</li>
         ))}
+        {skill.family?.length ? <li>Clases: {skillClassesLabel(skill.family)}</li> : null}
       </ul>
     </footer>
   );

@@ -1,6 +1,7 @@
 import { normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
 import { getSkillNameById } from "../../shared/characters.js";
 import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
+import { skillFamiliesLabel } from "../../shared/effects.js";
 
 export function chakraCostLabel(chakra = {}) {
   return Object.entries(chakra)
@@ -75,15 +76,33 @@ export function effectDescription(effect) {
     const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
     return `${value < 0 ? "Reduce" : "Aumenta"} dano: ${value < 0 ? "-" : "+"}${amount}${duration}${scope}`;
   }
+  if (effect.type === "modifyDamageType") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    return `Cambia tipo de dano: ${damageTypeLabel(effect.damageType)}${duration}${scope}`;
+  }
+  if (effect.type === "addEffectToBase") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
+    return `Agrega efecto${duration}${scope}${descriptions ? `: ${descriptions}` : ""}`;
+  }
+  if (effect.type === "replaceSkill") {
+    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    return `Reemplaza habilidad${duration}: ${getSkillNameById(effect.baseSkillId)} -> ${getSkillNameById(effect.skillId)}`;
+  }
   if (chakraCostModifierTypes.includes(effect.type)) {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const entries = Object.entries(effect.chakra || {})
       .filter(([, amount]) => Number(amount || 0) !== 0)
-      .map(([type, amount]) => `${Number(amount) > 0 ? "+" : ""}${amount} ${chakraEffectTypeLabel(type)}`);
+      .map(([type, amount]) => `${effect.type !== "substituteChakraCost" && Number(amount) > 0 ? "+" : ""}${amount} ${chakraEffectTypeLabel(type)}`);
     const label = effect.type === "substituteChakraCost" ? "Sustituye coste" : "Modifica coste";
     return `${label}: ${entries.join(", ") || "sin cambios"}${scope}`;
   }
-  if (effect.type === "stun") return `Aturde: ${effect.value} turno(s)`;
+  if (effect.type === "stun") {
+    const scope = effect.familiesAffected?.length ? ` (${skillFamiliesLabel(effect.familiesAffected)})` : "";
+    return `Aturde: ${effect.value} turno(s)${scope}`;
+  }
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
   if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
   if (effect.type === "remove-chakra") return `Elimina chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
@@ -137,15 +156,17 @@ export function requirementDescription(requirement) {
 }
 
 function targetConditionDescription(requirement) {
+  const scope = String(requirement.scope || requirement.target || "target").toLowerCase();
+  const subject = scope === "self" ? "lanzador" : "objetivo";
   const type = normalizeRequireType(requirement.type || requirement.condition);
   if (type === "hasStatusEffect") {
-    return `objetivo tiene status ${getSkillNameById(requirement.effectId || requirement.statusEffectId || requirement.id)}`;
+    return `${subject} tiene status ${getSkillNameById(requirement.effectId || requirement.statusEffectId || requirement.id)}`;
   }
   if (type === "hasMinHp") {
-    return `objetivo tiene minimo ${requirement.minHp ?? requirement.hp ?? requirement.value} HP`;
+    return `${subject} tiene minimo ${requirement.minHp ?? requirement.hp ?? requirement.value} HP`;
   }
   if (type === "hasMaxHp") {
-    return `objetivo tiene maximo ${requirement.maxHp ?? requirement.hp ?? requirement.value} HP`;
+    return `${subject} tiene maximo ${requirement.maxHp ?? requirement.hp ?? requirement.value} HP`;
   }
   return requirementDescription(requirement).toLowerCase();
 }

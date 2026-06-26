@@ -1,7 +1,6 @@
 export const kankurou = {
   id: "kankurou",
   name: "Kankurou",
-  role: "",
   avatar: "KA",
   maxHp: 100,
   skills: [
@@ -18,7 +17,8 @@ export const kankurou = {
           targets: "target",
           bonusWhen: [{ bonus: 10, require: { type: "hasStatusEffect", effectId: "stun" } }]
         }
-      ]
+      ],
+      family:["physical","instant"]
     },
     {
       id: "iron-puppet-barrage",
@@ -27,7 +27,8 @@ export const kankurou = {
       targetType: "enemies",
       description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de dano de afliccion.",
       effects: [{ type: "damage", value: 10, targets: "target", damageType: "affliction" }],
-      cooldown: 1
+      cooldown: 1,
+      family:["physical","instant"]
     },
     {
       id: "puppet-preparation",
@@ -47,6 +48,7 @@ export const kankurou = {
           ]
         }
       ],
+      family:["physical","instant"]
     },
     {
       id: "puppet-substitution",
@@ -55,7 +57,8 @@ export const kankurou = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
     }
   ]
 };

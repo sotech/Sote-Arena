@@ -15,9 +15,13 @@ export function appliesToCostModifiedSkill(effect, skill) {
 }
 
 export function applyChakraCostModifiers(baseCost = {}, modifiers = []) {
-  const cost = normalizeChakraCost(baseCost);
+  let cost = normalizeChakraCost(baseCost);
   for (const modifier of modifiers) {
     const chakra = modifier.chakra || modifier.value || {};
+    if (modifier.type === "substituteChakraCost") {
+      cost = normalizeChakraCost(chakra);
+      continue;
+    }
     for (const type of chakraCostTypes) {
       cost[type] = Math.max(0, cost[type] + Number(chakra[type] || 0));
     }

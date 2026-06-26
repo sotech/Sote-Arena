@@ -6,9 +6,39 @@ export const effectTargetRefs = {
   enemies: "Usa todos los enemigos vivos que puedan ser seleccionados."
 };
 
+const skillFamilyLabels = {
+  physical: "fisicas",
+  chakra: "chakra",
+  mental: "mental",
+  instant: "instantaneas"
+};
+
+const skillClassLabels = {
+  physical: "fisica",
+  chakra: "chakra",
+  mental: "mental",
+  instant: "instantanea"
+};
+
+export function skillFamilyLabel(family) {
+  return skillFamilyLabels[family] || family;
+}
+
+export function skillFamiliesLabel(families = []) {
+  return families.map(skillFamilyLabel).join(", ");
+}
+
+export function skillClassLabel(family) {
+  return skillClassLabels[family] || family;
+}
+
+export function skillClassesLabel(families = []) {
+  return families.map(skillClassLabel).join(", ");
+}
+
 export const effectTypes = {
   damage: {
-    description: "Inflige dano a cada objetivo. damageType puede ser basic, piercing o affliction. bonusWhen permite sumar dano si el objetivo cumple una condicion de requires.",
+    description: "Inflige dano a cada objetivo. damageType puede ser basic, piercing o affliction. bonusWhen permite sumar dano si target o self cumplen una condicion de requires.",
     fields: ["type", "value", "targets", "damageType", "bonusWhen"]
   },
   heal: {
@@ -31,17 +61,29 @@ export const effectTypes = {
     description: "Modifica el dano de las habilidades del objetivo durante una duracion en turnos. value positivo aumenta el dano y value negativo lo reduce. skillIds permite limitar el modificador a habilidades especificas; si se omite, afecta a todas.",
     fields: ["type", "value", "duration", "targets", "skillIds"]
   },
+  modifyDamageType: {
+    description: "Modifica el tipo de dano de las habilidades del objetivo durante una duracion en turnos. damageType puede ser basic, piercing o affliction. skillIds permite limitar el modificador a habilidades especificas; si se omite, afecta a todas.",
+    fields: ["type", "damageType", "duration", "targets", "skillIds"]
+  },
+  addEffectToBase: {
+    description: "Agrega efectos adicionales a las habilidades del objetivo durante una duracion en turnos. effects contiene los efectos a agregar. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas.",
+    fields: ["type", "duration", "targets", "skillIds", "effects"]
+  },
+  replaceSkill: {
+    description: "Reemplaza una habilidad base por otra habilidad durante una duracion en turnos. baseSkillId indica la habilidad visible a reemplazar y skillId indica la habilidad que ocupa su lugar.",
+    fields: ["type", "duration", "targets", "baseSkillId", "skillId"]
+  },
   modifyChakraCost: {
     description: "Modifica el coste de chakra de las habilidades del objetivo. chakra acepta taijutsu, ninjutsu, bloodline, genjutsu y neutralChakra con valores positivos o negativos. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas. El coste final nunca baja de 0.",
     fields: ["type", "chakra", "duration", "targets", "skillIds"]
   },
   substituteChakraCost: {
-    description: "Sustituye partes del coste de chakra de las habilidades del objetivo usando deltas por chakra. chakra acepta taijutsu, ninjutsu, bloodline, genjutsu y neutralChakra con valores positivos o negativos. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas. El coste final nunca baja de 0.",
+    description: "Sobreescribe el coste de chakra de las habilidades del objetivo. chakra acepta taijutsu, ninjutsu, bloodline, genjutsu y neutralChakra con el nuevo coste final. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas. El coste final nunca baja de 0.",
     fields: ["type", "chakra", "duration", "targets", "skillIds"]
   },
   stun: {
-    description: "Impide que cada objetivo use habilidades durante la cantidad indicada de turnos.",
-    fields: ["type", "value", "targets"]
+    description: "Impide que cada objetivo use habilidades durante la cantidad indicada de turnos. familiesAffected permite limitarlo a habilidades que compartan alguna familia; si se omite, afecta a todas.",
+    fields: ["type", "value", "targets", "familiesAffected"]
   },
   invulnerable: {
     description: "Impide que enemigos puedan seleccionar al objetivo durante la cantidad indicada de turnos.",
@@ -52,7 +94,7 @@ export const effectTypes = {
     fields: ["type", "value", "targets", "chakraType"]
   },
   "remove-chakra": {
-    description: "Elimina chakra del jugador dueno del objetivo. chakraType puede ser un tipo especifico; si se omite, se elimina al azar.",
+    description: "Elimina chakra. chakraType puede ser un tipo especifico; si se omite, se elimina al azar del pool enemigo.",
     fields: ["type", "value", "targets", "chakraType"]
   },
   complex: {

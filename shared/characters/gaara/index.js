@@ -1,7 +1,6 @@
 export const gaara = {
   id: "gaara",
   name: "Gaara",
-  role: "Tanque",
   avatar: "GA",
   maxHp: 100,
   skills: [
@@ -16,7 +15,8 @@ export const gaara = {
         { type: "damage", value: 35, targets: "target" },
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
       ],
-      cooldown: 1
+      cooldown: 1,
+      family:["physical","instant"]
     },
     {
       id: "sand-shield",
@@ -28,16 +28,21 @@ export const gaara = {
         { type: "shield", value: 15, targets: "target", isStackable: false },
         { type: "complex", duration: 2, targets: "self", effects: [{ type: "modifyChakraCost", chakra: { neutralChakra: -1 }, targets: "self", skillIds: ["sand-coffin"] }] }
       ],
-      cooldown: 2
+      cooldown: 2,
+      family:["chakra","instant"]
     },
     {
       id: "sand-armor",
       name: "Armadura de arena",
       chakra: { neutralChakra: 2 },
       targetType: "self",
-      description: "La arena forma una armadura alrededor del lanzador. Otorga 35 de escudo. No puede acumularse consigo mismo.",
-      effects: [{ type: "shield", value: 35, targets: "self", isStackable: false }],
-      cooldown: 1
+      description: "La arena forma una armadura alrededor del lanzador. Otorga 35 de escudo. No puede acumularse consigo mismo. Durante 2 turnos, Armadura de arena se reemplaza por Tormenta de arena.",
+      effects: [
+        { type: "shield", value: 35, targets: "self", isStackable: false },
+        { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "sand-armor", skillId: "sand-storm" }
+      ],
+      cooldown: 1,
+      family:["chakra","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -46,7 +51,19 @@ export const gaara = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
+    },
+    {
+      id: "sand-storm",
+      name: "Tormenta de arena",
+      chakra: { neutralChakra: 1 },
+      targetType: "enemies",
+      description: "Gaara invoca una tormenta de arena que inflige 20 puntos de daño a todos los enemigos.",
+      effects: [{ type: "damage", value: 20, targets: "enemies" }],
+      isExtraSkill: true,
+      family:["chakra","instant"]
     }
+
   ]
 };

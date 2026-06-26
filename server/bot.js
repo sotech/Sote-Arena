@@ -63,7 +63,7 @@ function botTargetIdsForSkill(room, bot, actor, skill, engine) {
 function estimateDamageAgainstTarget(actor, skill, effect, target, currentTurn, engine) {
   const rawDamage = Math.max(0, Number(effect.value || 0))
     + engine.damageBuffValue(actor, skill, currentTurn)
-    + engine.damageBonusForTarget(effect, target);
+    + engine.damageBonusForTarget(effect, target, actor);
   const damageType = effect.damageType || "basic";
   const shield = damageType === "basic" || damageType === "piercing" ? engine.shieldValue(target) : 0;
   return Math.max(0, rawDamage - shield);
@@ -137,7 +137,7 @@ function botSkillOptions(room, bot, engine) {
   const options = [];
   for (const actor of engine.aliveMembers(bot)) {
     const actorCharacter = getCharacterById(actor.characterId);
-    for (const skill of actorCharacter.skills) {
+    for (const skill of engine.activeSkillsForMember(actor, actorCharacter)) {
       if (!botShouldConsiderSkill(actor, actorCharacter, skill)) continue;
       for (const targetId of botTargetIdsForSkill(room, bot, actor, skill, engine)) {
         const validation = engine.validateSkillAction(room, bot.id, actor.id, targetId, skill.id);

@@ -6,8 +6,9 @@ import { pathToFileURL } from "node:url";
 import { Server } from "socket.io";
 import { characters, getCharacterById, getSkillNameById } from "../shared/characters.js";
 import { chakraCostModifierTypes, modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
-import { supportedEffectTypes } from "../shared/effects.js";
+import { skillFamiliesLabel, supportedEffectTypes } from "../shared/effects.js";
 import { normalizeRequireScope, normalizeRequireType } from "../shared/requires.js";
+import { activeSkillForMember, activeSkillsForMember } from "../shared/skillReplacements.js";
 import { createBotPlayer, scheduleBotIfNeeded } from "./bot.js";
 import {
   CHAKRA_TYPES,
@@ -114,6 +115,13 @@ function broadcast(room) {
 
 function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
+}
+
+function affectedPlayersForChakraEffect(room, player, targets, effect) {
+  if (effect.type === "remove-chakra" && !effect.chakraType) {
+    return [opponentOf(room, player.id)].filter(Boolean);
+  }
+  return [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
 }
 
 function maybeStart(room) {
@@ -278,6 +286,22 @@ function hasStatus(member, type) {
   });
 }
 
+function stunAffectsSkill(effect, skill) {
+  if (!Array.isArray(effect.familiesAffected) || effect.familiesAffected.length === 0) return true;
+  const skillFamilies = Array.isArray(skill?.family) ? skill.family : [];
+  return effect.familiesAffected.some((family) => skillFamilies.includes(family));
+}
+
+export function isSkillStunned(member, skill) {
+  return (member.statusEffects || []).some((effect) => {
+    if (effect.type === "stun" && effect.turns > 0) return stunAffectsSkill(effect, skill);
+    if (effect.type !== "complex" || effect.turns <= 0) return false;
+    return (effect.effects || []).some((childEffect) => (
+      childEffect.type === "stun" && stunAffectsSkill(childEffect, skill)
+    ));
+  });
+}
+
 export function addStatus(member, status) {
   const existing = (member.statusEffects || []).find((effect) => effect.type === status.type && effect.sourceSkillId === status.sourceSkillId);
   if (status.type === "shield") {
@@ -314,19 +338,23 @@ export function addStatus(member, status) {
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
-  if (status.type === "modifyDamage" || chakraCostModifierTypes.includes(status.type)) {
+  if (status.type === "modifyDamage" || status.type === "modifyDamageType" || status.type === "addEffectToBase" || status.type === "replaceSkill" || chakraCostModifierTypes.includes(status.type)) {
     if (existing) {
       existing.value = status.value;
+      existing.damageType = status.damageType;
+      existing.effects = status.effects;
+      existing.baseSkillId = status.baseSkillId;
+      existing.skillId = status.skillId;
       existing.chakra = status.chakra;
       existing.turns = Math.max(existing.turns, status.turns);
       existing.skillIds = status.skillIds;
-      existing.descriptions = status.type === "modifyDamage" ? modifyDamageDescriptions(status) : modifyChakraCostDescriptions(status);
+      existing.descriptions = modifierDescriptions(status);
       existing.createdTurn = status.createdTurn;
       existing.originActorId = status.originActorId;
       existing.originCharacterId = status.originCharacterId;
       return;
     }
-    status.descriptions = status.type === "modifyDamage" ? modifyDamageDescriptions(status) : modifyChakraCostDescriptions(status);
+    status.descriptions = modifierDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
@@ -338,6 +366,7 @@ export function addStatus(member, status) {
   
   if (existing) {
     existing.turns = Math.max(existing.turns, status.turns);
+    existing.familiesAffected = status.familiesAffected;
     existing.descriptions = status.descriptions;
     existing.createdTurn = status.createdTurn;
     existing.originActorId = status.originActorId;
@@ -351,6 +380,9 @@ function statusDescription(effect, actorCharacter) {
   if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo destruible.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value} de reduccion de dano.`;
   if (effect.type === "modifyDamage") return `${actorCharacter.name} ha modificado el dano de este personaje en ${effect.value}.`;
+  if (effect.type === "modifyDamageType") return `${actorCharacter.name} ha modificado el tipo de dano de este personaje.`;
+  if (effect.type === "addEffectToBase") return `${actorCharacter.name} ha agregado efectos a las habilidades de este personaje.`;
+  if (effect.type === "replaceSkill") return `${actorCharacter.name} ha reemplazado una habilidad de este personaje.`;
   if (chakraCostModifierTypes.includes(effect.type)) return `${actorCharacter.name} ha modificado el coste de chakra de este personaje.`;
   if (effect.type === "complex") return `${actorCharacter.name} ha aplicado un efecto complejo.`;
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
@@ -373,6 +405,12 @@ function damageReductionDescriptions(effect) {
   return [`${effect.sourceActorName || "Un personaje"} ha obtenido ${effect.value} de reduccion de dano.`];
 }
 
+function damageTypeLabel(type = "basic") {
+  if (type === "piercing") return "dano perforante";
+  if (type === "affliction") return "dano afliccion";
+  return "dano basico";
+}
+
 function modifyDamageDescriptions(effect) {
   const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
   const amount = Math.abs(Number(effect.value || 0));
@@ -380,16 +418,42 @@ function modifyDamageDescriptions(effect) {
   return [`${effect.sourceActorName || "Un personaje"} ${verb} el dano en ${amount}${scope}.`];
 }
 
-function chakraCostModifierSummary(chakra = {}) {
+function modifyDamageTypeDescriptions(effect) {
+  const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
+  return [`${effect.sourceActorName || "Un personaje"} cambio el tipo de dano a ${damageTypeLabel(effect.damageType)}${scope}.`];
+}
+
+function addEffectToBaseDescriptions(effect) {
+  const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
+  return [
+    `${effect.sourceActorName || "Un personaje"} agrego efectos${scope}.`,
+    ...(effect.effects || []).map(simpleEffectDescription)
+  ];
+}
+
+function replaceSkillDescriptions(effect) {
+  return [`${effect.sourceActorName || "Un personaje"} reemplazo ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`];
+}
+
+function modifierDescriptions(effect) {
+  if (effect.type === "modifyDamage") return modifyDamageDescriptions(effect);
+  if (effect.type === "modifyDamageType") return modifyDamageTypeDescriptions(effect);
+  if (effect.type === "addEffectToBase") return addEffectToBaseDescriptions(effect);
+  if (effect.type === "replaceSkill") return replaceSkillDescriptions(effect);
+  return modifyChakraCostDescriptions(effect);
+}
+
+function chakraCostModifierSummary(chakra = {}, { asReplacement = false } = {}) {
   return Object.entries(chakra)
     .filter(([, amount]) => Number(amount || 0) !== 0)
-    .map(([type, amount]) => `${Number(amount) > 0 ? "+" : ""}${amount} ${type === "neutralChakra" ? "neutral" : type}`)
+    .map(([type, amount]) => `${!asReplacement && Number(amount) > 0 ? "+" : ""}${amount} ${type === "neutralChakra" ? "neutral" : type}`)
     .join(", ");
 }
 
 function modifyChakraCostDescriptions(effect) {
   const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
-  const summary = chakraCostModifierSummary(effect.chakra);
+  const isReplacement = effect.type === "substituteChakraCost";
+  const summary = chakraCostModifierSummary(effect.chakra, { asReplacement: isReplacement });
   const verb = effect.type === "substituteChakraCost" ? "sustituyo" : "modifico";
   return [`${effect.sourceActorName || "Un personaje"} ${verb} el coste de chakra${scope}${summary ? ` (${summary})` : ""}.`];
 }
@@ -404,13 +468,28 @@ function simpleEffectDescription(effect) {
     const amount = Math.abs(Number(effect.value || 0));
     return `${Number(effect.value || 0) < 0 ? "Reduce" : "Aumenta"} ${amount} de dano${scope}.`;
   }
+  if (effect.type === "modifyDamageType") {
+    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
+    return `Cambia el tipo de dano a ${damageTypeLabel(effect.damageType)}${scope}.`;
+  }
+  if (effect.type === "addEffectToBase") {
+    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
+    const descriptions = (effect.effects || []).map(simpleEffectDescription).join(" + ");
+    return `Agrega efectos${scope}${descriptions ? `: ${descriptions}` : ""}.`;
+  }
+  if (effect.type === "replaceSkill") {
+    return `Reemplaza ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;
+  }
   if (chakraCostModifierTypes.includes(effect.type)) {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
-    const summary = chakraCostModifierSummary(effect.chakra);
+    const summary = chakraCostModifierSummary(effect.chakra, { asReplacement: effect.type === "substituteChakraCost" });
     return `${effect.type === "substituteChakraCost" ? "Sustituye" : "Modifica"} coste de chakra${scope}${summary ? ` (${summary})` : ""}.`;
   }
   if (effect.type === "invulnerable") return "Otorga invulnerabilidad.";
-  if (effect.type === "stun") return "Aplica aturdimiento.";
+  if (effect.type === "stun") {
+    const scope = effect.familiesAffected?.length ? ` a las habilidades ${skillFamiliesLabel(effect.familiesAffected)}` : "";
+    return `Aplica aturdimiento${scope}.`;
+  }
   if (effect.type === "gain-chakra") return `Otorga ${effect.value} chakra.`;
   if (effect.type === "remove-chakra") return `Elimina ${effect.value} chakra.`;
   return `${effect.type}: ${effect.value || ""}`.trim();
@@ -429,6 +508,20 @@ function appliesToModifiedSkill(effect, skill) {
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }
 
+function appliesToDamageTypeModifiedSkill(effect, skill) {
+  if (effect.type !== "modifyDamageType" || effect.turns <= 0) return false;
+  if (!["basic", "piercing", "affliction"].includes(effect.damageType)) return false;
+  if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
+  return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
+}
+
+function appliesToEffectAddedSkill(effect, skill) {
+  if (effect.type !== "addEffectToBase" || effect.turns <= 0) return false;
+  if (!Array.isArray(effect.effects) || effect.effects.length === 0) return false;
+  if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
+  return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
+}
+
 export function damageBuffValue(actor, skill, currentTurn) {
   const directBuffs = (actor.statusEffects || [])
     .filter((effect) => appliesToModifiedSkill(effect, skill))
@@ -441,6 +534,39 @@ export function damageBuffValue(actor, skill, currentTurn) {
     .filter((effect) => appliesToModifiedSkill({ ...effect, turns: 1 }, skill))
     .reduce((total, effect) => total + Number(effect.value || 0), 0);
   return directBuffs + complexBuffs;
+}
+
+export function modifiedDamageType(actor, skill, baseDamageType = "basic", currentTurn) {
+  let type = ["basic", "piercing", "affliction"].includes(baseDamageType) ? baseDamageType : "basic";
+  for (const effect of actor.statusEffects || []) {
+    if (effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn) continue;
+    if (appliesToDamageTypeModifiedSkill(effect, skill)) {
+      type = effect.damageType;
+      continue;
+    }
+    if (effect.type === "complex" && effect.turns > 0) {
+      for (const childEffect of effect.effects || []) {
+        if (appliesToDamageTypeModifiedSkill({ ...childEffect, turns: 1 }, skill)) {
+          type = childEffect.damageType;
+        }
+      }
+    }
+  }
+  return type;
+}
+
+export function addedEffectsForSkill(actor, skill, currentTurn) {
+  return (actor.statusEffects || [])
+    .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
+    .flatMap((effect) => {
+      if (appliesToEffectAddedSkill(effect, skill)) return effect.effects;
+      if (effect.type === "complex" && effect.turns > 0) {
+        return (effect.effects || [])
+          .filter((childEffect) => appliesToEffectAddedSkill({ ...childEffect, turns: 1 }, skill))
+          .flatMap((childEffect) => childEffect.effects || []);
+      }
+      return [];
+    });
 }
 
 function shieldValue(member) {
@@ -571,10 +697,17 @@ function memberMeetsRequirement(member, requirement) {
   return false;
 }
 
-function damageBonusForTarget(effect, target) {
+function damageBonusSubject(rule, target, actor) {
+  const requirement = rule.require || rule.when || rule;
+  const scope = String(requirement.scope || requirement.target || rule.scope || rule.target || "target").toLowerCase();
+  return scope === "self" ? actor : target;
+}
+
+export function damageBonusForTarget(effect, target, actor) {
   return (effect.bonusWhen || []).reduce((bonus, rule) => {
     const requirement = rule.require || rule.when || rule;
-    return memberMeetsRequirement(target, requirement)
+    const subject = damageBonusSubject(rule, target, actor);
+    return subject && memberMeetsRequirement(subject, requirement)
       ? bonus + Math.max(0, Number(rule.bonus ?? rule.value ?? 0))
       : bonus;
   }, 0);
@@ -669,7 +802,7 @@ function applyComplexStatusEffects(room, player) {
     for (const status of member.statusEffects || []) {
       if (status.type !== "complex" || status.turns <= 0 || status.createdTurn === room.turn) continue;
       for (const effect of status.effects || []) {
-        if (effect.type === "damage-reduction" || effect.type === "modifyDamage" || chakraCostModifierTypes.includes(effect.type) || effect.type === "invulnerable" || effect.type === "stun") {
+        if (effect.type === "damage-reduction" || effect.type === "modifyDamage" || effect.type === "modifyDamageType" || effect.type === "addEffectToBase" || effect.type === "replaceSkill" || chakraCostModifierTypes.includes(effect.type) || effect.type === "invulnerable" || effect.type === "stun") {
           continue;
         }
 
@@ -724,7 +857,7 @@ function applyComplexStatusEffects(room, player) {
         }
 
         if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
-          const affectedPlayers = [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
+          const affectedPlayers = affectedPlayersForChakraEffect(room, player, targets, effect);
           const changedChakra = emptyChakra();
           for (const affectedPlayer of affectedPlayers) {
             const changed = effect.type === "gain-chakra"
@@ -750,11 +883,11 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   const opponent = opponentOf(room, playerId);
   const actor = getMember(player, actorId);
   if (!actor || actor.hp <= 0) return "Ese personaje no puede actuar.";
-  if (hasStatus(actor, "stun")) return "Ese personaje esta aturdido y no puede usar habilidades.";
 
   const actorCharacter = getCharacterById(actor.characterId);
-  const skill = actorCharacter.skills.find((item) => item.id === skillId);
+  const skill = activeSkillForMember(actor, actorCharacter, skillId);
   if (!skill) return "Habilidad invalida.";
+  if (isSkillStunned(actor, skill)) return "Ese personaje esta aturdido y no puede usar esa habilidad.";
   if (queuedActorFor(player, actor.id)) return `${actorCharacter.name} ya tiene una habilidad en cola este turno.`;
   if (skillCooldown(actor, skill.id) > 0) return `${skill.name} esta en cooldown.`;
   if (queuedSkillFor(player, actor.id, skill.id)) return `${skill.name} ya esta en cola.`;
@@ -797,13 +930,13 @@ function applyQueuedSkill(room, player, action) {
   }
 
   const actorCharacter = getCharacterById(actor.characterId);
-  const skill = actorCharacter.skills.find((item) => item.id === action.skillId);
+  const skill = activeSkillForMember(actor, actorCharacter, action.skillId);
   if (!skill) {
     return `${action.skillName} se descarto: habilidad invalida.`;
   }
 
-  if (hasStatus(actor, "stun")) {
-    return `${action.skillName} se descarto: ${action.actorName} esta aturdido.`;
+  if (isSkillStunned(actor, skill)) {
+    return `${action.skillName} se descarto: ${action.actorName} esta aturdido para esa habilidad.`;
   }
 
   const selectedTargets = targetsForSkill(room, player, actor, action.targetId, skill);
@@ -819,11 +952,16 @@ function applyQueuedSkill(room, player, action) {
   let totalInvulnerable = 0;
   let totalDamageReduction = 0;
   let totalDamageModifier = 0;
+  let totalDamageTypeModifiers = 0;
+  let totalAddedBaseEffects = 0;
+  let totalSkillReplacements = 0;
   let totalChakraCostModifiers = 0;
   let gainedChakra = emptyChakra();
   let removedChakra = emptyChakra();
 
-  for (const effect of skill.effects || []) {
+  const activeEffects = [...(skill.effects || []), ...addedEffectsForSkill(actor, skill, room.turn)];
+
+  for (const effect of activeEffects) {
     if (!supportedEffectTypes.includes(effect.type)) {
       events.push(`${effect.type} no esta implementado.`);
       continue;
@@ -852,9 +990,10 @@ function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "damage") {
       const buffedDamage = Math.max(0, Number(effect.value || 0)) + damageBuffValue(actor, skill, room.turn);
+      const damageType = modifiedDamageType(actor, skill, effect.damageType || "basic", room.turn);
       for (const target of targets) {
-        const targetDamage = buffedDamage + damageBonusForTarget(effect, target);
-        const dealt = applyDamage(target, targetDamage, effect.damageType || "basic");
+        const targetDamage = buffedDamage + damageBonusForTarget(effect, target, actor);
+        const dealt = applyDamage(target, targetDamage, damageType);
         totalDamage += dealt;
       }
       continue;
@@ -911,6 +1050,66 @@ function applyQueuedSkill(room, player, action) {
       continue;
     }
 
+    if (effect.type === "modifyDamageType") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "modifyDamageType",
+          turns: effect.duration,
+          damageType: effect.damageType,
+          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: [statusDescription(effect, actorCharacter)]
+        });
+        totalAddedBaseEffects += 1;
+      }
+      continue;
+    }
+
+    if (effect.type === "addEffectToBase") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "addEffectToBase",
+          turns: effect.duration,
+          effects: Array.isArray(effect.effects) ? effect.effects : [],
+          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: [statusDescription(effect, actorCharacter)]
+        });
+        totalDamageTypeModifiers += 1;
+      }
+      continue;
+    }
+
+    if (effect.type === "replaceSkill") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "replaceSkill",
+          turns: effect.duration,
+          baseSkillId: effect.baseSkillId,
+          skillId: effect.skillId,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: [statusDescription(effect, actorCharacter)]
+        });
+        totalSkillReplacements += 1;
+      }
+      continue;
+    }
+
     if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
       for (const target of targets) {
         addStatus(target, {
@@ -960,6 +1159,7 @@ function applyQueuedSkill(room, player, action) {
           id: randomUUID(),
           type: "stun",
           turns: effect.value,
+          familiesAffected: effect.familiesAffected,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
@@ -989,7 +1189,7 @@ function applyQueuedSkill(room, player, action) {
     }
 
     if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
-      const affectedPlayers = [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
+      const affectedPlayers = affectedPlayersForChakraEffect(room, player, targets, effect);
       const amount = Math.max(0, Number(effect.value || 0));
       for (const affectedPlayer of affectedPlayers) {
         const changed = effect.type === "gain-chakra"
@@ -1015,6 +1215,9 @@ function applyQueuedSkill(room, player, action) {
     const amount = Math.abs(totalDamageModifier);
     events.push(`${actorCharacter.name} ${totalDamageModifier < 0 ? "redujo" : "aumento"} ${amount} de dano.`);
   }
+  if (totalDamageTypeModifiers > 0) events.push(`${actorCharacter.name} modifico tipos de dano.`);
+  if (totalAddedBaseEffects > 0) events.push(`${actorCharacter.name} agrego efectos a habilidades.`);
+  if (totalSkillReplacements > 0) events.push(`${actorCharacter.name} reemplazo habilidades.`);
   if (totalChakraCostModifiers > 0) events.push(`${actorCharacter.name} modifico costes de chakra.`);
   if (totalStun > 0) events.push(`${actorCharacter.name} aturdio por ${totalStun} turno(s).`);
   if (totalInvulnerable > 0) events.push(`${actorCharacter.name} gano invulnerabilidad por ${totalInvulnerable} turno(s).`);
@@ -1098,6 +1301,7 @@ function surrender(room, playerId) {
 function botEngine() {
   return {
     aliveMembers,
+    activeSkillsForMember,
     broadcast,
     canBeTargetedBy,
     damageBonusForTarget,

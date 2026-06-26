@@ -2,16 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { characters, getCharacterById, getSkillNameById } from "../shared/characters.js";
 import { naruto } from "../shared/characters/naruto/index.js";
-import { effectTypes, supportedEffectTypes } from "../shared/effects.js";
-import { addStatus, damageBuffValue } from "../server/index.js";
+import { effectTypes, skillClassesLabel, supportedEffectTypes } from "../shared/effects.js";
+import { addStatus, addedEffectsForSkill, damageBonusForTarget, damageBuffValue, isSkillStunned, modifiedDamageType } from "../server/index.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
+import { activeSkillsForMember, baseSkillsForCharacter } from "../shared/skillReplacements.js";
+import { playerHealthShare } from "../src/game/battleRules.js";
 import { effectDescription, groupStatusEffects, statusEffectGroupValue } from "../src/game/labels.js";
 
 const chakraTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
 
-test("catalog exposes exactly seven playable characters", () => {
-  assert.equal(characters.length, 7);
-  assert.equal(new Set(characters.map((character) => character.id)).size, 7);
+test("catalog exposes the playable characters", () => {
+  assert.equal(characters.length, 8);
+  assert.equal(new Set(characters.map((character) => character.id)).size, 8);
 });
 
 test("characters can be imported from individual folders", () => {
@@ -19,26 +21,39 @@ test("characters can be imported from individual folders", () => {
   assert.equal(naruto.skills.length, 4);
 });
 
+test("skill families have class labels for descriptions", () => {
+  assert.equal(skillClassesLabel(["physical", "instant"]), "fisica, instantanea");
+});
+
+test("player health share uses current HP and ignores shields", () => {
+  const player = { team: [{ hp: 100, shield: 50 }, { hp: 100 }, { hp: 100 }] };
+  const opponent = { team: [{ hp: 50 }, { hp: 50 }, { hp: 50 }] };
+
+  assert.equal(playerHealthShare(player, opponent), 2 / 3);
+  assert.equal(playerHealthShare({ team: [{ hp: 0 }] }, { team: [{ hp: 0 }] }), 0.5);
+});
+
 test("every character can fight with four configured skills", () => {
   for (const character of characters) {
+    const baseSkills = baseSkillsForCharacter(character);
     assert.equal(character.maxHp, 100);
-    assert.equal(character.skills.length, 4);
+    assert.equal(character.role, undefined);
+    assert.equal(baseSkills.length, 4);
     assert.ok(character.skills.every((skill) => Object.values(skill.chakra).some((amount) => amount > 0)));
     assert.ok(character.skills.every((skill) => Array.isArray(skill.effects) && skill.effects.length > 0));
   }
 });
 
-test("every character has substitution jutsu as the final skill", () => {
+test("every character has a final self-defense skill with invulnerability", () => {
   for (const character of characters) {
-    const lastSkill = character.skills.at(-1);
-    assert.match(lastSkill.id, /substitution/);
-    assert.match(lastSkill.name, /sustitucion/i);
+    const lastSkill = baseSkillsForCharacter(character).at(-1);
     assert.equal(lastSkill.targetType, "self");
     assert.equal(lastSkill.cooldown, 4);
-    assert.equal(lastSkill.effects.length, 1);
-    assert.equal(lastSkill.effects[0].type, "complex");
-    assert.equal(lastSkill.effects[0].duration, 1);
-    assert.deepEqual(lastSkill.effects[0].effects, [{ type: "invulnerable", value: 1, targets: "self" }]);
+    assert.ok(lastSkill.effects.some((effect) => (
+      effect.type === "complex"
+      && effect.duration === 1
+      && effect.effects.some((child) => child.type === "invulnerable" && child.value === 1 && child.targets === "self")
+    )));
   }
 });
 
@@ -64,6 +79,14 @@ test("skill effects use the documented effect system", () => {
           assert.ok(effect.duration > 0);
         } else if (effect.type === "modifyDamage") {
           assert.notEqual(effect.value, 0);
+        } else if (effect.type === "modifyDamageType") {
+          assert.ok(["basic", "piercing", "affliction"].includes(effect.damageType));
+        } else if (effect.type === "addEffectToBase") {
+          assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
+        } else if (effect.type === "replaceSkill") {
+          assert.ok(effect.duration > 0);
+          assert.ok(effect.baseSkillId);
+          assert.ok(effect.skillId);
         } else if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
           assert.ok(effect.chakra && Object.values(effect.chakra).some((value) => Number(value || 0) !== 0));
         } else {
@@ -153,6 +176,149 @@ test("modifyDamage accepts negative values as damage reduction", () => {
   );
 });
 
+test("bonusWhen can check target or self conditions", () => {
+  const actor = { hp: 40, statusEffects: [] };
+  const target = { hp: 100, statusEffects: [] };
+
+  assert.equal(
+    damageBonusForTarget({ bonusWhen: [{ bonus: 15, require: { type: "hasMaxHp", hp: 50 } }] }, target, actor),
+    0
+  );
+  assert.equal(
+    damageBonusForTarget({ bonusWhen: [{ bonus: 15, require: { scope: "self", type: "hasMaxHp", hp: 50 } }] }, target, actor),
+    15
+  );
+  assert.equal(
+    effectDescription({ type: "damage", value: 20, bonusWhen: [{ bonus: 15, require: { scope: "self", type: "hasMaxHp", hp: 50 } }] }),
+    "Dano: 20 | +15 si lanzador tiene maximo 50 HP"
+  );
+});
+
+test("modifyDamageType changes matching skill damage type", () => {
+  const member = { statusEffects: [] };
+  addStatus(member, {
+    id: "piercing-shadow-kick",
+    type: "modifyDamageType",
+    turns: 3,
+    damageType: "piercing",
+    skillIds: ["shadow-kick"],
+    sourceSkillId: "cats-blessing",
+    sourceSkillName: "Bendicion de gato",
+    sourceActorName: "Daniel-san",
+    createdTurn: 1
+  });
+
+  assert.equal(
+    modifiedDamageType(member, { id: "shadow-kick", name: "Patada de sombra" }, "basic", 2),
+    "piercing"
+  );
+  assert.equal(
+    modifiedDamageType(member, { id: "nine-lives", name: "Nueve vidas" }, "basic", 2),
+    "basic"
+  );
+  assert.equal(
+    effectDescription({ type: "modifyDamageType", damageType: "piercing", duration: 3, targets: "self", skillIds: ["shadow-kick"] }),
+    "Cambia tipo de dano: Dano perforante por 3 turno(s) (Patada de sombra)"
+  );
+});
+
+test("addEffectToBase adds effects to matching skills", () => {
+  const member = { statusEffects: [] };
+  addStatus(member, {
+    id: "shadow-kick-stun",
+    type: "addEffectToBase",
+    turns: 3,
+    skillIds: ["shadow-kick"],
+    effects: [{ type: "stun", value: 1, targets: "target" }],
+    sourceSkillId: "cats-blessing",
+    sourceSkillName: "Bendicion de gato",
+    sourceActorName: "Daniel-san",
+    createdTurn: 1
+  });
+
+  assert.deepEqual(
+    addedEffectsForSkill(member, { id: "shadow-kick", name: "Patada de sombra" }, 2),
+    [{ type: "stun", value: 1, targets: "target" }]
+  );
+  assert.deepEqual(
+    addedEffectsForSkill(member, { id: "nine-lives", name: "Nueve vidas" }, 2),
+    []
+  );
+  assert.equal(
+    effectDescription({ type: "addEffectToBase", duration: 3, targets: "self", skillIds: ["shadow-kick"], effects: [{ type: "stun", value: 1, targets: "target" }] }),
+    "Agrega efecto por 3 turno(s) (Patada de sombra): Aturde: 1 turno(s)"
+  );
+});
+
+test("stun can affect specific skill families", () => {
+  const member = {
+    statusEffects: [{
+      id: "chakra-stun",
+      type: "stun",
+      turns: 1,
+      familiesAffected: ["chakra"]
+    }]
+  };
+
+  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["chakra", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "instant"] }), false);
+  assert.equal(effectDescription({ type: "stun", value: 1, targets: "target", familiesAffected: ["physical", "instant"] }), "Aturde: 1 turno(s) (fisicas, instantaneas)");
+});
+
+test("stun without familiesAffected affects every skill", () => {
+  const member = {
+    statusEffects: [{
+      id: "global-stun",
+      type: "stun",
+      turns: 1
+    }]
+  };
+
+  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["chakra", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "instant"] }), true);
+});
+
+test("complex stun can affect specific skill families", () => {
+  const member = {
+    statusEffects: [{
+      id: "complex-mental-stun",
+      type: "complex",
+      turns: 1,
+      effects: [{ type: "stun", value: 1, targets: "self", familiesAffected: ["mental"] }]
+    }]
+  };
+
+  assert.equal(isSkillStunned(member, { id: "uzumaki-resolve", family: ["mental", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["chakra", "instant"] }), false);
+});
+
+test("replaceSkill swaps a base skill with an extra skill while active", () => {
+  const gaara = getCharacterById("gaara");
+  const member = { statusEffects: [], character: gaara };
+
+  assert.deepEqual(baseSkillsForCharacter(gaara).map((skill) => skill.id), ["sand-coffin", "sand-shield", "sand-armor", "substitution-jutsu"]);
+  assert.ok(gaara.skills.find((skill) => skill.id === "sand-storm")?.isExtraSkill);
+  assert.deepEqual(activeSkillsForMember(member, gaara).map((skill) => skill.id), ["sand-coffin", "sand-shield", "sand-armor", "substitution-jutsu"]);
+
+  addStatus(member, {
+    id: "sand-armor-replacement",
+    type: "replaceSkill",
+    turns: 2,
+    baseSkillId: "sand-armor",
+    skillId: "sand-storm",
+    sourceSkillId: "sand-armor",
+    sourceSkillName: "Armadura de arena",
+    sourceActorName: "Gaara",
+    createdTurn: 1
+  });
+
+  assert.deepEqual(activeSkillsForMember(member, gaara).map((skill) => skill.id), ["sand-coffin", "sand-shield", "sand-storm", "substitution-jutsu"]);
+  assert.equal(
+    effectDescription({ type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "sand-armor", skillId: "sand-storm" }),
+    "Reemplaza habilidad por 2 turno(s): Armadura de arena -> Tormenta de arena"
+  );
+});
+
 test("chakra cost modifiers clamp skill costs at zero", () => {
   const member = {
     statusEffects: [{
@@ -167,5 +333,26 @@ test("chakra cost modifiers clamp skill costs at zero", () => {
   assert.deepEqual(
     modifiedSkillChakraCost(member, { id: "gentle-fist", name: "Puno suave", chakra: { taijutsu: 1, neutralChakra: 1 } }),
     { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0, neutralChakra: 2 }
+  );
+});
+
+test("substituteChakraCost replaces the original skill cost", () => {
+  const member = {
+    statusEffects: [{
+      id: "replacement-cost",
+      type: "substituteChakraCost",
+      turns: 2,
+      chakra: { taijutsu: 0, ninjutsu: 2, bloodline: 0, genjutsu: 0, neutralChakra: 1 },
+      skillIds: ["gentle-fist"]
+    }]
+  };
+
+  assert.deepEqual(
+    modifiedSkillChakraCost(member, { id: "gentle-fist", name: "Puno suave", chakra: { taijutsu: 1, neutralChakra: 1 } }),
+    { taijutsu: 0, ninjutsu: 2, bloodline: 0, genjutsu: 0, neutralChakra: 1 }
+  );
+  assert.equal(
+    effectDescription({ type: "substituteChakraCost", chakra: { ninjutsu: 2, neutralChakra: 1 }, targets: "self", skillIds: ["gentle-fist"] }),
+    "Sustituye coste: 2 de ninjutsu, 1 neutral (Puño suave)"
   );
 });

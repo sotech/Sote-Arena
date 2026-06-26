@@ -1,7 +1,6 @@
 export const kakashi = {
   id: "kakashi",
   name: "Kakashi Hatake",
-  role: "Control",
   avatar: "KH",
   maxHp: 100,
   skills: [
@@ -19,19 +18,21 @@ export const kakashi = {
           targets: "target",
           bonusWhen: [{ bonus: 10, require: { type: "hasMaxHp", hp: 50 } }]
         }
-      ]
+      ],
+      family:["chakra","instant"]
     },
     {
       id: "tactical-read",
       name: "Lectura tactica",
       chakra: { genjutsu: 2 , neutralChakra: 1 },
       targetType: "enemy",
-      description: "Leyendo sus novelas aburridas, Kakashi inflige 15 de dano y aturde 2 turnos a un enemigo.",
+      description: "Leyendo sus novelas aburridas, Kakashi inflige 15 de dano y aturde las habilidades fisicas 2 turnos a un enemigo.",
       effects: [
         { type: "damage", value: 15, targets: "target" },
-        { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
+        { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 1, targets: "self", familiesAffected: ["physical"] }] }
       ],
-      cooldown: 3
+      cooldown: 3,
+      family:["mental","instant"]
     },
     {
       id: "ninken-trap",
@@ -42,7 +43,8 @@ export const kakashi = {
       effects: [
         { type: "damage", value: 25, damageType: "piercing", targets: "target" },
       ],
-      cooldown: 1
+      cooldown: 1,
+      family:["physical","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -51,7 +53,8 @@ export const kakashi = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
     }
   ]
 };

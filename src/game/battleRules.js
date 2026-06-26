@@ -7,6 +7,17 @@ export function teamHealthPercent(player) {
   return max > 0 ? current / max : 0;
 }
 
+export function teamCurrentHealth(player) {
+  return (player?.team || []).reduce((total, member) => total + Math.max(0, member.hp), 0);
+}
+
+export function playerHealthShare(player, opponent) {
+  const ownHealth = teamCurrentHealth(player);
+  const opponentHealth = teamCurrentHealth(opponent);
+  const totalHealth = ownHealth + opponentHealth;
+  return totalHealth > 0 ? ownHealth / totalHealth : 0.5;
+}
+
 export function skillCooldownFor(member, skillId) {
   return Math.max(0, member?.skillCooldowns?.[skillId] || 0);
 }
@@ -23,6 +34,22 @@ export function hasStatus(member, type) {
   return (member?.statusEffects || []).some((effect) => {
     if (effect.type === type && effect.turns > 0) return true;
     return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => childEffect.type === type);
+  });
+}
+
+function stunAffectsSkill(effect, skill) {
+  if (!Array.isArray(effect.familiesAffected) || effect.familiesAffected.length === 0) return true;
+  const skillFamilies = Array.isArray(skill?.family) ? skill.family : [];
+  return effect.familiesAffected.some((family) => skillFamilies.includes(family));
+}
+
+export function isSkillStunned(member, skill) {
+  return (member?.statusEffects || []).some((effect) => {
+    if (effect.type === "stun" && effect.turns > 0) return stunAffectsSkill(effect, skill);
+    if (effect.type !== "complex" || effect.turns <= 0) return false;
+    return (effect.effects || []).some((childEffect) => (
+      childEffect.type === "stun" && stunAffectsSkill(childEffect, skill)
+    ));
   });
 }
 

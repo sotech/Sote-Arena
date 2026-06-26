@@ -1,7 +1,6 @@
 export const sakura = {
   id: "sakura",
   name: "Sakura Haruno",
-  role: "Soporte",
   avatar: "SH",
   maxHp: 100,
   skills: [
@@ -11,7 +10,8 @@ export const sakura = {
       chakra: { taijutsu: 1 },
       targetType: "enemy",
       description: "Sakura utiliza su control de chakra en su puño e inflige 20 de dano a un enemigo.",
-      effects: [{ type: "damage", value: 20, targets: "target" }]
+      effects: [{ type: "damage", value: 20, targets: "target" }],
+      family:["physical","chakra","instant"]
     },
     {
       id: "medical-ninjutsu",
@@ -23,7 +23,8 @@ export const sakura = {
         { type: "heal", value: 25, targets: "target" },
         { type: "complex", duration: 2, targets: "self", effects: [{ type: "modifyDamage", value: 10, targets: "self", skillIds: ["chakra-punch"] }] }
       ],
-      cooldown: 1
+      cooldown: 1,
+      family:["chakra","instant"]
     },
     {
       id: "team-medical-care",
@@ -35,7 +36,8 @@ export const sakura = {
         { type: "heal", value: 15, targets: "target" },
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "damage-reduction", value: 10, targets: "self" }] }
       ],
-      cooldown: 3
+      cooldown: 3,
+      family:["chakra","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -44,7 +46,8 @@ export const sakura = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
     }
   ]
 };

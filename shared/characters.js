@@ -23,6 +23,9 @@ function effectBotDescription(effect) {
   if (effect.type === "shield") return `shield-${effect.value}`;
   if (effect.type === "damage-reduction") return `damageReduction-${effect.value}`;
   if (effect.type === "modifyDamage") return `modifyDamage-${effect.value}`;
+  if (effect.type === "modifyDamageType") return `modifyDamageType-${effect.damageType || "basic"}`;
+  if (effect.type === "addEffectToBase") return `addEffectToBase-${(effect.effects || []).map(effectBotDescription).join(",")}`;
+  if (effect.type === "replaceSkill") return `replaceSkill-${effect.baseSkillId || ""}-${effect.skillId || ""}`;
   if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") return `${effect.type}-${JSON.stringify(effect.chakra || {})}`;
   if (effect.type === "stun") return `stun-${effect.value}`;
   if (effect.type === "invulnerable") return `invulnerable-${effect.value}`;

@@ -1,7 +1,6 @@
 export const sasuke = {
   id: "sasuke",
   name: "Sasuke Uchiha",
-  role: "Dano explosivo",
   avatar: "SU",
   maxHp: 100,
   skills: [
@@ -14,7 +13,8 @@ export const sasuke = {
       requires: [{ type: "hasStatusEffect", effectId: "sharingan", message: "Chidori requiere Sharingan activo." }],
       effects: [
         { type: "damage", value: 35, damageType: "piercing", targets: "target", bonusWhen: [{ bonus: 15, require: { type: "hasMaxHp", hp: 50 } }] }
-      ]
+      ],
+      family:["chakra","instant"]
     },
     {
       id: "sharingan",
@@ -32,7 +32,8 @@ export const sasuke = {
           ]
         }
       ],
-      cooldown: 4
+      cooldown: 4,
+      family:["mental","instant"]
     },
     {
       id: "curse-mark-leech",
@@ -44,7 +45,8 @@ export const sasuke = {
         { type: "damage", value: 20, damageType: "affliction", targets: "target" },
         { type: "self-heal", value: 20, targets: "self" }
       ],
-      cooldown: 1
+      cooldown: 1,
+      family:["chakra","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -53,7 +55,8 @@ export const sasuke = {
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
-      cooldown: 4
+      cooldown: 4,
+      family:["physical","instant"]
     }
   ]
 };
