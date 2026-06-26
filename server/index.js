@@ -6,6 +6,7 @@ import { Server } from "socket.io";
 import { characters, getCharacterById } from "../shared/characters.js";
 import { supportedEffectTypes } from "../shared/effects.js";
 import { normalizeRequireScope, normalizeRequireType } from "../shared/requires.js";
+import { createBotPlayer, scheduleBotIfNeeded } from "./bot.js";
 import {
   CHAKRA_TYPES,
   applyChakraGain,
@@ -56,7 +57,6 @@ const io = new Server(server, {
 
 const rooms = new Map();
 const socketRooms = new Map();
-const BOT_NAME = "Sote IA";
 
 function publicRoom(room) {
   return {
@@ -111,39 +111,6 @@ function broadcast(room) {
 
 function randomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
-}
-
-function weightedRandomItem(items) {
-  const totalWeight = items.reduce((total, item) => total + Math.max(1, item.priority || 1), 0);
-  let pick = Math.random() * totalWeight;
-  for (const item of items) {
-    pick -= Math.max(1, item.priority || 1);
-    if (pick <= 0) return item;
-  }
-  return items[items.length - 1];
-}
-
-function randomTeamIds() {
-  return [...characters]
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3)
-    .map((character) => character.id);
-}
-
-function createBotPlayer(roomCode) {
-  return {
-    id: `bot-${roomCode}`,
-    name: BOT_NAME,
-    side: "blue",
-    isBot: true,
-    connected: true,
-    ready: true,
-    chakra: emptyChakra(),
-    chakraExchange: null,
-    queue: [],
-    botSkillPlan: [],
-    team: createTeam(randomTeamIds())
-  };
 }
 
 function maybeStart(room) {
@@ -1082,137 +1049,20 @@ function surrender(room, playerId) {
   return null;
 }
 
-function botTargetIdsForSkill(room, bot, actor, skill) {
-  const opponent = opponentOf(room, bot.id);
-  if (skill.targetType === "self") return [actor.id];
-  if (skill.targetType === "ally") return aliveMembers(bot).map((member) => member.id);
-  if (skill.targetType === "allies") return [aliveMembers(bot)[0]?.id].filter(Boolean);
-  if (skill.targetType === "enemy") {
-    return aliveMembers(opponent)
-      .filter((member) => canBeTargetedBy(bot, member))
-      .map((member) => member.id);
-  }
-  if (skill.targetType === "enemies") {
-    return [aliveMembers(opponent).find((member) => canBeTargetedBy(bot, member))?.id].filter(Boolean);
-  }
-  if (skill.targetType === "allPlayers") {
-    return [
-      aliveMembers(bot)[0]?.id,
-      aliveMembers(opponent).find((member) => canBeTargetedBy(bot, member))?.id
-    ].filter(Boolean);
-  }
-  return [];
-}
-
-function estimateDamageAgainstTarget(actor, skill, effect, target, currentTurn) {
-  const rawDamage = Math.max(0, Number(effect.value || 0))
-    + damageBuffValue(actor, skill, currentTurn)
-    + damageBonusForTarget(effect, target);
-  const damageType = effect.damageType || "basic";
-  const shield = damageType === "basic" || damageType === "piercing" ? shieldValue(target) : 0;
-  return Math.max(0, rawDamage - shield);
-}
-
-function botSkillCanKill(room, bot, actor, skill, targetId) {
-  const targets = resolveEffectTargets(room, bot, actor, targetId, skill, { targets: "target" })
-    .filter((target) => target.hp > 0);
-  return (skill.effects || [])
-    .filter((effect) => effect.type === "damage")
-    .some((effect) => targets.some((target) => estimateDamageAgainstTarget(actor, skill, effect, target, room.turn) >= target.hp));
-}
-
-function botActionPriority(room, bot, actor, skill, targetId) {
-  let priority = 10;
-  const description = skill.botDescription || "";
-
-  if (description.includes("invulnerable-")) {
-    priority = 1;
-    if (actor.hp <= 50) priority = 12;
-    if (actor.hp <= 25) priority = 18;
-  }
-
-  if (botSkillCanKill(room, bot, actor, skill, targetId)) {
-    priority += 80;
-  }
-
-  if (description.includes("damage-")) priority += 8;
-  if (description.includes("heal-") && actor.hp <= 60) priority += 8;
-  return priority;
-}
-
-function botSkillOptions(room, bot) {
-  const options = [];
-  for (const actor of aliveMembers(bot)) {
-    const actorCharacter = getCharacterById(actor.characterId);
-    for (const skill of actorCharacter.skills) {
-      for (const targetId of botTargetIdsForSkill(room, bot, actor, skill)) {
-        const validation = validateSkillAction(room, bot.id, actor.id, targetId, skill.id);
-        if (typeof validation !== "string") {
-          options.push({
-            actorId: actor.id,
-            targetId,
-            skillId: skill.id,
-            botDescription: skill.botDescription,
-            priority: botActionPriority(room, bot, actor, skill, targetId)
-          });
-        }
-      }
-    }
-  }
-  return options;
-}
-
-function botNeutralPayment(player) {
-  let remaining = queuedNeutralChakraCost(player);
-  const payment = emptyChakra();
-  for (const type of CHAKRA_TYPES) {
-    if (remaining <= 0) break;
-    const amount = Math.min(remaining, player.chakra[type] || 0);
-    payment[type] = amount;
-    remaining -= amount;
-  }
-  return payment;
-}
-
-function playBotTurn(room) {
-  const bot = findPlayer(room, room.activePlayerId);
-  if (!bot?.isBot || room.phase !== "battle") return;
-
-  const maxActions = aliveMembers(bot).length;
-  for (let actionIndex = 0; actionIndex < maxActions; actionIndex += 1) {
-    bot.botSkillPlan = botSkillOptions(room, bot);
-    if (bot.botSkillPlan.length === 0) break;
-
-    const action = weightedRandomItem(bot.botSkillPlan);
-    const error = queueSkill(room, bot.id, action.actorId, action.targetId, action.skillId);
-    if (error) break;
-  }
-  bot.botSkillPlan = botSkillOptions(room, bot);
-}
-
-function scheduleBotIfNeeded(room) {
-  const activePlayer = findPlayer(room, room.activePlayerId);
-  if (room?.phase !== "battle" || !activePlayer?.isBot || room.botTurnInProgress) return;
-
-  room.botTurnInProgress = true;
-  playBotTurn(room);
-  broadcast(room);
-
-  setTimeout(() => {
-    const currentRoom = rooms.get(room.code);
-    const bot = currentRoom ? findPlayer(currentRoom, currentRoom.activePlayerId) : null;
-    if (!currentRoom) return;
-    if (currentRoom.phase !== "battle" || !bot?.isBot) {
-      currentRoom.botTurnInProgress = false;
-      return;
-    }
-
-    resolveTurn(currentRoom, bot.id, botNeutralPayment(bot));
-    bot.botSkillPlan = [];
-    currentRoom.botTurnInProgress = false;
-    broadcast(currentRoom);
-    scheduleBotIfNeeded(currentRoom);
-  }, 2000);
+function botEngine() {
+  return {
+    aliveMembers,
+    broadcast,
+    canBeTargetedBy,
+    damageBonusForTarget,
+    damageBuffValue,
+    queueSkill,
+    resolveEffectTargets,
+    resolveTurn,
+    rooms,
+    shieldValue,
+    validateSkillAction
+  };
 }
 
 app.get("/api/characters", (_req, res) => {
@@ -1356,7 +1206,7 @@ io.on("connection", (socket) => {
     player.ready = true;
     room.log.unshift(`${player.name} confirmo su equipo.`);
     maybeStart(room);
-    scheduleBotIfNeeded(room);
+    scheduleBotIfNeeded(room, botEngine());
     callback?.({ ok: true });
     broadcast(room);
   });
@@ -1393,7 +1243,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    scheduleBotIfNeeded(room);
+    scheduleBotIfNeeded(room, botEngine());
     callback?.({ ok: true });
     broadcast(room);
   });
