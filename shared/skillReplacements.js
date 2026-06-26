@@ -4,7 +4,7 @@ export function baseSkillsForCharacter(character) {
 
 function skillReplacementApplies(effect, baseSkill) {
   return effect?.type === "replaceSkill"
-    && effect.turns > 0
+    && (effect.turns > 0 || effect.turns === -1)
     && effect.baseSkillId === baseSkill.id
     && effect.skillId;
 }
@@ -12,9 +12,9 @@ function skillReplacementApplies(effect, baseSkill) {
 export function replacementEffectsForSkill(member, baseSkill) {
   return (member?.statusEffects || []).flatMap((effect) => {
     if (skillReplacementApplies(effect, baseSkill)) return [effect];
-    if (effect.type === "complex" && effect.turns > 0) {
+    if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
       return (effect.effects || [])
-        .map((childEffect) => ({ ...childEffect, turns: 1 }))
+        .map((childEffect) => ({ ...childEffect, turns: childEffect.duration === -1 ? -1 : 1 }))
         .filter((childEffect) => skillReplacementApplies(childEffect, baseSkill));
     }
     return [];

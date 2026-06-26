@@ -70,8 +70,8 @@ export const effectTypes = {
     fields: ["type", "duration", "targets", "skillIds", "effects"]
   },
   replaceSkill: {
-    description: "Reemplaza una habilidad base por otra habilidad durante una duracion en turnos. baseSkillId indica la habilidad visible a reemplazar y skillId indica la habilidad que ocupa su lugar.",
-    fields: ["type", "duration", "targets", "baseSkillId", "skillId"]
+    description: "Reemplaza una habilidad base por otra habilidad durante una duracion en turnos. duration -1 hace el reemplazo permanente. baseSkillId indica la habilidad visible a reemplazar; si se omite, se usa la habilidad que lanza el efecto. skillId indica la habilidad que ocupa su lugar. showStatusEffect define si se muestra el statusEffect; si se omite, se muestra.",
+    fields: ["type", "duration", "targets", "baseSkillId", "skillId", "showStatusEffect"]
   },
   modifyChakraCost: {
     description: "Modifica el coste de chakra de las habilidades del objetivo. chakra acepta taijutsu, ninjutsu, bloodline, genjutsu y neutralChakra con valores positivos o negativos. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas. El coste final nunca baja de 0.",

@@ -12,8 +12,8 @@ import { effectDescription, groupStatusEffects, statusEffectGroupValue } from ".
 const chakraTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
 
 test("catalog exposes the playable characters", () => {
-  assert.equal(characters.length, 8);
-  assert.equal(new Set(characters.map((character) => character.id)).size, 8);
+  assert.equal(characters.length, 9);
+  assert.equal(new Set(characters.map((character) => character.id)).size, 9);
 });
 
 test("characters can be imported from individual folders", () => {
@@ -84,9 +84,9 @@ test("skill effects use the documented effect system", () => {
         } else if (effect.type === "addEffectToBase") {
           assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
         } else if (effect.type === "replaceSkill") {
-          assert.ok(effect.duration > 0);
-          assert.ok(effect.baseSkillId);
+          assert.ok(effect.duration > 0 || effect.duration === -1);
           assert.ok(effect.skillId);
+          if (effect.showStatusEffect !== undefined) assert.equal(typeof effect.showStatusEffect, "boolean");
         } else if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
           assert.ok(effect.chakra && Object.values(effect.chakra).some((value) => Number(value || 0) !== 0));
         } else {
@@ -317,6 +317,54 @@ test("replaceSkill swaps a base skill with an extra skill while active", () => {
     effectDescription({ type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "sand-armor", skillId: "sand-storm" }),
     "Reemplaza habilidad por 2 turno(s): Armadura de arena -> Tormenta de arena"
   );
+});
+
+test("replaceSkill duration -1 swaps a base skill permanently", () => {
+  const kakuzu = getCharacterById("kakuzu");
+  const member = { statusEffects: [], character: kakuzu };
+
+  addStatus(member, {
+    id: "fuuton-permanent-replacement",
+    type: "replaceSkill",
+    turns: -1,
+    baseSkillId: "fuuton-pressure-damage",
+    skillId: "katon-inferno-fire",
+    sourceSkillId: "fuuton-pressure-damage",
+    sourceSkillName: "Estilo de viento: Presion de dano",
+    sourceActorName: "Kakuzu",
+    createdTurn: 1
+  });
+
+  assert.deepEqual(activeSkillsForMember(member, kakuzu).map((skill) => skill.id), ["katon-inferno-fire", "tactical-read", "ninken-trap", "substitution-jutsu"]);
+  assert.equal(
+    effectDescription({ type: "replaceSkill", duration: -1, targets: "self", baseSkillId: "fuuton-pressure-damage", skillId: "katon-inferno-fire" }),
+    "Reemplaza habilidad permanentemente: Estilo de viento: Presion de dano -> Estilo de fuego: Fuego infernal"
+  );
+  assert.equal(
+    effectDescription({ type: "replaceSkill", duration: -1, targets: "self", skillId: "fuuton-pressure-damage" }),
+    "Reemplaza habilidad permanentemente: habilidad actual -> Estilo de viento: Presion de dano"
+  );
+});
+
+test("replaceSkill can hide its status effect without disabling the replacement", () => {
+  const gaara = getCharacterById("gaara");
+  const member = { statusEffects: [], character: gaara };
+
+  addStatus(member, {
+    id: "hidden-sand-armor-replacement",
+    type: "replaceSkill",
+    turns: -1,
+    baseSkillId: "sand-armor",
+    skillId: "sand-storm",
+    showStatusEffect: false,
+    sourceSkillId: "sand-armor",
+    sourceSkillName: "Armadura de arena",
+    sourceActorName: "Gaara",
+    createdTurn: 1
+  });
+
+  assert.deepEqual(activeSkillsForMember(member, gaara).map((skill) => skill.id), ["sand-coffin", "sand-shield", "sand-storm", "substitution-jutsu"]);
+  assert.deepEqual(groupStatusEffects(member.statusEffects), []);
 });
 
 test("chakra cost modifiers clamp skill costs at zero", () => {

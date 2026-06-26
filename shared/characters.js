@@ -6,6 +6,7 @@ import { hinata } from "./characters/hinata/index.js";
 import { gaara } from "./characters/gaara/index.js";
 import { kankurou } from "./characters/kankurou/index.js";
 import { daniel } from "./characters/daniel/index.js";
+import { kakuzu } from "./characters/kakuzu/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -53,7 +54,7 @@ function withSkillDefaults(character) {
   };
 }
 
-export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kankurou, daniel].map(withSkillDefaults);
+export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kankurou, daniel, kakuzu].map(withSkillDefaults);
 
 export function getCharacterById(id) {
   return characters.find((character) => character.id === id);
