@@ -39,10 +39,10 @@ export const sasuke = {
       name: "Marca maldita",
       chakra: { bloodline: 1 },
       targetType: "enemy",
-      description: "Inflige 15 de dano afliccion a un enemigo y cura 15 de vida al lanzador.",
+      description: "Inflige 20 de dano afliccion a un enemigo y cura 20 de vida al lanzador.",
       effects: [
-        { type: "damage", value: 15, damageType: "affliction", targets: "target" },
-        { type: "self-heal", value: 15, targets: "self" }
+        { type: "damage", value: 20, damageType: "affliction", targets: "target" },
+        { type: "self-heal", value: 20, targets: "self" }
       ],
       cooldown: 1
     },
