@@ -12,7 +12,7 @@ export function chakraCostLabel(chakra = {}) {
 
 export function groupStatusEffects(effects = []) {
   const groups = new Map();
-  for (const [index, effect] of effects.entries()) {
+  for (const [index, effect] of effects.filter((effect) => effect.showStatusEffect !== false).entries()) {
     const key = effect.id || `${effect.sourceSkillId || effect.type}-${index}`;
     const current = groups.get(key);
     if (current) {
@@ -32,6 +32,7 @@ export function groupStatusEffects(effects = []) {
 }
 
 export function statusEffectGroupValue(group) {
+  if (group.effects.some((effect) => effect.turns === -1)) return "∞";
   const timedEffects = group.effects.filter((effect) => Number.isFinite(effect.turns));
   if (timedEffects.length > 0) {
     return Math.max(...timedEffects.map((effect) => effect.turns));
@@ -46,15 +47,22 @@ export function statusEffectGroupMeta(group) {
 
 export function statusEffectValue(effect) {
   if (effect.type === "shield") return effect.remainingShield || effect.value;
+  if (effect.turns === -1) return "∞";
   if (Number.isFinite(effect.turns)) return effect.turns;
   return effect.turns;
 }
 
 export function statusEffectMeta(effect) {
   if (effect.type === "shield") return "Escudo destruible";
+  if (effect.turns === -1) return "Permanente";
   if (effect.type === "complex") return `Turnos restantes: ${effect.turns}`;
   if (effect.type === "damage-reduction") return `Turnos restantes: ${effect.turns}`;
   return `Turnos restantes: ${effect.turns}`;
+}
+
+function durationDescription(duration) {
+  if (duration === -1) return " permanentemente";
+  return duration ? ` por ${duration} turno(s)` : "";
 }
 
 export function effectDescription(effect) {
@@ -73,23 +81,24 @@ export function effectDescription(effect) {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const value = Number(effect.value || 0);
     const amount = Math.abs(value);
-    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    const duration = durationDescription(effect.duration);
     return `${value < 0 ? "Reduce" : "Aumenta"} dano: ${value < 0 ? "-" : "+"}${amount}${duration}${scope}`;
   }
   if (effect.type === "modifyDamageType") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
-    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    const duration = durationDescription(effect.duration);
     return `Cambia tipo de dano: ${damageTypeLabel(effect.damageType)}${duration}${scope}`;
   }
   if (effect.type === "addEffectToBase") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
-    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    const duration = durationDescription(effect.duration);
     const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
     return `Agrega efecto${duration}${scope}${descriptions ? `: ${descriptions}` : ""}`;
   }
   if (effect.type === "replaceSkill") {
-    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
-    return `Reemplaza habilidad${duration}: ${getSkillNameById(effect.baseSkillId)} -> ${getSkillNameById(effect.skillId)}`;
+    const duration = durationDescription(effect.duration);
+    const baseSkillName = effect.baseSkillId ? getSkillNameById(effect.baseSkillId) : "habilidad actual";
+    return `Reemplaza habilidad${duration}: ${baseSkillName} -> ${getSkillNameById(effect.skillId)}`;
   }
   if (chakraCostModifierTypes.includes(effect.type)) {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";

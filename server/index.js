@@ -270,13 +270,19 @@ function expireStatusEffects(player, currentTurn) {
     member.statusEffects = (member.statusEffects || [])
       .map((effect) => {
         if (effect.type === "shield") return effect;
+        if (effect.turns === -1) return effect;
         const nextEffect = effect.createdTurn === currentTurn ? effect : { ...effect, turns: effect.turns - 1 };
         return nextEffect.type === "complex"
           ? { ...nextEffect, descriptions: complexDescriptions(nextEffect) }
           : nextEffect;
       })
-      .filter((effect) => (effect.type === "shield" ? (effect.remainingShield || 0) > 0 : effect.turns > 0));
+      .filter((effect) => (effect.type === "shield" ? (effect.remainingShield || 0) > 0 : effect.turns > 0 || effect.turns === -1));
   });
+}
+
+function mergeStatusTurns(currentTurns, nextTurns) {
+  if (currentTurns === -1 || nextTurns === -1) return -1;
+  return Math.max(currentTurns, nextTurns);
 }
 
 function hasStatus(member, type) {
@@ -326,7 +332,7 @@ export function addStatus(member, status) {
     if (existing) {
       existing.value = status.value;
       existing.remainingReduction = status.remainingReduction;
-      existing.turns = Math.max(existing.turns, status.turns);
+      existing.turns = mergeStatusTurns(existing.turns, status.turns);
       existing.restoresEachTurn = status.restoresEachTurn;
       existing.descriptions = damageReductionDescriptions(existing);
       existing.createdTurn = status.createdTurn;
@@ -346,8 +352,9 @@ export function addStatus(member, status) {
       existing.baseSkillId = status.baseSkillId;
       existing.skillId = status.skillId;
       existing.chakra = status.chakra;
-      existing.turns = Math.max(existing.turns, status.turns);
+      existing.turns = mergeStatusTurns(existing.turns, status.turns);
       existing.skillIds = status.skillIds;
+      existing.showStatusEffect = status.showStatusEffect;
       existing.descriptions = modifierDescriptions(status);
       existing.createdTurn = status.createdTurn;
       existing.originActorId = status.originActorId;
@@ -365,7 +372,7 @@ export function addStatus(member, status) {
   }
   
   if (existing) {
-    existing.turns = Math.max(existing.turns, status.turns);
+    existing.turns = mergeStatusTurns(existing.turns, status.turns);
     existing.familiesAffected = status.familiesAffected;
     existing.descriptions = status.descriptions;
     existing.createdTurn = status.createdTurn;
@@ -432,7 +439,8 @@ function addEffectToBaseDescriptions(effect) {
 }
 
 function replaceSkillDescriptions(effect) {
-  return [`${effect.sourceActorName || "Un personaje"} reemplazo ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`];
+  const duration = effect.turns === -1 ? " permanentemente" : "";
+  return [`${effect.sourceActorName || "Un personaje"} reemplazo${duration} ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`];
 }
 
 function modifierDescriptions(effect) {
@@ -478,7 +486,8 @@ function simpleEffectDescription(effect) {
     return `Agrega efectos${scope}${descriptions ? `: ${descriptions}` : ""}.`;
   }
   if (effect.type === "replaceSkill") {
-    return `Reemplaza ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;
+    const duration = effect.duration === -1 || effect.turns === -1 ? " permanentemente" : "";
+    return `Reemplaza${duration} ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;
   }
   if (chakraCostModifierTypes.includes(effect.type)) {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
@@ -496,8 +505,9 @@ function simpleEffectDescription(effect) {
 }
 
 function complexDescriptions(effect) {
+  const duration = effect.turns === -1 ? "permanentemente" : `por ${effect.turns} turno(s)`;
   return [
-    `${effect.sourceActorName || "Un personaje"} mantiene este efecto por ${effect.turns} turno(s).`,
+    `${effect.sourceActorName || "Un personaje"} mantiene este efecto ${duration}.`,
     ...(effect.effects || []).map(simpleEffectDescription)
   ];
 }
@@ -1092,12 +1102,14 @@ function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "replaceSkill") {
       for (const target of targets) {
+        const baseSkillId = effect.baseSkillId || skill.id;
         addStatus(target, {
           id: randomUUID(),
           type: "replaceSkill",
           turns: effect.duration,
-          baseSkillId: effect.baseSkillId,
+          baseSkillId,
           skillId: effect.skillId,
+          showStatusEffect: effect.showStatusEffect,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
