@@ -27,9 +27,17 @@ export const effectTypes = {
     description: "Otorga reduccion de dano durante una duracion en turnos. Puede restaurarse al inicio de cada turno.",
     fields: ["type", "value", "duration", "targets", "restoresEachTurn"]
   },
-  buffDamage: {
-    description: "Aumenta el dano de las habilidades del objetivo durante una duracion en turnos. skillIds permite limitar el bonus a habilidades especificas; si se omite, afecta a todas.",
+  modifyDamage: {
+    description: "Modifica el dano de las habilidades del objetivo durante una duracion en turnos. value positivo aumenta el dano y value negativo lo reduce. skillIds permite limitar el modificador a habilidades especificas; si se omite, afecta a todas.",
     fields: ["type", "value", "duration", "targets", "skillIds"]
+  },
+  modifyChakraCost: {
+    description: "Modifica el coste de chakra de las habilidades del objetivo. chakra acepta taijutsu, ninjutsu, bloodline, genjutsu y neutralChakra con valores positivos o negativos. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas. El coste final nunca baja de 0.",
+    fields: ["type", "chakra", "duration", "targets", "skillIds"]
+  },
+  substituteChakraCost: {
+    description: "Sustituye partes del coste de chakra de las habilidades del objetivo usando deltas por chakra. chakra acepta taijutsu, ninjutsu, bloodline, genjutsu y neutralChakra con valores positivos o negativos. skillIds permite limitarlo a habilidades especificas; si se omite, afecta a todas. El coste final nunca baja de 0.",
+    fields: ["type", "chakra", "duration", "targets", "skillIds"]
   },
   stun: {
     description: "Impide que cada objetivo use habilidades durante la cantidad indicada de turnos.",

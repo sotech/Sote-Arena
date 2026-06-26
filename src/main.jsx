@@ -1,13 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Search, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
 import { characterImage, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
 import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, meetsSkillRequirements, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
 import { effectDescription, groupStatusEffects, requirementDescription, statusEffectGroupMeta, statusEffectGroupValue, targetTypeLabel } from "./game/labels.js";
+import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import "./styles.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
@@ -56,6 +58,9 @@ function App() {
   const opponent = room?.players.find((player) => player.id !== playerId);
   const isMyTurn = room?.activePlayerId === playerId;
   const matchResult = room?.phase === "finished" ? (room.winnerId === playerId ? "Ganaste" : "Perdiste") : "";
+  const matchResultReason = room?.finishReason?.type === "disconnect"
+    ? (room.finishReason.loserId === playerId ? "Perdiste por: Desconexion" : `Ganaste por: Desconexion de ${room.finishReason.loserName || "tu rival"}`)
+    : "";
 
   useEffect(() => {
     if (!actorId && me?.team?.length) {
@@ -484,7 +489,7 @@ function App() {
         />
       )}
 
-      {matchResult && <ResultModal title={matchResult} onReturnHome={returnHome} />}
+      {matchResult && <ResultModal title={matchResult} reason={matchResultReason} onReturnHome={returnHome} />}
       {optionsOpen && (
         <OptionsModal
           volume={volume}
@@ -521,6 +526,62 @@ function MainMenu({ onPlay, onPlayBot, onCharacters, onOptions }) {
   );
 }
 
+function filterCharacters(characters, search) {
+  const query = search.trim().toLowerCase();
+  if (!query) return characters;
+  return characters.filter((character) => (
+    character.name.toLowerCase().includes(query)
+    || character.id.toLowerCase().includes(query)
+  ));
+}
+
+function CharacterSearch({ value, onChange, placeholder, disabled = false }) {
+  return (
+    <label className="character-search" aria-label="Buscar personaje">
+      <Search size={18} aria-hidden="true" />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+    </label>
+  );
+}
+
+const chakraUsageTypes = [
+  ...chakraTypes,
+  { id: "neutralChakra", label: "Neutral", className: "neutral" }
+];
+
+function characterChakraUsage(character) {
+  const totals = chakraUsageTypes.reduce((usage, type) => ({ ...usage, [type.id]: 0 }), {});
+  for (const skill of character?.skills || []) {
+    for (const type of chakraUsageTypes) {
+      totals[type.id] += Math.max(0, Number(skill.chakra?.[type.id] || 0));
+    }
+  }
+  const totalChakraCost = Object.values(totals).reduce((total, amount) => total + amount, 0);
+  return chakraUsageTypes.map((type) => ({
+    ...type,
+    percent: totalChakraCost > 0 ? Math.round((totals[type.id] / totalChakraCost) * 100) : 0
+  }));
+}
+
+function CharacterChakraUsage({ character }) {
+  return (
+    <div className="character-chakra-usage" aria-label={`Uso de chakra de ${character.name}`}>
+      {characterChakraUsage(character).map((type) => (
+        <span className="character-chakra-usage-item" key={type.id} aria-label={`${type.label}: ${type.percent}%`}>
+          <ChakraIcon type={type.id} />
+          <b>{type.percent}%</b>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function OptionsModal({ volume, canSurrender = false, onVolumeChange, onSurrender, onClose }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="options-title">
@@ -551,12 +612,13 @@ function OptionsModal({ volume, canSurrender = false, onVolumeChange, onSurrende
   );
 }
 
-function ResultModal({ title, onReturnHome }) {
+function ResultModal({ title, reason, onReturnHome }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="result-title">
       <div className="result-modal">
         <p className="eyebrow">Partida finalizada</p>
         <h2 id="result-title">{title}</h2>
+        {reason && <p className="result-reason">{reason}</p>}
         <button onClick={onReturnHome}>
           <Swords size={18} />
           Regresar al inicio
@@ -567,14 +629,16 @@ function ResultModal({ title, onReturnHome }) {
 }
 
 function CharactersCatalog({ characters, onBack }) {
-  const pageSize = 6;
+  const pageSize = 10;
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [inspectedCharacterId, setInspectedCharacterId] = useState("");
   const [inspectedSkillId, setInspectedSkillId] = useState("");
-  const totalPages = Math.max(1, Math.ceil(characters.length / pageSize));
+  const filteredCharacters = filterCharacters(characters, search);
+  const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageCharacters = characters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const inspectedCharacter = characters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
+  const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
   const inspectedSkill = inspectedCharacter?.skills.find((skill) => skill.id === inspectedSkillId) || inspectedCharacter?.skills[0];
 
   useEffect(() => {
@@ -582,11 +646,18 @@ function CharactersCatalog({ characters, onBack }) {
   }, [page, totalPages]);
 
   useEffect(() => {
-    if (!inspectedCharacterId && pageCharacters[0]) {
+    if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
+      setInspectedCharacterId(pageCharacters[0]?.id || "");
+      setInspectedSkillId(pageCharacters[0]?.skills[0]?.id || "");
+    } else if (!inspectedCharacterId && pageCharacters[0]) {
       setInspectedCharacterId(pageCharacters[0].id);
       setInspectedSkillId(pageCharacters[0].skills[0]?.id || "");
     }
-  }, [inspectedCharacterId, pageCharacters]);
+  }, [filteredCharacters, inspectedCharacterId, pageCharacters]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   function inspectCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
@@ -605,6 +676,7 @@ function CharactersCatalog({ characters, onBack }) {
           Atras
         </button>
       </div>
+      <CharacterSearch value={search} onChange={setSearch} placeholder="Buscar personaje" />
       <div className="character-grid">
         {pageCharacters.map((character) => (
           <button
@@ -613,9 +685,9 @@ function CharactersCatalog({ characters, onBack }) {
             onClick={() => inspectCharacter(character.id)}
           >
             <SquareImage alt={character.name} src={characterImage(character.id)} />
-            <strong>{character.name}</strong>
           </button>
         ))}
+        {pageCharacters.length === 0 && <p className="character-empty">No hay personajes para esa busqueda.</p>}
       </div>
       <div className="pagination" aria-label="Paginacion de personajes">
         <button type="button" className="icon-button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
@@ -641,6 +713,7 @@ function CharactersCatalog({ characters, onBack }) {
               </button>
             ))}
           </div>
+          <CharacterChakraUsage character={inspectedCharacter} />
           <SkillFooter skill={inspectedSkill} compact />
         </footer>
       )}
@@ -649,14 +722,16 @@ function CharactersCatalog({ characters, onBack }) {
 }
 
 function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat }) {
-  const pageSize = 6;
+  const pageSize = 10;
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [inspectedCharacterId, setInspectedCharacterId] = useState("");
   const [inspectedSkillId, setInspectedSkillId] = useState("");
-  const totalPages = Math.max(1, Math.ceil(characters.length / pageSize));
+  const filteredCharacters = filterCharacters(characters, search);
+  const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageCharacters = characters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const inspectedCharacter = characters.find((character) => character.id === inspectedCharacterId);
+  const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
   const inspectedSkill = inspectedCharacter?.skills.find((skill) => skill.id === inspectedSkillId) || inspectedCharacter?.skills[0];
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
@@ -665,6 +740,17 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
+      setInspectedCharacterId("");
+      setInspectedSkillId("");
+    }
+  }, [filteredCharacters, inspectedCharacterId]);
 
   function clickCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
@@ -703,6 +789,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
             Confirmar
           </button>
         </div>
+        <CharacterSearch value={search} onChange={setSearch} placeholder="Buscar personaje" disabled={me?.ready} />
         <div className="character-grid">
           {pageCharacters.map((character) => (
             <button
@@ -712,9 +799,9 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
               disabled={me?.ready}
             >
               <SquareImage alt={character.name} src={characterImage(character.id)} />
-              <strong>{character.name}</strong>
             </button>
           ))}
+          {pageCharacters.length === 0 && <p className="character-empty">No hay personajes para esa busqueda.</p>}
         </div>
         <div className="pagination" aria-label="Paginacion de personajes">
           <button type="button" className="icon-button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1 || me?.ready}>
@@ -741,6 +828,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
                 </button>
               ))}
             </div>
+            <CharacterChakraUsage character={inspectedCharacter} />
             <SkillFooter skill={inspectedSkill} compact />
           </footer>
         )}
@@ -781,9 +869,10 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const inspectedSkill = inspectedMember?.character.skills.find((skill) => skill.id === inspectedSkillId) || inspectedMember?.character.skills[0];
   const pendingSkill = selectedActor?.character.skills.find((skill) => skill.id === pendingSkillId);
   const eligibleTargetIds = new Set(pendingSkill ? eligibleTargetsForSkill(pendingSkill, me, opponent, selectedActor).map((member) => member.id) : []);
+  const hasQueuedSkills = (me?.queue || []).length > 0;
   const exchangeRecord = me?.chakraExchange?.turn === room.turn ? me.chakraExchange : null;
   const exchange = exchangeRecord && !exchangeRecord.undone ? exchangeRecord : null;
-  const canUndoExchange = Boolean(exchange && (me?.chakra?.[exchange.receivedType] || 0) > 0);
+  const canUndoExchange = Boolean(exchange && !hasQueuedSkills && (me?.chakra?.[exchange.receivedType] || 0) > 0);
   const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchangeRecord && totalChakra(me?.chakra) >= 5;
   const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar chakra";
   const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
@@ -812,6 +901,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   }
 
   function canPrepareSkill(skill) {
+    const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
     return isMyTurn
       && room.phase !== "finished"
       && !hasStatus(selectedActor, "stun")
@@ -819,7 +909,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       && !isQueuedActor(me, selectedActor?.id)
       && !isQueuedSkill(me, selectedActor?.id, skill.id)
       && meetsSkillRequirements(skill, me, opponent, selectedActor)
-      && canPaySkillChakra(me?.chakra, skill.chakra, queuedNeutralChakra)
+      && canPaySkillChakra(me?.chakra, chakraCost, queuedNeutralChakra)
       && eligibleTargetsForSkill(skill, me, opponent, selectedActor).length > 0;
   }
 
@@ -843,6 +933,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
 
   function clickChakraExchange() {
     if (exchange) {
+      if (!canUndoExchange) return;
       onUndoChakraExchange();
       return;
     }
@@ -906,12 +997,14 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
               <ArrowLeftRight size={18} />
               {exchangeButtonLabel}
             </button>
+            {exchange && hasQueuedSkills && <small className="chakra-exchange-hint">Hay habilidades en cola</small>}
           </div>
           <div className="skill-list">
             {selectedActor?.character.skills.map((skill) => {
               const isPending = pendingSkillId === skill.id;
               const disabled = !isPending && !canPrepareSkill(skill);
               const cooldown = skillCooldownFor(selectedActor, skill.id);
+              const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
               return (
                 <button
                   key={skill.id}
@@ -926,7 +1019,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
                   <span className="skill-copy">
                     <strong>{skill.name}</strong>
                     <small>
-                      {targetTypeLabel(skill.targetType)} - <ChakraCost chakra={skill.chakra} />
+                      {targetTypeLabel(skill.targetType)} - <ChakraCost chakra={chakraCost} />
                     </small>
                   </span>
                 </button>
@@ -1104,12 +1197,14 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
           <div>
             <p className="eyebrow">Turno actual</p>
             <h2 id="chakra-exchange-title">Intercambio de chakra</h2>
+            <p className="modal-copy">Intercambia 5 chakras por 1 chakra en especifico</p>
           </div>
           <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar intercambio">
             <X size={18} />
           </button>
         </header>
         <div className="chakra-choice" aria-label="Chakra a recibir">
+          <h3>Chakra que quieres tener</h3>
           {chakraTypes.map((type) => (
             <button
               type="button"
@@ -1121,34 +1216,32 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
             </button>
           ))}
         </div>
-        <div className="exchange-columns">
-          <section>
-            <h3>Tus chakras</h3>
-            {chakraTypes.map((type) => (
-              <div className="exchange-row" key={type.id}>
+        <section className="exchange-payment-list" aria-label="Chakras que estas pagando">
+          <h3>Chakras que pagas</h3>
+          {chakraTypes.map((type) => {
+            const paid = spent[type.id] || 0;
+            const remaining = (chakra?.[type.id] || 0) - paid;
+            return (
+              <div className="exchange-payment-row" key={type.id}>
+                <button type="button" className="icon-button" onClick={() => returnFromExchange(type.id)} disabled={paid <= 0} aria-label={`Quitar ${type.label} del intercambio`}>
+                  <Minus size={16} />
+                </button>
                 <span className={`chakra-dot ${type.className}`} />
-                <strong>{type.label}</strong>
-                <b>{(chakra?.[type.id] || 0) - (spent[type.id] || 0)}</b>
-                <button type="button" className="icon-button" onClick={() => moveToExchange(type.id)} disabled={spentTotal >= 5 || (chakra?.[type.id] || 0) - (spent[type.id] || 0) <= 0} aria-label={`Mover ${type.label} al intercambio`}>
+                <strong className="exchange-chakra-name">
+                  <span>{type.label}</span>
+                  <small>Tienes {remaining}</small>
+                </strong>
+                <span className="exchange-paid-count">
+                  <b>{paid}</b>
+                  <small>pagando</small>
+                </span>
+                <button type="button" className="icon-button" onClick={() => moveToExchange(type.id)} disabled={spentTotal >= 5 || remaining <= 0} aria-label={`Agregar ${type.label} al intercambio`}>
                   <Plus size={16} />
                 </button>
               </div>
-            ))}
-          </section>
-          <section>
-            <h3>Intercambio</h3>
-            {chakraTypes.map((type) => (
-              <div className="exchange-row" key={type.id}>
-                <button type="button" className="icon-button" onClick={() => returnFromExchange(type.id)} disabled={(spent[type.id] || 0) <= 0} aria-label={`Devolver ${type.label}`}>
-                  <Minus size={16} />
-                </button>
-                <b>{spent[type.id] || 0}</b>
-                <strong>{type.label}</strong>
-                <span className={`chakra-dot ${type.className}`} />
-              </div>
-            ))}
-          </section>
-        </div>
+            );
+          })}
+        </section>
         <footer>
           <strong>{spentTotal} / 5</strong>
           <button type="button" disabled={spentTotal !== 5} onClick={() => onConfirm(receivedType, spent)}>
@@ -1187,40 +1280,38 @@ function NeutralChakraModal({ chakra, required, onClose, onConfirm }) {
           <div>
             <p className="eyebrow">Finalizar turno</p>
             <h2 id="neutral-chakra-title">Pagar chakra neutral</h2>
+            <p className="modal-copy">Completa {required} chakra neutral con tus chakras disponibles.</p>
           </div>
           <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar pago neutral">
             <X size={18} />
           </button>
         </header>
-        <p className="modal-copy">Completa {required} chakra neutral con tus chakras disponibles.</p>
-        <div className="exchange-columns">
-          <section>
-            <h3>Tus chakras</h3>
-            {chakraTypes.map((type) => (
-              <div className="exchange-row" key={type.id}>
+        <section className="exchange-payment-list" aria-label="Chakras que estas pagando">
+          <h3>Chakras que pagas</h3>
+          {chakraTypes.map((type) => {
+            const paid = spent[type.id] || 0;
+            const remaining = (chakra?.[type.id] || 0) - paid;
+            return (
+              <div className="exchange-payment-row" key={type.id}>
+                <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={paid <= 0} aria-label={`Quitar ${type.label} del pago neutral`}>
+                  <Minus size={16} />
+                </button>
                 <span className={`chakra-dot ${type.className}`} />
-                <strong>{type.label}</strong>
-                <b>{(chakra?.[type.id] || 0) - (spent[type.id] || 0)}</b>
-                <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || (chakra?.[type.id] || 0) - (spent[type.id] || 0) <= 0} aria-label={`Agregar ${type.label} al pago neutral`}>
+                <strong className="exchange-chakra-name">
+                  <span>{type.label}</span>
+                  <small>Tienes {remaining}</small>
+                </strong>
+                <span className="exchange-paid-count">
+                  <b>{paid}</b>
+                  <small>pagando</small>
+                </span>
+                <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || remaining <= 0} aria-label={`Agregar ${type.label} al pago neutral`}>
                   <Plus size={16} />
                 </button>
               </div>
-            ))}
-          </section>
-          <section>
-            <h3>Pago neutral</h3>
-            {chakraTypes.map((type) => (
-              <div className="exchange-row" key={type.id}>
-                <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={(spent[type.id] || 0) <= 0} aria-label={`Quitar ${type.label} del pago neutral`}>
-                  <Minus size={16} />
-                </button>
-                <b>{spent[type.id] || 0}</b>
-                <strong>{type.label}</strong>
-                <span className={`chakra-dot ${type.className}`} />
-              </div>
-            ))}
-          </section>
-        </div>
+            );
+          })}
+        </section>
         <footer>
           <strong>{spentTotal} / {required}</strong>
           <button type="button" disabled={spentTotal !== required} onClick={() => onConfirm(spent)}>
@@ -1409,20 +1500,80 @@ function SquareImage({ alt, src }) {
 
 function StatusEffects({ effects }) {
   const [openEffectId, setOpenEffectId] = useState("");
+  const [hoverEffectId, setHoverEffectId] = useState("");
+  const [tooltipPosition, setTooltipPosition] = useState(null);
   const rowRef = useRef(null);
+  const tooltipRef = useRef(null);
 
   useEffect(() => {
     if (!openEffectId) return undefined;
     function closeOnOutsideClick(event) {
       if (rowRef.current?.contains(event.target)) return;
+      if (tooltipRef.current?.contains(event.target)) return;
       setOpenEffectId("");
     }
     document.addEventListener("click", closeOnOutsideClick);
     return () => document.removeEventListener("click", closeOnOutsideClick);
   }, [openEffectId]);
 
-  if (!effects.length) return <span className="status-row" aria-label="Sin efectos" />;
   const groups = groupStatusEffects(effects);
+  const activeEffectId = openEffectId || hoverEffectId;
+  const activeGroup = groups.find((group) => group.id === activeEffectId);
+
+  useLayoutEffect(() => {
+    if (!activeGroup || !tooltipPosition || !tooltipRef.current || !isDesktopTooltip()) return;
+    const rect = tooltipRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const topOverflow = 16 - rect.top;
+    const bottomOverflow = rect.bottom - (viewportHeight - 16);
+
+    if (topOverflow > 0) {
+      setTooltipPosition((current) => current ? { ...current, top: current.top + topOverflow } : current);
+    } else if (bottomOverflow > 0) {
+      setTooltipPosition((current) => current ? { ...current, top: current.top - bottomOverflow } : current);
+    }
+  }, [activeGroup, tooltipPosition]);
+
+  function isDesktopTooltip() {
+    return typeof window !== "undefined" && !window.matchMedia(MOBILE_QUERY).matches;
+  }
+
+  function positionDesktopTooltip(element) {
+    if (!isDesktopTooltip()) return;
+    const rect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const width = Math.min(460, viewportWidth - 32);
+    const centeredLeft = rect.left + (rect.width / 2) - (width / 2);
+    const left = Math.min(Math.max(centeredLeft, 16), viewportWidth - width - 16);
+    const spaceAbove = rect.top - 16;
+    const spaceBelow = viewportHeight - rect.bottom - 16;
+    const placement = spaceAbove >= 180 || spaceAbove >= spaceBelow ? "above" : "below";
+
+    setTooltipPosition({
+      left,
+      top: placement === "above" ? rect.top - 10 : rect.bottom + 10,
+      width,
+      placement
+    });
+  }
+
+  function tooltipContent(group) {
+    return (
+      <>
+        <strong>{group.sourceSkillName}</strong>
+        <ul>
+          {group.effects.flatMap((effect) => effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]).map((description, index) => (
+            <li key={`${description}-${index}`}>{description}</li>
+          ))}
+        </ul>
+        <small>{statusEffectGroupMeta(group)}</small>
+      </>
+    );
+  }
+
+  if (!effects.length) return <span className="status-row" aria-label="Sin efectos" />;
+
   return (
     <span className="status-row" ref={rowRef}>
       {groups.map((group) => (
@@ -1430,24 +1581,51 @@ function StatusEffects({ effects }) {
           className={`status-icon ${group.className} ${openEffectId === group.id ? "open" : ""}`}
           key={group.id}
           tabIndex={0}
+          onMouseEnter={(event) => {
+            if (!isDesktopTooltip()) return;
+            setHoverEffectId(group.id);
+            positionDesktopTooltip(event.currentTarget);
+          }}
+          onMouseLeave={() => {
+            setHoverEffectId("");
+          }}
+          onFocus={(event) => {
+            if (!isDesktopTooltip()) return;
+            setHoverEffectId(group.id);
+            positionDesktopTooltip(event.currentTarget);
+          }}
+          onBlur={() => {
+            setHoverEffectId("");
+          }}
           onClick={(event) => {
             event.stopPropagation();
+            positionDesktopTooltip(event.currentTarget);
             setOpenEffectId((current) => (current === group.id ? "" : group.id));
           }}
         >
           <img src={skillImage(group.sourceSkillId)} alt={group.sourceSkillName} />
           <b>{statusEffectGroupValue(group)}</b>
-          <span className="status-tooltip" role="tooltip">
-            <strong>{group.sourceSkillName}</strong>
-            <ul>
-              {group.effects.flatMap((effect) => effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]).map((description, index) => (
-                <li key={`${description}-${index}`}>{description}</li>
-              ))}
-            </ul>
-            <small>{statusEffectGroupMeta(group)}</small>
+          <span className="status-tooltip inline-status-tooltip" role="tooltip">
+            {tooltipContent(group)}
           </span>
         </span>
       ))}
+      {activeGroup && tooltipPosition && createPortal(
+        <span
+          className={`status-tooltip status-tooltip-portal ${tooltipPosition.placement}`}
+          ref={tooltipRef}
+          role="tooltip"
+          style={{
+            "--tooltip-left": `${tooltipPosition.left}px`,
+            "--tooltip-top": `${tooltipPosition.top}px`,
+            "--tooltip-width": `${tooltipPosition.width}px`
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {tooltipContent(activeGroup)}
+        </span>,
+        document.body
+      )}
     </span>
   );
 }
@@ -1468,16 +1646,12 @@ function ChakraPool({ chakra }) {
 
 function ChakraIcon({ type }) {
   const chakraType = chakraTypes.find((item) => item.id === type);
-  if (type === "neutralChakra") {
-    return (
-      <svg className="chakra-svg neutral" viewBox="0 0 16 16" aria-hidden="true">
-        <rect x="2" y="2" width="12" height="12" rx="3" />
-      </svg>
-    );
-  }
+  const className = type === "neutralChakra" ? "neutral" : chakraType?.className || "";
   return (
-    <svg className={`chakra-svg ${chakraType?.className || ""}`} viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="2" y="2" width="12" height="12" rx="3" />
+    <svg className={`chakra-svg ${className}`} viewBox="0 0 16 16" aria-hidden="true">
+      <rect className="chakra-border" x="1" y="1" width="14" height="14" rx="4" />
+      <rect className="chakra-inner-border" x="2.5" y="2.5" width="11" height="11" rx="3" />
+      <rect className="chakra-fill" x="4" y="4" width="8" height="8" rx="2" />
     </svg>
   );
 }

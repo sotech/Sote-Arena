@@ -1,4 +1,6 @@
 import { normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
+import { getSkillNameById } from "../../shared/characters.js";
+import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
 
 export function chakraCostLabel(chakra = {}) {
   return Object.entries(chakra)
@@ -9,8 +11,8 @@ export function chakraCostLabel(chakra = {}) {
 
 export function groupStatusEffects(effects = []) {
   const groups = new Map();
-  for (const effect of effects) {
-    const key = effect.sourceSkillId || effect.id;
+  for (const [index, effect] of effects.entries()) {
+    const key = effect.id || `${effect.sourceSkillId || effect.type}-${index}`;
     const current = groups.get(key);
     if (current) {
       current.effects.push(effect);
@@ -66,9 +68,20 @@ export function effectDescription(effect) {
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo destruible: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
   if (effect.type === "damage-reduction") return `Reduccion de dano: ${effect.value} por ${effect.duration} turno(s)`;
-  if (effect.type === "buffDamage") {
-    const scope = effect.skillIds?.length ? ` (${effect.skillIds.join(", ")})` : " (todas)";
-    return `Aumenta dano: +${effect.value} por ${effect.duration} turno(s)${scope}`;
+  if (effect.type === "modifyDamage") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const value = Number(effect.value || 0);
+    const amount = Math.abs(value);
+    const duration = effect.duration ? ` por ${effect.duration} turno(s)` : "";
+    return `${value < 0 ? "Reduce" : "Aumenta"} dano: ${value < 0 ? "-" : "+"}${amount}${duration}${scope}`;
+  }
+  if (chakraCostModifierTypes.includes(effect.type)) {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const entries = Object.entries(effect.chakra || {})
+      .filter(([, amount]) => Number(amount || 0) !== 0)
+      .map(([type, amount]) => `${Number(amount) > 0 ? "+" : ""}${amount} ${chakraEffectTypeLabel(type)}`);
+    const label = effect.type === "substituteChakraCost" ? "Sustituye coste" : "Modifica coste";
+    return `${label}: ${entries.join(", ") || "sin cambios"}${scope}`;
   }
   if (effect.type === "stun") return `Aturde: ${effect.value} turno(s)`;
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
@@ -82,6 +95,7 @@ export function effectDescription(effect) {
 }
 
 export function chakraEffectTypeLabel(type) {
+  if (type === "neutralChakra") return "neutral";
   return type ? `de ${type}` : "aleatorio";
 }
 
@@ -111,7 +125,7 @@ export function requirementDescription(requirement) {
   }[scope] || scope;
 
   if (type === "hasStatusEffect") {
-    return `${scopeLabel}: tiene status ${requirement.effectId || requirement.statusEffectId || requirement.id}`;
+    return `${scopeLabel}: tiene status ${getSkillNameById(requirement.effectId || requirement.statusEffectId || requirement.id)}`;
   }
   if (type === "hasMinHp") {
     return `${scopeLabel}: minimo ${requirement.minHp ?? requirement.hp ?? requirement.value} HP`;
@@ -125,7 +139,7 @@ export function requirementDescription(requirement) {
 function targetConditionDescription(requirement) {
   const type = normalizeRequireType(requirement.type || requirement.condition);
   if (type === "hasStatusEffect") {
-    return `objetivo tiene status ${requirement.effectId || requirement.statusEffectId || requirement.id}`;
+    return `objetivo tiene status ${getSkillNameById(requirement.effectId || requirement.statusEffectId || requirement.id)}`;
   }
   if (type === "hasMinHp") {
     return `objetivo tiene minimo ${requirement.minHp ?? requirement.hp ?? requirement.value} HP`;

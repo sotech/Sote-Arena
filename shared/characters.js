@@ -21,7 +21,8 @@ function effectBotDescription(effect) {
   if (effect.type === "heal" || effect.type === "self-heal") return `heal-${effect.value}`;
   if (effect.type === "shield") return `shield-${effect.value}`;
   if (effect.type === "damage-reduction") return `damageReduction-${effect.value}`;
-  if (effect.type === "buffDamage") return `buffDamage-${effect.value}`;
+  if (effect.type === "modifyDamage") return `modifyDamage-${effect.value}`;
+  if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") return `${effect.type}-${JSON.stringify(effect.chakra || {})}`;
   if (effect.type === "stun") return `stun-${effect.value}`;
   if (effect.type === "invulnerable") return `invulnerable-${effect.value}`;
   if (effect.type === "gain-chakra") return `gainChakra-${effect.value}`;
@@ -52,4 +53,10 @@ export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kanku
 
 export function getCharacterById(id) {
   return characters.find((character) => character.id === id);
+}
+
+export function getSkillNameById(id) {
+  return characters
+    .flatMap((character) => character.skills)
+    .find((skill) => skill.id === id)?.name || id;
 }

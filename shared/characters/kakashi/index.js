@@ -19,8 +19,7 @@ export const kakashi = {
           targets: "target",
           bonusWhen: [{ bonus: 10, require: { type: "hasMaxHp", hp: 50 } }]
         }
-      ],
-      cooldown: 1
+      ]
     },
     {
       id: "tactical-read",
@@ -37,12 +36,13 @@ export const kakashi = {
     {
       id: "ninken-trap",
       name: "Trampa Ninken",
-      chakra: { ninjutsu: 1, neutralChakra: 1 },
+      chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Una trampa de perros y herramientras ninja, infligen 15 de dano perforante a todos los enemigos.",
+      description: "Una trampa de perros y herramientras ninja, infligen 25 de dano perforante a todos los enemigos.",
       effects: [
-        { type: "damage", value: 15, damageType: "piercing", targets: "target" },
+        { type: "damage", value: 25, damageType: "piercing", targets: "target" },
       ],
+      cooldown: 1
     },
     {
       id: "substitution-jutsu",

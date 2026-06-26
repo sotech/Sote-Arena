@@ -213,6 +213,13 @@ label {
   line-height: 1;
 }
 
+.result-reason {
+  color: #4e5e6e;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
 .end-turn-confirm-modal {
   background: #fff;
   border: 1px solid #d8e0e8;
@@ -294,6 +301,12 @@ label {
   gap: 14px;
 }
 
+.chakra-exchange-modal header .modal-copy {
+  font-size: 13px;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
 .chakra-exchange-modal footer {
   border-top: 1px solid #e5ebf2;
   padding-top: 16px;
@@ -313,6 +326,13 @@ label {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.chakra-choice h3,
+.exchange-payment-list h3 {
+  font-size: 15px;
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
 }
 
 .chakra-choice-button {
@@ -348,6 +368,57 @@ label {
   margin: 0 0 4px;
 }
 
+.exchange-payment-list {
+  background: #f7f9fc;
+  border: 1px solid #e5ebf2;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.exchange-payment-row {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e5ebf2;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 34px 16px minmax(74px, 1fr) minmax(60px, auto) 34px;
+  min-height: 48px;
+  padding: 6px;
+}
+
+.exchange-chakra-name {
+  display: grid;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.exchange-chakra-name small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.exchange-paid-count {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.exchange-paid-count b {
+  font-size: 18px;
+}
+
+.exchange-paid-count small {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .exchange-row {
   align-items: center;
   background: #fff;
@@ -372,7 +443,8 @@ label {
   text-align: center;
 }
 
-.exchange-row .icon-button {
+.exchange-row .icon-button,
+.exchange-payment-row .icon-button {
   min-height: 32px;
   padding: 7px;
   width: 32px;
@@ -463,23 +535,43 @@ label {
   display: block;
 }
 
+.character-search {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(220px, 360px);
+  justify-content: center;
+  padding: 16px 20px 0;
+}
+
+.character-search svg {
+  color: #657483;
+  justify-self: end;
+}
+
+.character-search input {
+  min-height: 38px;
+}
+
 .character-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, 112px);
+  justify-content: center;
   padding: 20px;
 }
 
 .character-card {
-  align-items: flex-start;
+  align-items: center;
+  aspect-ratio: 1;
   background: #f7f9fc;
   border: 2px solid transparent;
   color: #17202a;
   display: grid;
-  justify-items: start;
-  min-height: 176px;
-  padding: 16px;
-  text-align: left;
+  justify-items: center;
+  min-height: 0;
+  padding: 8px;
+  text-align: center;
 }
 
 .character-card.selected {
@@ -489,6 +581,20 @@ label {
 
 .character-card.inspected {
   outline: 3px solid #17202a;
+}
+
+.character-card .square-img {
+  height: 92px;
+  margin-bottom: 0;
+  width: 92px;
+}
+
+.character-empty {
+  color: #657483;
+  font-weight: 900;
+  grid-column: 1 / -1;
+  margin: 18px 0;
+  text-align: center;
 }
 
 .pagination {
@@ -536,6 +642,32 @@ label {
 
 .lobby-skill-strip button.selected {
   outline: 3px solid #f05d23;
+}
+
+.character-chakra-usage {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.character-chakra-usage-item {
+  align-items: center;
+  background: #f7f9fc;
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
+.character-chakra-usage-item b {
+  color: #17202a;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .square-img {
@@ -884,7 +1016,7 @@ label {
   position: absolute;
 }
 
-.status-icon.buffDamage {
+.status-icon.modifyDamage {
   border-color: #f05d23;
 }
 
@@ -923,14 +1055,63 @@ label {
   line-height: 1.35;
 }
 
+.status-tooltip-portal {
+  bottom: auto;
+  gap: 10px;
+  left: var(--tooltip-left);
+  min-width: 360px;
+  overflow: visible;
+  padding: 14px 16px;
+  position: fixed;
+  top: var(--tooltip-top);
+  width: var(--tooltip-width);
+  z-index: 10000;
+}
+
+.status-tooltip-portal.above {
+  transform: translateY(-100%);
+}
+
+.status-tooltip-portal.below {
+  transform: translateY(0);
+}
+
+.status-tooltip-portal strong {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.status-tooltip-portal li,
+.status-tooltip-portal small {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .status-icon:hover .status-tooltip,
 .status-icon.open .status-tooltip,
 .status-icon:focus .status-tooltip,
-.status-icon:focus-within .status-tooltip {
+.status-icon:focus-within .status-tooltip,
+.status-tooltip-portal {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
   visibility: visible;
+}
+
+.status-tooltip-portal.above {
+  transform: translateY(-100%);
+}
+
+@media (min-width: 769px) {
+  .inline-status-tooltip {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .status-tooltip-portal {
+    display: none;
+  }
 }
 
 .fighter.actor-picked {
@@ -1051,28 +1232,31 @@ label {
   width: 16px;
 }
 
-.chakra-svg rect {
-  stroke: rgba(17, 24, 39, 0.28);
-  stroke-width: 1.5;
+.chakra-border {
+  fill: #050505;
 }
 
-.chakra-svg.tai rect {
+.chakra-inner-border {
+  fill: #fff;
+}
+
+.chakra-svg.tai .chakra-fill {
   fill: #22c55e;
 }
 
-.chakra-svg.nin rect {
+.chakra-svg.nin .chakra-fill {
   fill: #3b82f6;
 }
 
-.chakra-svg.blood rect {
+.chakra-svg.blood .chakra-fill {
   fill: #ef4444;
 }
 
-.chakra-svg.gen rect {
+.chakra-svg.gen .chakra-fill {
   fill: #ffffff;
 }
 
-.chakra-svg.neutral rect {
+.chakra-svg.neutral .chakra-fill {
   fill: #17202a;
 }
 
@@ -1419,6 +1603,14 @@ label {
   background: #17202a;
 }
 
+.chakra-exchange-hint {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
 .queue-panel {
   border-top: 1px solid #e5ebf2;
   display: grid;
@@ -1548,7 +1740,12 @@ label {
   }
 
   .character-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, 96px);
+  }
+
+  .character-card .square-img {
+    height: 78px;
+    width: 78px;
   }
 }
 
@@ -1665,25 +1862,31 @@ label {
     width: 30px;
   }
 
+  .character-search {
+    gap: 5px;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    padding: 10px 12px 0;
+  }
+
+  .character-search input {
+    min-height: 36px;
+  }
+
   .character-grid {
     gap: 6px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(46px, 1fr));
     padding: 10px;
   }
 
   .character-card {
-    min-height: 106px;
-    padding: 7px;
+    min-height: 0;
+    padding: 4px;
   }
 
   .character-card .square-img {
-    height: 36px;
-    width: 36px;
-  }
-
-  .character-card strong {
-    font-size: 11px;
-    overflow-wrap: anywhere;
+    height: clamp(34px, 10vw, 52px);
+    width: clamp(34px, 10vw, 52px);
   }
 
   .pagination {
@@ -1939,6 +2142,10 @@ label {
     line-height: 1.15;
   }
 
+  .chakra-exchange-hint {
+    font-size: 10px;
+  }
+
   .skill-list {
     align-content: center;
     align-self: stretch;
@@ -2080,13 +2287,20 @@ label {
   }
 
   .queue-action {
+    align-content: center;
     gap: 4px;
-    grid-template-columns: 26px minmax(0, 1fr) 12px;
-    min-height: 48px;
+    grid-template-areas:
+      "image remove"
+      "copy remove";
+    grid-template-columns: minmax(0, 1fr) 12px;
+    justify-items: center;
+    min-height: 76px;
     padding: 5px;
+    text-align: center;
   }
 
   .queue-action .square-img {
+    grid-area: image;
     height: 26px;
     width: 26px;
   }
@@ -2096,7 +2310,14 @@ label {
   }
 
   .queue-action > span {
+    grid-area: copy;
     gap: 1px;
+    justify-items: center;
+  }
+
+  .queue-action > svg {
+    align-self: center;
+    grid-area: remove;
   }
 
   .queue-action span span,
@@ -2162,6 +2383,100 @@ label {
   .chakra-choice,
   .exchange-columns {
     grid-template-columns: 1fr;
+  }
+
+  .modal-backdrop {
+    padding: 10px;
+  }
+
+  .chakra-exchange-modal {
+    gap: 10px;
+    max-height: calc(100dvh - 20px);
+    max-width: 420px;
+    overflow: hidden;
+    padding: 12px;
+  }
+
+  .chakra-exchange-modal header,
+  .chakra-exchange-modal footer {
+    gap: 8px;
+  }
+
+  .chakra-exchange-modal h2 {
+    font-size: 18px;
+  }
+
+  .chakra-choice {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .chakra-choice h3,
+  .exchange-payment-list h3 {
+    font-size: 13px;
+  }
+
+  .chakra-choice-button {
+    font-size: 12px;
+    min-height: 34px;
+    padding: 5px;
+  }
+
+  .exchange-payment-list {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .exchange-payment-row {
+    gap: 5px;
+    grid-template-columns: 30px 14px minmax(52px, 1fr) minmax(24px, auto) 30px;
+    min-height: 38px;
+    padding: 4px;
+  }
+
+  .exchange-payment-row .chakra-dot {
+    height: 12px;
+    width: 12px;
+  }
+
+  .exchange-payment-row strong {
+    font-size: 12px;
+  }
+
+  .exchange-chakra-name small {
+    font-size: 10px;
+  }
+
+  .exchange-payment-row .icon-button {
+    min-height: 28px;
+    padding: 5px;
+    width: 28px;
+  }
+
+  .exchange-paid-count {
+    gap: 0;
+  }
+
+  .exchange-paid-count b {
+    font-size: 16px;
+  }
+
+  .exchange-paid-count small {
+    display: none;
+  }
+
+  .chakra-exchange-modal footer {
+    padding-top: 10px;
+  }
+
+  .chakra-exchange-modal footer strong {
+    font-size: 16px;
+    min-width: 44px;
+  }
+
+  .chakra-exchange-modal footer button {
+    font-size: 12px;
+    min-height: 36px;
+    padding: 8px 10px;
   }
 
   .section-head {

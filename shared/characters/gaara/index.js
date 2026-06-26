@@ -21,10 +21,13 @@ export const gaara = {
     {
       id: "sand-shield",
       name: "Escudo de arena",
-      chakra: { genjutsu: 1 },
+      chakra: { bloodline: 1, genjutsu: 1 },
       targetType: "allies",
-      description: "La arena protectora envuelve a todos los aliados. Otorga 15 de escudo a todos los aliados. No puede acumularse consigo mismo.",
-      effects: [{ type: "shield", value: 15, targets: "target", isStackable: false }],
+      description: "La arena protectora envuelve a todos los aliados. Otorga 15 de escudo a todos los aliados. No puede acumularse consigo mismo. Durante 2 turnos, Ataud de arena cuesta 1 chakra neutral menos.",
+      effects: [
+        { type: "shield", value: 15, targets: "target", isStackable: false },
+        { type: "complex", duration: 2, targets: "self", effects: [{ type: "modifyChakraCost", chakra: { neutralChakra: -1 }, targets: "self", skillIds: ["sand-coffin"] }] }
+      ],
       cooldown: 2
     },
     {

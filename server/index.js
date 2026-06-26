@@ -2,8 +2,10 @@ import express from "express";
 import cors from "cors";
 import http from "http";
 import { randomUUID } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import { Server } from "socket.io";
-import { characters, getCharacterById } from "../shared/characters.js";
+import { characters, getCharacterById, getSkillNameById } from "../shared/characters.js";
+import { chakraCostModifierTypes, modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { supportedEffectTypes } from "../shared/effects.js";
 import { normalizeRequireScope, normalizeRequireType } from "../shared/requires.js";
 import { createBotPlayer, scheduleBotIfNeeded } from "./bot.js";
@@ -65,6 +67,7 @@ function publicRoom(room) {
     phase: room.phase,
     activePlayerId: room.activePlayerId,
     winnerId: room.winnerId,
+    finishReason: room.finishReason || null,
     turn: room.turn,
     log: room.log.slice(0, 80),
     chat: (room.chat || []).slice(-40),
@@ -275,7 +278,7 @@ function hasStatus(member, type) {
   });
 }
 
-function addStatus(member, status) {
+export function addStatus(member, status) {
   const existing = (member.statusEffects || []).find((effect) => effect.type === status.type && effect.sourceSkillId === status.sourceSkillId);
   if (status.type === "shield") {
     if (existing) {
@@ -311,32 +314,23 @@ function addStatus(member, status) {
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
-  if (status.type === "buffDamage") {
+  if (status.type === "modifyDamage" || chakraCostModifierTypes.includes(status.type)) {
     if (existing) {
       existing.value = status.value;
+      existing.chakra = status.chakra;
       existing.turns = Math.max(existing.turns, status.turns);
       existing.skillIds = status.skillIds;
-      existing.descriptions = buffDamageDescriptions(status);
+      existing.descriptions = status.type === "modifyDamage" ? modifyDamageDescriptions(status) : modifyChakraCostDescriptions(status);
       existing.createdTurn = status.createdTurn;
       existing.originActorId = status.originActorId;
       existing.originCharacterId = status.originCharacterId;
       return;
     }
-    status.descriptions = buffDamageDescriptions(status);
+    status.descriptions = status.type === "modifyDamage" ? modifyDamageDescriptions(status) : modifyChakraCostDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
   if (status.type === "complex") {
-    if (existing) {
-      existing.turns = Math.max(existing.turns, status.turns);
-      existing.effects = status.effects;
-      existing.descriptions = complexDescriptions(status);
-      existing.createdTurn = status.createdTurn;
-      existing.remainingReductions = status.remainingReductions || {};
-      existing.originActorId = status.originActorId;
-      existing.originCharacterId = status.originCharacterId;
-      return;
-    }
     status.descriptions = complexDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
@@ -356,7 +350,8 @@ function addStatus(member, status) {
 function statusDescription(effect, actorCharacter) {
   if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo destruible.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value} de reduccion de dano.`;
-  if (effect.type === "buffDamage") return `${actorCharacter.name} ha aumentado el dano de este personaje en ${effect.value}.`;
+  if (effect.type === "modifyDamage") return `${actorCharacter.name} ha modificado el dano de este personaje en ${effect.value}.`;
+  if (chakraCostModifierTypes.includes(effect.type)) return `${actorCharacter.name} ha modificado el coste de chakra de este personaje.`;
   if (effect.type === "complex") return `${actorCharacter.name} ha aplicado un efecto complejo.`;
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
   if (effect.type === "invulnerable") return `${actorCharacter.name} ha vuelto invulnerable a este personaje.`;
@@ -378,9 +373,25 @@ function damageReductionDescriptions(effect) {
   return [`${effect.sourceActorName || "Un personaje"} ha obtenido ${effect.value} de reduccion de dano.`];
 }
 
-function buffDamageDescriptions(effect) {
-  const scope = effect.skillIds?.length ? ` para ${effect.skillIds.join(", ")}` : " para todas sus habilidades";
-  return [`${effect.sourceActorName || "Un personaje"} aumento el dano en ${effect.value}${scope}.`];
+function modifyDamageDescriptions(effect) {
+  const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
+  const amount = Math.abs(Number(effect.value || 0));
+  const verb = Number(effect.value || 0) < 0 ? "redujo" : "aumento";
+  return [`${effect.sourceActorName || "Un personaje"} ${verb} el dano en ${amount}${scope}.`];
+}
+
+function chakraCostModifierSummary(chakra = {}) {
+  return Object.entries(chakra)
+    .filter(([, amount]) => Number(amount || 0) !== 0)
+    .map(([type, amount]) => `${Number(amount) > 0 ? "+" : ""}${amount} ${type === "neutralChakra" ? "neutral" : type}`)
+    .join(", ");
+}
+
+function modifyChakraCostDescriptions(effect) {
+  const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
+  const summary = chakraCostModifierSummary(effect.chakra);
+  const verb = effect.type === "substituteChakraCost" ? "sustituyo" : "modifico";
+  return [`${effect.sourceActorName || "Un personaje"} ${verb} el coste de chakra${scope}${summary ? ` (${summary})` : ""}.`];
 }
 
 function simpleEffectDescription(effect) {
@@ -388,9 +399,15 @@ function simpleEffectDescription(effect) {
   if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
   if (effect.type === "shield") return `Otorga ${effect.value} de escudo destruible.`;
   if (effect.type === "damage-reduction") return `Otorga ${effect.value} de reduccion de dano.`;
-  if (effect.type === "buffDamage") {
-    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.join(", ")}` : " a todas las habilidades";
-    return `Aumenta ${effect.value} de dano${scope}.`;
+  if (effect.type === "modifyDamage") {
+    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
+    const amount = Math.abs(Number(effect.value || 0));
+    return `${Number(effect.value || 0) < 0 ? "Reduce" : "Aumenta"} ${amount} de dano${scope}.`;
+  }
+  if (chakraCostModifierTypes.includes(effect.type)) {
+    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
+    const summary = chakraCostModifierSummary(effect.chakra);
+    return `${effect.type === "substituteChakraCost" ? "Sustituye" : "Modifica"} coste de chakra${scope}${summary ? ` (${summary})` : ""}.`;
   }
   if (effect.type === "invulnerable") return "Otorga invulnerabilidad.";
   if (effect.type === "stun") return "Aplica aturdimiento.";
@@ -406,23 +423,23 @@ function complexDescriptions(effect) {
   ];
 }
 
-function appliesToBuffedSkill(effect, skill) {
-  if (effect.type !== "buffDamage" || effect.turns <= 0) return false;
+function appliesToModifiedSkill(effect, skill) {
+  if (effect.type !== "modifyDamage" || effect.turns <= 0) return false;
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }
 
-function damageBuffValue(actor, skill, currentTurn) {
+export function damageBuffValue(actor, skill, currentTurn) {
   const directBuffs = (actor.statusEffects || [])
-    .filter((effect) => appliesToBuffedSkill(effect, skill))
+    .filter((effect) => appliesToModifiedSkill(effect, skill))
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
-    .reduce((total, effect) => total + Math.max(0, Number(effect.value || 0)), 0);
+    .reduce((total, effect) => total + Number(effect.value || 0), 0);
   const complexBuffs = (actor.statusEffects || [])
     .filter((effect) => effect.type === "complex" && effect.turns > 0)
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
     .flatMap((effect) => effect.effects || [])
-    .filter((effect) => appliesToBuffedSkill({ ...effect, turns: 1 }, skill))
-    .reduce((total, effect) => total + Math.max(0, Number(effect.value || 0)), 0);
+    .filter((effect) => appliesToModifiedSkill({ ...effect, turns: 1 }, skill))
+    .reduce((total, effect) => total + Number(effect.value || 0), 0);
   return directBuffs + complexBuffs;
 }
 
@@ -652,7 +669,7 @@ function applyComplexStatusEffects(room, player) {
     for (const status of member.statusEffects || []) {
       if (status.type !== "complex" || status.turns <= 0 || status.createdTurn === room.turn) continue;
       for (const effect of status.effects || []) {
-        if (effect.type === "damage-reduction" || effect.type === "buffDamage" || effect.type === "invulnerable" || effect.type === "stun") {
+        if (effect.type === "damage-reduction" || effect.type === "modifyDamage" || chakraCostModifierTypes.includes(effect.type) || effect.type === "invulnerable" || effect.type === "stun") {
           continue;
         }
 
@@ -743,26 +760,27 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   if (queuedSkillFor(player, actor.id, skill.id)) return `${skill.name} ya esta en cola.`;
   const requirementError = validateSkillRequirements(skill, player, opponent, actor);
   if (requirementError) return requirementError;
-  if (!canPaySkillCost(player.chakra, skill.chakra, queuedNeutralChakraCost(player))) return `No tienes chakra suficiente: requiere ${chakraLabel(skill.chakra)}.`;
+  const chakraCost = modifiedSkillChakraCost(actor, skill);
+  if (!canPaySkillCost(player.chakra, chakraCost, queuedNeutralChakraCost(player))) return `No tienes chakra suficiente: requiere ${chakraLabel(chakraCost)}.`;
 
   const targets = targetsForSkill(room, player, actor, targetId, skill);
   if (targets.length === 0 || targets.some((target) => target.hp <= 0)) return "Objetivo invalido.";
 
-  return { player, opponent, actor, actorCharacter, skill, targetName: targetNameForSkill(room, player, actor, targetId, skill) };
+  return { player, opponent, actor, actorCharacter, skill, chakraCost, targetName: targetNameForSkill(room, player, actor, targetId, skill) };
 }
 
 function queueSkill(room, playerId, actorId, targetId, skillId) {
   const validation = validateSkillAction(room, playerId, actorId, targetId, skillId);
   if (typeof validation === "string") return validation;
 
-  const { player, actorCharacter, skill, targetName } = validation;
-  payChakra(player, specificChakraCost(skill.chakra));
+  const { player, actorCharacter, skill, chakraCost, targetName } = validation;
+  payChakra(player, specificChakraCost(chakraCost));
   player.queue.push({
     id: randomUUID(),
     actorId,
     targetId,
     skillId,
-    chakra: cloneChakra(skill.chakra),
+    chakra: cloneChakra(chakraCost),
     actorName: actorCharacter.name,
     targetName,
     skillName: skill.name
@@ -800,7 +818,8 @@ function applyQueuedSkill(room, player, action) {
   let totalStun = 0;
   let totalInvulnerable = 0;
   let totalDamageReduction = 0;
-  let totalDamageBuff = 0;
+  let totalDamageModifier = 0;
+  let totalChakraCostModifiers = 0;
   let gainedChakra = emptyChakra();
   let removedChakra = emptyChakra();
 
@@ -872,11 +891,11 @@ function applyQueuedSkill(room, player, action) {
       continue;
     }
 
-    if (effect.type === "buffDamage") {
+    if (effect.type === "modifyDamage") {
       for (const target of targets) {
         addStatus(target, {
           id: randomUUID(),
-          type: "buffDamage",
+          type: "modifyDamage",
           turns: effect.duration,
           value: effect.value,
           skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
@@ -887,7 +906,27 @@ function applyQueuedSkill(room, player, action) {
           createdTurn: room.turn,
           descriptions: [statusDescription(effect, actorCharacter)]
         });
-        totalDamageBuff += effect.value;
+        totalDamageModifier += Number(effect.value || 0);
+      }
+      continue;
+    }
+
+    if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: effect.type,
+          turns: effect.duration,
+          chakra: effect.chakra || {},
+          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: [statusDescription(effect, actorCharacter)]
+        });
+        totalChakraCostModifiers += 1;
       }
       continue;
     }
@@ -972,7 +1011,11 @@ function applyQueuedSkill(room, player, action) {
   if (totalHeal > 0) events.push(`${actorCharacter.name} curo ${totalHeal} de vida.`);
   if (totalShield > 0) events.push(`${actorCharacter.name} gano ${totalShield} de escudo.`);
   if (totalDamageReduction > 0) events.push(`${actorCharacter.name} otorgo ${totalDamageReduction} de reduccion de dano.`);
-  if (totalDamageBuff > 0) events.push(`${actorCharacter.name} aumento ${totalDamageBuff} de dano.`);
+  if (totalDamageModifier !== 0) {
+    const amount = Math.abs(totalDamageModifier);
+    events.push(`${actorCharacter.name} ${totalDamageModifier < 0 ? "redujo" : "aumento"} ${amount} de dano.`);
+  }
+  if (totalChakraCostModifiers > 0) events.push(`${actorCharacter.name} modifico costes de chakra.`);
   if (totalStun > 0) events.push(`${actorCharacter.name} aturdio por ${totalStun} turno(s).`);
   if (totalInvulnerable > 0) events.push(`${actorCharacter.name} gano invulnerabilidad por ${totalInvulnerable} turno(s).`);
   if (totalChakra(gainedChakra) > 0) events.push(`${actorCharacter.name} gano ${chakraLabel(gainedChakra)}.`);
@@ -1009,6 +1052,7 @@ function resolveTurn(room, playerId, neutralChakraPayment = {}) {
   if (!teamAlive(player)) {
     room.phase = "finished";
     room.winnerId = opponent.id;
+    room.finishReason = null;
     room.log.unshift(`${opponent.name} gano la partida.`);
     return null;
   }
@@ -1027,6 +1071,7 @@ function resolveTurn(room, playerId, neutralChakraPayment = {}) {
   if (!teamAlive(opponent)) {
     room.phase = "finished";
     room.winnerId = playerId;
+    room.finishReason = null;
     room.log.unshift(`${player.name} gano la partida.`);
   } else {
     expireStatusEffects(player, room.turn);
@@ -1044,6 +1089,7 @@ function surrender(room, playerId) {
 
   room.phase = "finished";
   room.winnerId = opponent.id;
+  room.finishReason = null;
   room.botTurnInProgress = false;
   room.log.unshift(`${player.name} se rindio. ${opponent.name} gano la partida.`);
   return null;
@@ -1107,6 +1153,7 @@ io.on("connection", (socket) => {
       players: [player],
       activePlayerId: null,
       winnerId: null,
+      finishReason: null,
       turn: 0,
       chat: [],
       log: ["Sala creada. Esperando al segundo jugador."]
@@ -1140,6 +1187,7 @@ io.on("connection", (socket) => {
       players: [player, bot],
       activePlayerId: null,
       winnerId: null,
+      finishReason: null,
       turn: 0,
       chat: [],
       log: ["Partida vs IA creada. Elige tu equipo."]
@@ -1374,6 +1422,21 @@ io.on("connection", (socket) => {
       room.log.unshift(`${player.name} se desconecto.`);
     }
 
+    if (player && room.phase === "battle") {
+      const opponent = opponentOf(room, socket.id);
+      if (opponent) {
+        room.phase = "finished";
+        room.winnerId = opponent.id;
+        room.finishReason = {
+          type: "disconnect",
+          loserId: player.id,
+          loserName: player.name
+        };
+        room.botTurnInProgress = false;
+        room.log.unshift(`${opponent.name} gano la partida por desconexion de ${player.name}.`);
+      }
+    }
+
     if (room.players.every((item) => item.isBot || !item.connected)) {
       rooms.delete(room.code);
     } else {
@@ -1383,6 +1446,8 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Shinobi Arena server running on http://127.0.0.1:${PORT}`);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  server.listen(PORT, () => {
+    console.log(`Shinobi Arena server running on http://127.0.0.1:${PORT}`);
+  });
+}

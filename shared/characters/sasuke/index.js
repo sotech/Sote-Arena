@@ -10,16 +10,18 @@ export const sasuke = {
       name: "Chidori",
       chakra: { ninjutsu: 1, bloodline: 1 },
       targetType: "enemy",
-      description: "Sasuke usa su version de Chidori, inflingiendo 30 de dano perforante a un enemigo. Solo puede usarse con Sharingan activo.",
+      description: "Sasuke usa su version de Chidori, inflingiendo 35 de dano perforante a un enemigo. Solo puede usarse con Sharingan activo. Si el objetivo tiene 50 o menos de vida, esta habilidad hace 15 mas de dano.",
       requires: [{ type: "hasStatusEffect", effectId: "sharingan", message: "Chidori requiere Sharingan activo." }],
-      effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }]
+      effects: [
+        { type: "damage", value: 35, damageType: "piercing", targets: "target", bonusWhen: [{ bonus: 15, require: { type: "hasMaxHp", hp: 50 } }] }
+      ]
     },
     {
       id: "sharingan",
       name: "Sharingan",
       chakra: { bloodline: 1 },
       targetType: "self",
-      description: "Sasuke activa su Sharingan, ganando 20 de reduccion de dano por 3 turnos y aumentando Chidori en 15 de dano.",
+      description: "Sasuke activa su Sharingan, ganando 20 de reduccion de dano por 3 turnos y permitiendo usar Chidori.",
       effects: [
         {
           type: "complex",
@@ -27,7 +29,6 @@ export const sasuke = {
           targets: "self",
           effects: [
             { type: "damage-reduction", value: 20, targets: "self" },
-            { type: "buffDamage", value: 15, targets: "self", skillIds: ["chidori"] }
           ]
         }
       ],

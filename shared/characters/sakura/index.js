@@ -18,8 +18,11 @@ export const sakura = {
       name: "Ninjutsu medico",
       chakra: { ninjutsu: 1 },
       targetType: "ally",
-      description: "Sakura cura 25 de vida a un aliado.",
-      effects: [{ type: "heal", value: 25, targets: "target" }],
+      description: "Sakura cura 25 de vida a un aliado. Por 2 turnos, Golpe de chakra inflige 10 puntos de daño adicional.",
+      effects: [
+        { type: "heal", value: 25, targets: "target" },
+        { type: "complex", duration: 2, targets: "self", effects: [{ type: "modifyDamage", value: 10, targets: "self", skillIds: ["chakra-punch"] }] }
+      ],
       cooldown: 1
     },
     {

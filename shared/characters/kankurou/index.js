@@ -10,11 +10,11 @@ export const kankurou = {
       name: "Emboscada de marionetas",
       chakra: { neutralChakra: 2 },
       targetType: "enemy",
-      description: "Usando sus marionetas para la ofensiva, Kankurou inflige 25 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
+      description: "Usando sus marionetas para la ofensiva, Kankurou inflige 30 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
       effects: [
         {
           type: "damage",
-          value: 25,
+          value: 30,
           targets: "target",
           bonusWhen: [{ bonus: 10, require: { type: "hasStatusEffect", effectId: "stun" } }]
         }
@@ -25,8 +25,8 @@ export const kankurou = {
       name: "Rafaga de marionetas de hierro",
       chakra: { neutralChakra: 1 },
       targetType: "enemies",
-      description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 20 puntos de dano de afliccion.",
-      effects: [{ type: "damage", value: 20, targets: "target", damageType: "affliction" }],
+      description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de dano de afliccion.",
+      effects: [{ type: "damage", value: 10, targets: "target", damageType: "affliction" }],
       cooldown: 1
     },
     {
@@ -34,20 +34,19 @@ export const kankurou = {
       name: "Preparacion de marionetas",
       chakra: { neutralChakra: 1 },
       targetType: "self",
-      description: "Kankuro prepara sus marionetas para atacar. Por 4 turnos el dano de Rafaga de marionetas de hierro aumenta en 5 y el dano de Emboscada de marionetas aumenta en 10.",
+      description: "Kankuro prepara sus marionetas para atacar. Kankurou gana 5 puntos de defensa destruible y por 4 turnos el dano de Rafaga de marionetas de hierro aumenta en 5 y el dano de Emboscada de marionetas aumenta en 10.",
       effects: [
-        { type: "gain-chakra", value: 2, targets: "self" },
+        { type: "shield", value: 5, targets: "self", isStackable: true },
         {
           type: "complex",
           duration: 4,
           targets: "self",
           effects: [
-            { type: "buffDamage", value: 5, targets: "self", skillIds: ["iron-puppet-barrage"] },
-            { type: "buffDamage", value: 10, targets: "self", skillIds: ["puppet-ambush"] }
+            { type: "modifyDamage", value: 5, targets: "self", skillIds: ["iron-puppet-barrage"] },
+            { type: "modifyDamage", value: 10, targets: "self", skillIds: ["puppet-ambush"] }
           ]
         }
       ],
-      cooldown: 5
     },
     {
       id: "puppet-substitution",

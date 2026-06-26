@@ -23,7 +23,7 @@ export const hinata = {
       targetType: "allies",
       description: `Con la prevision del Byakugan, Hinata otorga 15 de escudo a los aliados y 25 de reduccion de dano a si misma durante 2 turnos. 
         El escudo no puede acumularse consigo mismo.
-        Durante este tiempo, Puno suave y Sello de chakra infligen 10 de dano adicional.`,
+        Durante este tiempo, Puno suave cuesta 1 taijutsu menos y Puno suave y Sello de chakra infligen 10 de dano adicional.`,
       effects: [
         { type: "shield", value: 15, targets: "target", isStackable: false },
         {
@@ -32,7 +32,8 @@ export const hinata = {
           targets: "self",
           effects: [
             { type: "damage-reduction", value: 25, targets: "self" },
-            { type: "buffDamage", value: 10, targets: "self", skillIds: ["gentle-fist", "chakra-seal"] }
+            { type: "modifyChakraCost", chakra: { taijutsu: -1, ninjutsu: 0, bloodline: 0, genjutsu: 0, neutralChakra: 0 }, targets: "self", skillIds: ["gentle-fist"] },
+            { type: "modifyDamage", value: 10, targets: "self", skillIds: ["gentle-fist", "chakra-seal"] }
           ]
         }
       ]

@@ -26,7 +26,8 @@ export const naruto = {
       effects: [
         { type: "damage", value: 15, targets: "target" },
         { type: "shield", value: 15, targets: "self", isStackable: false }
-      ]
+      ],
+      cooldown: 1
     },
     {
       id: "uzumaki-resolve",

@@ -99,6 +99,16 @@ function botSkillNeedsHealing(room, bot, actor, skill, targetId, engine) {
   return !hasHealing || hasNonHealingValue || botEffectiveHealing(room, bot, actor, skill, targetId, engine) > 0;
 }
 
+function isLongCooldownInvulnerability(skill) {
+  return (skill.cooldown || 0) >= 4 && (skill.botDescription || "").includes("invulnerable-");
+}
+
+function botShouldConsiderSkill(actor, actorCharacter, skill) {
+  if (!isLongCooldownInvulnerability(skill)) return true;
+  const healthPercent = actorCharacter.maxHp > 0 ? actor.hp / actorCharacter.maxHp : 0;
+  return healthPercent <= 0.5;
+}
+
 function botActionPriority(room, bot, actor, skill, targetId, engine) {
   let priority = 10;
   const description = skill.botDescription || "";
@@ -128,6 +138,7 @@ function botSkillOptions(room, bot, engine) {
   for (const actor of engine.aliveMembers(bot)) {
     const actorCharacter = getCharacterById(actor.characterId);
     for (const skill of actorCharacter.skills) {
+      if (!botShouldConsiderSkill(actor, actorCharacter, skill)) continue;
       for (const targetId of botTargetIdsForSkill(room, bot, actor, skill, engine)) {
         const validation = engine.validateSkillAction(room, bot.id, actor.id, targetId, skill.id);
         if (typeof validation !== "string" && botSkillNeedsHealing(room, bot, actor, skill, targetId, engine)) {
