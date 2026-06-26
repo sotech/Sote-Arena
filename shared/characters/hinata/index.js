@@ -26,8 +26,15 @@ export const hinata = {
         Durante este tiempo, Puno suave y Sello de chakra infligen 10 de dano adicional.`,
       effects: [
         { type: "shield", value: 15, targets: "target", isStackable: false },
-        { type: "damage-reduction", value: 25, duration: 2, targets: "self" },
-        { type: "buffDamage", value: 10, duration: 2, targets: "self", skillIds: ["gentle-fist", "chakra-seal"] }
+        {
+          type: "complex",
+          duration: 2,
+          targets: "self",
+          effects: [
+            { type: "damage-reduction", value: 25, targets: "self" },
+            { type: "buffDamage", value: 10, targets: "self", skillIds: ["gentle-fist", "chakra-seal"] }
+          ]
+        }
       ]
     },
     {
@@ -47,7 +54,7 @@ export const hinata = {
       chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4
     }
   ]

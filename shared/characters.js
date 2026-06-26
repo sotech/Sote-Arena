@@ -6,10 +6,45 @@ import { hinata } from "./characters/hinata/index.js";
 import { gaara } from "./characters/gaara/index.js";
 import { kankurou } from "./characters/kankurou/index.js";
 
+function effectBotDescription(effect) {
+  if (effect.type === "damage") {
+    const bonuses = (effect.bonusWhen || [])
+      .map((rule) => {
+        const requirement = rule.require || rule.when || rule;
+        const conditionType = requirement.type || requirement.condition || "condition";
+        const conditionValue = requirement.effectId || requirement.statusEffectId || requirement.id || requirement.hp || requirement.value || "";
+        return `+${rule.bonus ?? rule.value ?? 0}-if-${conditionType}${conditionValue ? `-${conditionValue}` : ""}`;
+      })
+      .join(",");
+    return `damage-${effect.value}${bonuses ? `(${bonuses})` : ""}`;
+  }
+  if (effect.type === "heal" || effect.type === "self-heal") return `heal-${effect.value}`;
+  if (effect.type === "shield") return `shield-${effect.value}`;
+  if (effect.type === "damage-reduction") return `damageReduction-${effect.value}`;
+  if (effect.type === "buffDamage") return `buffDamage-${effect.value}`;
+  if (effect.type === "stun") return `stun-${effect.value}`;
+  if (effect.type === "invulnerable") return `invulnerable-${effect.value}`;
+  if (effect.type === "gain-chakra") return `gainChakra-${effect.value}`;
+  if (effect.type === "remove-chakra") return `removeChakra-${effect.value}`;
+  if (effect.type === "complex") {
+    const childDescriptions = (effect.effects || []).map(effectBotDescription);
+    if (childDescriptions.length === 1 && childDescriptions[0].startsWith("invulnerable-")) {
+      return childDescriptions[0];
+    }
+    const children = childDescriptions.join(",");
+    return `complex-${effect.duration}[${children}]`;
+  }
+  return effect.type;
+}
+
+function skillBotDescription(skill) {
+  return (skill.effects || []).map(effectBotDescription).join("|") || "none";
+}
+
 function withSkillDefaults(character) {
   return {
     ...character,
-    skills: character.skills.map((skill) => ({ cooldown: 0, ...skill }))
+    skills: character.skills.map((skill) => ({ cooldown: 0, botDescription: skillBotDescription(skill), ...skill }))
   };
 }
 

@@ -11,8 +11,9 @@ export const naruto = {
       chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
       description: "Preparando su tecnica insignia, Naruto inflige 35 de dano a un enemigo y lo aturde 1 turno.",
-      effects: [{ type: "damage", value: 35, targets: "target" }, 
-        { type: "stun", value: 1, targets: "target" }
+      effects: [
+        { type: "damage", value: 35, targets: "target" },
+        { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
       ],
       cooldown: 1
     },
@@ -46,7 +47,7 @@ export const naruto = {
       chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4
     }
   ]

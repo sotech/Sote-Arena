@@ -10,8 +10,16 @@ export const kakashi = {
       name: "Raikiri",
       chakra: { ninjutsu: 2 },
       targetType: "enemy",
-      description: "Usando su habilidad ilustre, Kakashi inflige 40 de dano perforante a un enemigo.",
-      effects: [{ type: "damage", value: 40, damageType: "piercing", targets: "target" }],
+      description: "Usando su habilidad ilustre, Kakashi inflige 40 de dano perforante a un enemigo. Inflige 10 de dano adicional si el objetivo tiene 50 de vida o menos.",
+      effects: [
+        {
+          type: "damage",
+          value: 40,
+          damageType: "piercing",
+          targets: "target",
+          bonusWhen: [{ bonus: 10, require: { type: "hasMaxHp", hp: 50 } }]
+        }
+      ],
       cooldown: 1
     },
     {
@@ -22,7 +30,7 @@ export const kakashi = {
       description: "Leyendo sus novelas aburridas, Kakashi inflige 15 de dano y aturde 2 turnos a un enemigo.",
       effects: [
         { type: "damage", value: 15, targets: "target" },
-        { type: "stun", value: 2, targets: "target" }
+        { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
       ],
       cooldown: 3
     },
@@ -42,7 +50,7 @@ export const kakashi = {
       chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4
     }
   ]

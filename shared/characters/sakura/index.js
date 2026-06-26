@@ -29,8 +29,8 @@ export const sakura = {
       targetType: "allies",
       description: "Sakura cura 15 de vida a todos los aliados y les otorga 10 de reduccion de dano durante 1 turnos.",
       effects: [
-        { type: "heal", value: 15, targets: "target" }, 
-        { type: "damage-reduction", value: 10, duration: 1, targets: "target" }
+        { type: "heal", value: 15, targets: "target" },
+        { type: "complex", duration: 1, targets: "target", effects: [{ type: "damage-reduction", value: 10, targets: "self" }] }
       ],
       cooldown: 3
     },
@@ -40,7 +40,7 @@ export const sakura = {
       chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4
     }
   ]

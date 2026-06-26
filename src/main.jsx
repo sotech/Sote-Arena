@@ -4,36 +4,21 @@ import { io } from "socket.io-client";
 import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
+import { characterImage, skillImage, skullImage } from "./game/assets.js";
+import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
+import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, meetsSkillRequirements, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
+import { effectDescription, groupStatusEffects, requirementDescription, statusEffectGroupMeta, statusEffectGroupValue, targetTypeLabel } from "./game/labels.js";
 import "./styles.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
 const SOCKET_PATH = import.meta.env.VITE_SOCKET_PATH || "/socket.io";
 const socket = io(SOCKET_URL, { path: SOCKET_PATH });
-const characterImages = import.meta.glob("./assets/characters/*.png", { eager: true, query: "?url", import: "default" });
-const skillImages = import.meta.glob("./assets/skills/*.png", { eager: true, query: "?url", import: "default" });
-const chakraTypes = [
-  { id: "taijutsu", label: "Tai", className: "tai" },
-  { id: "ninjutsu", label: "Nin", className: "nin" },
-  { id: "bloodline", label: "Blood", className: "blood" },
-  { id: "genjutsu", label: "Gen", className: "gen" }
-];
 const NOTIFIER_START_TIME = 0;
 const NOTIFIER_END_TIME = 3;
 const MESSAGE_SOUND_START_TIME = 0.5;
 const MESSAGE_SOUND_END_TIME = 1.5;
 const AUDIO_FADE_MS = 450;
 const MOBILE_QUERY = "(max-width: 768px)";
-const skullImage = `data:image/svg+xml;utf8,${encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
-    <rect width="80" height="80" rx="10" fill="#111827"/>
-    <path d="M40 12c-17 0-28 11-28 27 0 9 4 15 10 19v10h36V58c6-4 10-10 10-19 0-16-11-27-28-27Z" fill="#f8fafc"/>
-    <circle cx="29" cy="39" r="7" fill="#111827"/>
-    <circle cx="51" cy="39" r="7" fill="#111827"/>
-    <path d="M40 44l-5 8h10l-5-8Z" fill="#111827"/>
-    <path d="M28 61h24" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
-  </svg>
-`.replace(/\s+/g, " ").trim())}`;
-
 function App() {
   const [characters, setCharacters] = useState([]);
   const [room, setRoom] = useState(null);
@@ -257,6 +242,17 @@ function App() {
     setRoom(response.room);
   }
 
+  async function createBotRoom() {
+    setError("");
+    const response = await callSocket("room:createBot", { name: name.trim() || "Jugador" });
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setPlayerId(response.playerId);
+    setRoom(response.room);
+  }
+
   async function joinRoom() {
     setError("");
     const playerName = name.trim();
@@ -322,6 +318,16 @@ function App() {
     if (!response.ok) setError(response.error);
   }
 
+  async function surrender() {
+    setError("");
+    const response = await callSocket("battle:surrender", {});
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setOptionsOpen(false);
+  }
+
   async function sendChatMessage(message) {
     setError("");
     const response = await callSocket("chat:send", { message });
@@ -333,6 +339,7 @@ function App() {
   }
 
   function copyRoomCode() {
+    if (room?.mode === "bot") return;
     navigator.clipboard?.writeText(room.code);
     setNotice("Codigo copiado!");
     window.setTimeout(() => setNotice(""), 1800);
@@ -378,10 +385,12 @@ function App() {
               <Shield size={16} />
               Opciones
             </button>
-            <button className="code" onClick={copyRoomCode}>
-              <Copy size={16} />
-              {room.code}
-            </button>
+            {room.mode !== "bot" && (
+              <button className="code" onClick={copyRoomCode}>
+                <Copy size={16} />
+                {room.code}
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -395,6 +404,7 @@ function App() {
             setError("");
             setHomeView("play");
           }}
+          onPlayBot={createBotRoom}
           onCharacters={() => {
             setError("");
             setHomeView("characters");
@@ -475,17 +485,29 @@ function App() {
       )}
 
       {matchResult && <ResultModal title={matchResult} onReturnHome={returnHome} />}
-      {optionsOpen && <OptionsModal volume={volume} onVolumeChange={setVolume} onClose={() => setOptionsOpen(false)} />}
+      {optionsOpen && (
+        <OptionsModal
+          volume={volume}
+          canSurrender={room?.phase === "battle" && !me?.isBot}
+          onVolumeChange={setVolume}
+          onSurrender={surrender}
+          onClose={() => setOptionsOpen(false)}
+        />
+      )}
     </main>
   );
 }
 
-function MainMenu({ onPlay, onCharacters, onOptions }) {
+function MainMenu({ onPlay, onPlayBot, onCharacters, onOptions }) {
   return (
     <section className="panel main-menu">
       <button type="button" onClick={onPlay}>
         <Swords size={20} />
         Jugar
+      </button>
+      <button type="button" onClick={onPlayBot}>
+        <Zap size={20} />
+        Jugar vs IA
       </button>
       <button type="button" className="secondary" onClick={onCharacters}>
         <Users size={20} />
@@ -499,12 +521,12 @@ function MainMenu({ onPlay, onCharacters, onOptions }) {
   );
 }
 
-function OptionsModal({ volume, onVolumeChange, onClose }) {
+function OptionsModal({ volume, canSurrender = false, onVolumeChange, onSurrender, onClose }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="options-title">
       <div className="options-modal">
         <header>
-          <h2 id="options-title">Volumen</h2>
+          <h2 id="options-title">Opciones</h2>
           <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar opciones">
             <X size={18} />
           </button>
@@ -519,6 +541,11 @@ function OptionsModal({ volume, onVolumeChange, onClose }) {
             onChange={(event) => onVolumeChange(Number(event.target.value) / 100)}
           />
         </label>
+        {canSurrender && (
+          <button type="button" className="surrender-button" onClick={onSurrender}>
+            Rendirse
+          </button>
+        )}
       </div>
     </div>
   );
@@ -720,7 +747,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
       </div>
       <aside className="side-stack">
         <section className="panel status side-main">
-          <p className="eyebrow">Sala {room.code}</p>
+          <p className="eyebrow">{room.mode === "bot" ? "Partida vs IA" : `Sala ${room.code}`}</p>
           <h2>Jugadores</h2>
           {room.players.map((player) => (
             <div className="player-row" key={player.id}>
@@ -760,6 +787,8 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchangeRecord && totalChakra(me?.chakra) >= 5;
   const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar chakra";
   const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
+  const chakraTotal = totalChakra(me?.chakra);
+  const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNeutralChakra);
 
   useEffect(() => {
     setPendingSkillId("");
@@ -789,6 +818,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       && skillCooldownFor(selectedActor, skill.id) <= 0
       && !isQueuedActor(me, selectedActor?.id)
       && !isQueuedSkill(me, selectedActor?.id, skill.id)
+      && meetsSkillRequirements(skill, me, opponent, selectedActor)
       && canPaySkillChakra(me?.chakra, skill.chakra, queuedNeutralChakra)
       && eligibleTargetsForSkill(skill, me, opponent, selectedActor).length > 0;
   }
@@ -863,6 +893,9 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
             <div className="chakra">
               <Zap size={18} />
               <span>Chakra</span>
+              <b className="chakra-total" title="Chakra disponible ajustado por cola">
+                {queuedNeutralChakra > 0 ? `${adjustedChakraTotal}/${chakraTotal}` : chakraTotal}
+              </b>
             </div>
             <ChakraPool chakra={me?.chakra} />
             <button
@@ -1259,6 +1292,9 @@ function SkillFooter({ skill, compact = false, inspectedName = "" }) {
         {(skill.effects || []).map((effect, index) => (
           <li key={`${effect.type}-${index}`}>{effectDescription(effect)}</li>
         ))}
+        {(skill.requires || []).map((requirement, index) => (
+          <li key={`requirement-${index}`}>Requiere: {requirementDescription(requirement)}</li>
+        ))}
       </ul>
     </footer>
   );
@@ -1468,185 +1504,6 @@ function ChakraCost({ chakra = {} }) {
       ))}
     </span>
   );
-}
-
-function emptyChakra() {
-  return { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 };
-}
-
-function totalChakra(chakra = {}) {
-  return chakraTypes.reduce((total, type) => total + (chakra?.[type.id] || 0), 0);
-}
-
-function neutralChakraCost(chakra = {}) {
-  return Math.max(0, Number(chakra?.neutralChakra || 0));
-}
-
-function specificChakraCost(chakra = {}) {
-  return chakraTypes.reduce((cost, type) => {
-    cost[type.id] = Math.max(0, Number(chakra?.[type.id] || 0));
-    return cost;
-  }, emptyChakra());
-}
-
-function teamHealthPercent(player) {
-  if (!player?.team?.length) return 1;
-  const current = player.team.reduce((total, member) => total + Math.max(0, member.hp), 0);
-  const max = player.team.reduce((total, member) => total + member.character.maxHp, 0);
-  return max > 0 ? current / max : 0;
-}
-
-function characterImage(characterId) {
-  return characterImages[`./assets/characters/${characterId}.png`];
-}
-
-function skillImage(skillId) {
-  return skillImages[`./assets/skills/${skillId}.png`] || fallbackSkillImage(skillId);
-}
-
-function chakraCostLabel(chakra = {}) {
-  return Object.entries(chakra)
-    .filter(([, amount]) => amount > 0)
-    .map(([type, amount]) => `${amount} ${type}`)
-    .join(" + ");
-}
-
-function canPayChakra(available = {}, cost = {}) {
-  return chakraTypes.every((type) => (available?.[type.id] || 0) >= (cost?.[type.id] || 0));
-}
-
-function canPaySkillChakra(available = {}, cost = {}, reservedNeutral = 0) {
-  const specificCost = specificChakraCost(cost);
-  return canPayChakra(available, specificCost) && totalChakra(available) >= reservedNeutral + totalChakra(specificCost) + neutralChakraCost(cost);
-}
-
-function skillCooldownFor(member, skillId) {
-  return Math.max(0, member?.skillCooldowns?.[skillId] || 0);
-}
-
-function isQueuedSkill(player, actorId, skillId) {
-  return Boolean(actorId && skillId && (player?.queue || []).some((item) => item.actorId === actorId && item.skillId === skillId));
-}
-
-function isQueuedActor(player, actorId) {
-  return Boolean(actorId && (player?.queue || []).some((item) => item.actorId === actorId));
-}
-
-function eligibleTargetsForSkill(skill, me, opponent, actor) {
-  if (!skill || !actor || actor.hp <= 0) return [];
-
-  const allies = (me?.team || []).filter((member) => member.hp > 0);
-  const enemies = (opponent?.team || []).filter((member) => member.hp > 0 && !hasStatus(member, "invulnerable"));
-
-  if (skill.targetType === "self") return actor.hp > 0 ? [actor] : [];
-  if (skill.targetType === "ally" || skill.targetType === "allies") return allies;
-  if (skill.targetType === "enemy" || skill.targetType === "enemies") return enemies;
-  if (skill.targetType === "allPlayers") return [...allies, ...enemies];
-  return [];
-}
-
-function hasStatus(member, type) {
-  return (member?.statusEffects || []).some((effect) => effect.type === type && effect.turns > 0);
-}
-
-function groupStatusEffects(effects = []) {
-  const groups = new Map();
-  for (const effect of effects) {
-    const key = effect.sourceSkillId || effect.id;
-    const current = groups.get(key);
-    if (current) {
-      current.effects.push(effect);
-      current.className = current.effects.length > 1 ? `${current.effects[0].type} stacked-status` : current.className;
-      continue;
-    }
-    groups.set(key, {
-      id: key,
-      sourceSkillId: effect.sourceSkillId,
-      sourceSkillName: effect.sourceSkillName,
-      className: effect.type,
-      effects: [effect]
-    });
-  }
-  return [...groups.values()];
-}
-
-function statusEffectGroupValue(group) {
-  const timedEffects = group.effects.filter((effect) => Number.isFinite(effect.turns));
-  if (timedEffects.length > 0) {
-    return Math.max(...timedEffects.map((effect) => effect.turns));
-  }
-  return statusEffectValue(group.effects[0]);
-}
-
-function statusEffectGroupMeta(group) {
-  const metas = group.effects.map((effect) => statusEffectMeta(effect));
-  return [...new Set(metas)].join(" | ");
-}
-
-function statusEffectValue(effect) {
-  if (effect.type === "shield") return effect.remainingShield || effect.value;
-  if (Number.isFinite(effect.turns)) return effect.turns;
-  return effect.turns;
-}
-
-function statusEffectMeta(effect) {
-  if (effect.type === "shield") return "Escudo destruible";
-  if (effect.type === "damage-reduction") return `Turnos restantes: ${effect.turns}`;
-  return `Turnos restantes: ${effect.turns}`;
-}
-
-function effectDescription(effect) {
-  if (effect.type === "damage") return `${damageTypeLabel(effect.damageType)}: ${effect.value}`;
-  if (effect.type === "heal") return `Cura: ${effect.value}`;
-  if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
-  if (effect.type === "shield") return `Escudo destruible: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
-  if (effect.type === "damage-reduction") return `Reduccion de dano: ${effect.value} por ${effect.duration} turno(s)`;
-  if (effect.type === "buffDamage") {
-    const scope = effect.skillIds?.length ? ` (${effect.skillIds.join(", ")})` : " (todas)";
-    return `Aumenta dano: +${effect.value} por ${effect.duration} turno(s)${scope}`;
-  }
-  if (effect.type === "stun") return `Aturde: ${effect.value} turno(s)`;
-  if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
-  if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
-  if (effect.type === "remove-chakra") return `Elimina chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
-  return `${effect.type}: ${effect.value}`;
-}
-
-function chakraEffectTypeLabel(type) {
-  return chakraTypes.find((item) => item.id === type)?.label || "al azar";
-}
-
-function damageTypeLabel(type = "basic") {
-  const labels = {
-    basic: "Dano basico",
-    piercing: "Dano perforante",
-    affliction: "Dano afliccion"
-  };
-  return labels[type] || "Dano basico";
-}
-
-function fallbackSkillImage(skillId) {
-  const letter = (skillId || "?").slice(0, 1).toUpperCase();
-  const hue = [...(skillId || "skill")].reduce((total, char) => total + char.charCodeAt(0), 0) % 360;
-  return `data:image/svg+xml;utf8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
-      <rect width="80" height="80" rx="10" fill="hsl(${hue}, 70%, 35%)"/>
-      <circle cx="40" cy="40" r="24" fill="rgba(255,255,255,.9)"/>
-      <text x="40" y="49" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="hsl(${hue}, 70%, 30%)">${letter}</text>
-    </svg>
-  `.replace(/\s+/g, " ").trim())}`;
-}
-
-function targetTypeLabel(type) {
-  const labels = {
-    self: "Uno mismo",
-    enemy: "Un enemigo",
-    ally: "Un aliado",
-    enemies: "Todos los enemigos",
-    allies: "Todos los aliados",
-    allPlayers: "Todos los jugadores"
-  };
-  return labels[type] || "objetivo";
 }
 
 function Health({ current, max }) {

@@ -5,6 +5,38 @@ import { randomUUID } from "node:crypto";
 import { Server } from "socket.io";
 import { characters, getCharacterById } from "../shared/characters.js";
 import { supportedEffectTypes } from "../shared/effects.js";
+import { normalizeRequireScope, normalizeRequireType } from "../shared/requires.js";
+import {
+  CHAKRA_TYPES,
+  applyChakraGain,
+  applyChakraRemoval,
+  canPay,
+  canPaySkillCost,
+  chakraLabel,
+  cleanChakraSelection,
+  cloneChakra,
+  emptyChakra,
+  grantTurnChakra,
+  neutralChakraCost,
+  payChakra,
+  queuedNeutralChakraCost,
+  refundChakra,
+  specificChakraCost,
+  totalChakra
+} from "./chakra.js";
+import {
+  cleanPlayerName,
+  cloneCooldowns,
+  createRoomCode,
+  createTeam,
+  findPlayer,
+  getMember,
+  getRoomMember,
+  opponentOf,
+  ownerOfMember,
+  teamAlive,
+  validateTeam
+} from "./players.js";
 
 const PORT = process.env.PORT || 3002;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://127.0.0.1:5173";
@@ -24,143 +56,12 @@ const io = new Server(server, {
 
 const rooms = new Map();
 const socketRooms = new Map();
-const CHAKRA_TYPES = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
-const NEUTRAL_CHAKRA = "neutralChakra";
-
-function emptyChakra() {
-  return { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 };
-}
-
-function cloneChakra(chakra) {
-  return { ...emptyChakra(), ...chakra };
-}
-
-function cloneCooldowns(cooldowns) {
-  return { ...(cooldowns || {}) };
-}
-
-function totalChakra(chakra) {
-  return CHAKRA_TYPES.reduce((total, type) => total + (chakra?.[type] || 0), 0);
-}
-
-function cleanChakraSelection(chakra = {}) {
-  return CHAKRA_TYPES.reduce((selection, type) => {
-    const amount = Number(chakra[type] || 0);
-    selection[type] = Number.isInteger(amount) && amount > 0 ? amount : 0;
-    return selection;
-  }, emptyChakra());
-}
-
-function chakraLabel(cost) {
-  return Object.entries(cost)
-    .filter(([, amount]) => amount > 0)
-    .map(([type, amount]) => `${amount} ${type === NEUTRAL_CHAKRA ? "neutral" : type}`)
-    .join(", ");
-}
-
-function canPay(chakra, cost) {
-  return CHAKRA_TYPES.every((type) => (chakra?.[type] || 0) >= (cost?.[type] || 0));
-}
-
-function specificChakraCost(cost = {}) {
-  return CHAKRA_TYPES.reduce((specific, type) => {
-    specific[type] = Math.max(0, Number(cost[type] || 0));
-    return specific;
-  }, emptyChakra());
-}
-
-function neutralChakraCost(cost = {}) {
-  return Math.max(0, Number(cost[NEUTRAL_CHAKRA] || 0));
-}
-
-function requiredChakraTotal(cost = {}) {
-  return totalChakra(specificChakraCost(cost)) + neutralChakraCost(cost);
-}
-
-function queuedNeutralChakraCost(player) {
-  return (player?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
-}
-
-function canPaySkillCost(chakra, cost = {}, reservedNeutral = 0) {
-  return canPay(chakra, specificChakraCost(cost)) && totalChakra(chakra) >= reservedNeutral + requiredChakraTotal(cost);
-}
-
-function payChakra(player, cost) {
-  for (const type of CHAKRA_TYPES) {
-    const amount = Math.max(0, Number(cost?.[type] || 0));
-    player.chakra[type] = Math.max(0, (player.chakra[type] || 0) - amount);
-  }
-}
-
-function refundChakra(player, cost) {
-  for (const type of CHAKRA_TYPES) {
-    const amount = Math.max(0, Number(cost?.[type] || 0));
-    player.chakra[type] = (player.chakra[type] || 0) + amount;
-  }
-}
-
-function grantPlayerRandomChakra(player) {
-  const type = CHAKRA_TYPES[Math.floor(Math.random() * CHAKRA_TYPES.length)];
-  player.chakra[type] = (player.chakra[type] || 0) + 1;
-}
-
-function randomAvailableChakraType(chakra) {
-  const availableTypes = CHAKRA_TYPES.filter((type) => (chakra?.[type] || 0) > 0);
-  if (!availableTypes.length) return null;
-  return availableTypes[Math.floor(Math.random() * availableTypes.length)];
-}
-
-function applyChakraGain(player, amount, chakraType) {
-  const gained = emptyChakra();
-  for (let i = 0; i < amount; i += 1) {
-    const type = CHAKRA_TYPES.includes(chakraType)
-      ? chakraType
-      : CHAKRA_TYPES[Math.floor(Math.random() * CHAKRA_TYPES.length)];
-    player.chakra[type] = (player.chakra[type] || 0) + 1;
-    gained[type] += 1;
-  }
-  return gained;
-}
-
-function applyChakraRemoval(player, amount, chakraType) {
-  const removed = emptyChakra();
-  for (let i = 0; i < amount; i += 1) {
-    const type = CHAKRA_TYPES.includes(chakraType) ? chakraType : randomAvailableChakraType(player.chakra);
-    if (!type || (player.chakra[type] || 0) <= 0) break;
-    player.chakra[type] -= 1;
-    removed[type] += 1;
-  }
-  return removed;
-}
-
-function grantTurnChakra(player, setAmount) {
-  if (setAmount) {
-    grantPlayerRandomChakra(player);
-    return;
-  }
-
-  const aliveCount = player.team.filter((member) => member.hp > 0).length;
-  for (let i = 0; i < aliveCount; i += 1) {
-    grantPlayerRandomChakra(player);
-  }
-}
-
-function createRoomCode() {
-  let code;
-  do {
-    code = Math.random().toString(36).slice(2, 7).toUpperCase();
-  } while (rooms.has(code));
-  return code;
-}
-
-function cleanPlayerName(name) {
-  const playerName = String(name || "").trim().slice(0, 18);
-  return playerName || null;
-}
+const BOT_NAME = "Sote IA";
 
 function publicRoom(room) {
   return {
     code: room.code,
+    mode: room.mode || "pvp",
     phase: room.phase,
     activePlayerId: room.activePlayerId,
     winnerId: room.winnerId,
@@ -171,9 +72,11 @@ function publicRoom(room) {
       id: player.id,
       name: player.name,
       side: player.side,
+      isBot: Boolean(player.isBot),
       ready: player.ready,
       connected: player.connected,
       chakra: cloneChakra(player.chakra),
+      botSkillPlan: player.isBot ? [...(player.botSkillPlan || [])] : [],
       chakraExchange: player.chakraExchange
         ? {
             turn: player.chakraExchange.turn,
@@ -206,55 +109,41 @@ function broadcast(room) {
   io.to(room.code).emit("room:update", publicRoom(room));
 }
 
-function findPlayer(room, playerId) {
-  return room.players.find((player) => player.id === playerId);
+function randomItem(items) {
+  return items[Math.floor(Math.random() * items.length)];
 }
 
-function opponentOf(room, playerId) {
-  return room.players.find((player) => player.id !== playerId);
-}
-
-function ownerOfMember(room, member) {
-  return room.players.find((player) => player.team.includes(member));
-}
-
-function createTeam(characterIds) {
-  return characterIds.map((characterId) => {
-    const character = getCharacterById(characterId);
-    return {
-      id: `${characterId}-${randomUUID()}`,
-      characterId,
-      hp: character.maxHp,
-      shield: 0,
-      skillCooldowns: {},
-      statusEffects: []
-    };
-  });
-}
-
-function teamAlive(player) {
-  return player.team.some((member) => member.hp > 0);
-}
-
-function getMember(player, memberId) {
-  return player.team.find((member) => member.id === memberId);
-}
-
-function validateTeam(characterIds) {
-  if (!Array.isArray(characterIds) || characterIds.length !== 3) {
-    return "El equipo debe tener exactamente 3 personajes.";
+function weightedRandomItem(items) {
+  const totalWeight = items.reduce((total, item) => total + Math.max(1, item.priority || 1), 0);
+  let pick = Math.random() * totalWeight;
+  for (const item of items) {
+    pick -= Math.max(1, item.priority || 1);
+    if (pick <= 0) return item;
   }
+  return items[items.length - 1];
+}
 
-  const uniqueIds = new Set(characterIds);
-  if (uniqueIds.size !== 3) {
-    return "No puedes repetir personajes en el equipo.";
-  }
+function randomTeamIds() {
+  return [...characters]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3)
+    .map((character) => character.id);
+}
 
-  if (characterIds.some((id) => !getCharacterById(id))) {
-    return "El equipo contiene un personaje no disponible.";
-  }
-
-  return null;
+function createBotPlayer(roomCode) {
+  return {
+    id: `bot-${roomCode}`,
+    name: BOT_NAME,
+    side: "blue",
+    isBot: true,
+    connected: true,
+    ready: true,
+    chakra: emptyChakra(),
+    chakraExchange: null,
+    queue: [],
+    botSkillPlan: [],
+    team: createTeam(randomTeamIds())
+  };
 }
 
 function maybeStart(room) {
@@ -263,14 +152,16 @@ function maybeStart(room) {
   }
 
   room.phase = "battle";
-  room.activePlayerId = room.players[0].id;
+  const startingPlayer = randomItem(room.players);
+  room.activePlayerId = startingPlayer.id;
   room.turn = 1;
   room.players.forEach((player) => {
     player.chakra = emptyChakra();
     player.queue = [];
     player.chakraExchange = null;
   });
-  grantTurnChakra(room.players[0], true);
+  grantTurnChakra(startingPlayer, true);
+  room.log.unshift(`${startingPlayer.name} inicia la partida.`);
   room.log.unshift("La batalla comenzo. Cada turno otorga 1 chakra aleatorio por cada personaje vivo del jugador activo.");
 }
 
@@ -365,7 +256,6 @@ function exchangeChakra(room, playerId, receivedType, spent) {
     receivedType,
     spent: selected
   };
-  room.log.unshift(`${player.name} intercambio ${chakraLabel(selected)} por 1 ${receivedType}.`);
 
   return null;
 }
@@ -382,7 +272,6 @@ function undoChakraExchange(room, playerId) {
   player.chakra[exchange.receivedType] -= 1;
   refundChakra(player, exchange.spent);
   player.chakraExchange = { ...exchange, undone: true };
-  room.log.unshift(`${player.name} deshizo el intercambio de chakra y recupero ${chakraLabel(exchange.spent)}.`);
 
   return null;
 }
@@ -392,7 +281,6 @@ function advanceTurn(room) {
   const next = room.players[(currentIndex + 1) % room.players.length];
   next.queue = [];
   next.chakraExchange = null;
-  reduceCooldowns(next);
   grantTurnChakra(next);
   restoreDamageReduction(next);
   room.activePlayerId = next.id;
@@ -404,14 +292,20 @@ function expireStatusEffects(player, currentTurn) {
     member.statusEffects = (member.statusEffects || [])
       .map((effect) => {
         if (effect.type === "shield") return effect;
-        return effect.createdTurn === currentTurn ? effect : { ...effect, turns: effect.turns - 1 };
+        const nextEffect = effect.createdTurn === currentTurn ? effect : { ...effect, turns: effect.turns - 1 };
+        return nextEffect.type === "complex"
+          ? { ...nextEffect, descriptions: complexDescriptions(nextEffect) }
+          : nextEffect;
       })
       .filter((effect) => (effect.type === "shield" ? (effect.remainingShield || 0) > 0 : effect.turns > 0));
   });
 }
 
 function hasStatus(member, type) {
-  return (member.statusEffects || []).some((effect) => effect.type === type && effect.turns > 0);
+  return (member.statusEffects || []).some((effect) => {
+    if (effect.type === type && effect.turns > 0) return true;
+    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => childEffect.type === type);
+  });
 }
 
 function addStatus(member, status) {
@@ -425,6 +319,8 @@ function addStatus(member, status) {
       existing.isStackable = status.isStackable;
       existing.descriptions = shieldDescriptions(existing);
       existing.createdTurn = status.createdTurn;
+      existing.originActorId = status.originActorId;
+      existing.originCharacterId = status.originCharacterId;
       return;
     }
     status.value = status.remainingShield;
@@ -440,6 +336,8 @@ function addStatus(member, status) {
       existing.restoresEachTurn = status.restoresEachTurn;
       existing.descriptions = damageReductionDescriptions(existing);
       existing.createdTurn = status.createdTurn;
+      existing.originActorId = status.originActorId;
+      existing.originCharacterId = status.originCharacterId;
       return;
     }
     status.descriptions = damageReductionDescriptions(status);
@@ -453,9 +351,26 @@ function addStatus(member, status) {
       existing.skillIds = status.skillIds;
       existing.descriptions = buffDamageDescriptions(status);
       existing.createdTurn = status.createdTurn;
+      existing.originActorId = status.originActorId;
+      existing.originCharacterId = status.originCharacterId;
       return;
     }
     status.descriptions = buffDamageDescriptions(status);
+    member.statusEffects = [...(member.statusEffects || []), status];
+    return;
+  }
+  if (status.type === "complex") {
+    if (existing) {
+      existing.turns = Math.max(existing.turns, status.turns);
+      existing.effects = status.effects;
+      existing.descriptions = complexDescriptions(status);
+      existing.createdTurn = status.createdTurn;
+      existing.remainingReductions = status.remainingReductions || {};
+      existing.originActorId = status.originActorId;
+      existing.originCharacterId = status.originCharacterId;
+      return;
+    }
+    status.descriptions = complexDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
@@ -464,6 +379,8 @@ function addStatus(member, status) {
     existing.turns = Math.max(existing.turns, status.turns);
     existing.descriptions = status.descriptions;
     existing.createdTurn = status.createdTurn;
+    existing.originActorId = status.originActorId;
+    existing.originCharacterId = status.originCharacterId;
     return;
   }
   member.statusEffects = [...(member.statusEffects || []), status];
@@ -473,9 +390,17 @@ function statusDescription(effect, actorCharacter) {
   if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo destruible.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value} de reduccion de dano.`;
   if (effect.type === "buffDamage") return `${actorCharacter.name} ha aumentado el dano de este personaje en ${effect.value}.`;
+  if (effect.type === "complex") return `${actorCharacter.name} ha aplicado un efecto complejo.`;
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
   if (effect.type === "invulnerable") return `${actorCharacter.name} ha vuelto invulnerable a este personaje.`;
   return `${actorCharacter.name} ha aplicado ${effect.type} a este personaje.`;
+}
+
+function statusOrigin(actor) {
+  return {
+    originActorId: actor?.id,
+    originCharacterId: actor?.characterId
+  };
 }
 
 function shieldDescriptions(effect) {
@@ -491,6 +416,29 @@ function buffDamageDescriptions(effect) {
   return [`${effect.sourceActorName || "Un personaje"} aumento el dano en ${effect.value}${scope}.`];
 }
 
+function simpleEffectDescription(effect) {
+  if (effect.type === "damage") return `Inflige ${effect.value} de dano${effect.damageType ? ` ${effect.damageType}` : ""}.`;
+  if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
+  if (effect.type === "shield") return `Otorga ${effect.value} de escudo destruible.`;
+  if (effect.type === "damage-reduction") return `Otorga ${effect.value} de reduccion de dano.`;
+  if (effect.type === "buffDamage") {
+    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.join(", ")}` : " a todas las habilidades";
+    return `Aumenta ${effect.value} de dano${scope}.`;
+  }
+  if (effect.type === "invulnerable") return "Otorga invulnerabilidad.";
+  if (effect.type === "stun") return "Aplica aturdimiento.";
+  if (effect.type === "gain-chakra") return `Otorga ${effect.value} chakra.`;
+  if (effect.type === "remove-chakra") return `Elimina ${effect.value} chakra.`;
+  return `${effect.type}: ${effect.value || ""}`.trim();
+}
+
+function complexDescriptions(effect) {
+  return [
+    `${effect.sourceActorName || "Un personaje"} mantiene este efecto por ${effect.turns} turno(s).`,
+    ...(effect.effects || []).map(simpleEffectDescription)
+  ];
+}
+
 function appliesToBuffedSkill(effect, skill) {
   if (effect.type !== "buffDamage" || effect.turns <= 0) return false;
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
@@ -498,10 +446,17 @@ function appliesToBuffedSkill(effect, skill) {
 }
 
 function damageBuffValue(actor, skill, currentTurn) {
-  return (actor.statusEffects || [])
+  const directBuffs = (actor.statusEffects || [])
     .filter((effect) => appliesToBuffedSkill(effect, skill))
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
     .reduce((total, effect) => total + Math.max(0, Number(effect.value || 0)), 0);
+  const complexBuffs = (actor.statusEffects || [])
+    .filter((effect) => effect.type === "complex" && effect.turns > 0)
+    .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
+    .flatMap((effect) => effect.effects || [])
+    .filter((effect) => appliesToBuffedSkill({ ...effect, turns: 1 }, skill))
+    .reduce((total, effect) => total + Math.max(0, Number(effect.value || 0)), 0);
+  return directBuffs + complexBuffs;
 }
 
 function shieldValue(member) {
@@ -528,11 +483,25 @@ function absorbShield(member, damage) {
 function absorbDamageReduction(member, damage) {
   let remainingDamage = damage;
   for (const effect of member.statusEffects || []) {
-    if (effect.type !== "damage-reduction" || remainingDamage <= 0) continue;
-    const blocked = Math.min(effect.remainingReduction || 0, remainingDamage);
-    effect.remainingReduction = (effect.remainingReduction || 0) - blocked;
-    effect.descriptions = damageReductionDescriptions(effect);
-    remainingDamage -= blocked;
+    if (remainingDamage <= 0) continue;
+    if (effect.type === "damage-reduction") {
+      const blocked = Math.min(effect.remainingReduction || 0, remainingDamage);
+      effect.remainingReduction = (effect.remainingReduction || 0) - blocked;
+      effect.descriptions = damageReductionDescriptions(effect);
+      remainingDamage -= blocked;
+      continue;
+    }
+    if (effect.type === "complex" && effect.turns > 0) {
+      effect.remainingReductions = effect.remainingReductions || {};
+      for (const [index, childEffect] of (effect.effects || []).entries()) {
+        if (childEffect.type !== "damage-reduction" || remainingDamage <= 0) continue;
+        const currentReduction = effect.remainingReductions[index] ?? childEffect.value;
+        const blocked = Math.min(currentReduction || 0, remainingDamage);
+        effect.remainingReductions[index] = Math.max(0, currentReduction - blocked);
+        effect.descriptions = complexDescriptions(effect);
+        remainingDamage -= blocked;
+      }
+    }
   }
   return damage - remainingDamage;
 }
@@ -545,6 +514,19 @@ function restoreDamageReduction(player) {
         ...effect,
         remainingReduction: effect.value,
         descriptions: damageReductionDescriptions({ ...effect, remainingReduction: effect.value })
+      };
+    }).map((effect) => {
+      if (effect.type !== "complex") return effect;
+      const remainingReductions = { ...(effect.remainingReductions || {}) };
+      (effect.effects || []).forEach((childEffect, index) => {
+        if (childEffect.type === "damage-reduction" && childEffect.restoresEachTurn !== false) {
+          remainingReductions[index] = childEffect.value;
+        }
+      });
+      return {
+        ...effect,
+        remainingReductions,
+        descriptions: complexDescriptions({ ...effect, remainingReductions })
       };
     });
   });
@@ -572,6 +554,58 @@ function canBeTargetedBy(player, candidate) {
   return player.team.includes(candidate) || !hasStatus(candidate, "invulnerable");
 }
 
+function memberHasStatusEffect(member, effectId) {
+  return (member.statusEffects || []).some((effect) => {
+    if (effect.id === effectId || effect.sourceSkillId === effectId || effect.type === effectId) return true;
+    return effect.type === "complex" && (effect.effects || []).some((childEffect) => (
+      childEffect.id === effectId || childEffect.sourceSkillId === effectId || childEffect.type === effectId
+    ));
+  });
+}
+
+function requireCandidates(requirement, player, opponent, actor) {
+  const scope = normalizeRequireScope(requirement.scope || requirement.target);
+  if (scope === "anyAlly") return aliveMembers(player);
+  if (scope === "anyEnemy") return aliveMembers(opponent);
+  return actor ? [actor] : [];
+}
+
+function memberMeetsRequirement(member, requirement) {
+  const type = normalizeRequireType(requirement.type || requirement.condition);
+  if (type === "hasStatusEffect") {
+    const effectId = requirement.effectId || requirement.statusEffectId || requirement.id;
+    return Boolean(effectId && memberHasStatusEffect(member, effectId));
+  }
+  if (type === "hasMinHp") {
+    const minHp = Number(requirement.minHp ?? requirement.hp ?? requirement.value ?? 0);
+    return member.hp >= minHp;
+  }
+  if (type === "hasMaxHp") {
+    const maxHp = Number(requirement.maxHp ?? requirement.hp ?? requirement.value ?? 0);
+    return member.hp <= maxHp;
+  }
+  return false;
+}
+
+function damageBonusForTarget(effect, target) {
+  return (effect.bonusWhen || []).reduce((bonus, rule) => {
+    const requirement = rule.require || rule.when || rule;
+    return memberMeetsRequirement(target, requirement)
+      ? bonus + Math.max(0, Number(rule.bonus ?? rule.value ?? 0))
+      : bonus;
+  }, 0);
+}
+
+function validateSkillRequirements(skill, player, opponent, actor) {
+  for (const requirement of skill.requires || []) {
+    const candidates = requireCandidates(requirement, player, opponent, actor);
+    if (!candidates.some((member) => memberMeetsRequirement(member, requirement))) {
+      return requirement.message || "No se cumplen los requisitos de la habilidad.";
+    }
+  }
+  return null;
+}
+
 function targetsForSkill(room, player, actor, targetId, skill) {
   const opponent = opponentOf(room, player.id);
   if (skill.targetType === "self") return [actor];
@@ -584,15 +618,52 @@ function targetsForSkill(room, player, actor, targetId, skill) {
 }
 
 function resolveEffectTargets(room, player, actor, targetId, skill, effect) {
-  const requestedTargets = Array.isArray(effect.targets) ? effect.targets : [effect.targets];
+  const requestedTargets = Array.isArray(effect.targets) ? effect.targets : [effect.targets || "self"];
+  const opponent = opponentOf(room, player.id);
   const members = [];
   for (const requestedTarget of requestedTargets) {
     if (requestedTarget === "self") {
       members.push(actor);
       continue;
     }
+    if (requestedTarget === "origin") {
+      members.push(actor);
+      continue;
+    }
     if (requestedTarget === "target") {
       members.push(...targetsForSkill(room, player, actor, targetId, skill));
+      continue;
+    }
+    if (requestedTarget === "allies") {
+      members.push(...aliveMembers(player));
+      continue;
+    }
+    if (requestedTarget === "enemies") {
+      members.push(...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member)));
+    }
+  }
+  return [...new Map(members.filter(Boolean).map((member) => [member.id, member])).values()];
+}
+
+function resolveComplexEffectTargets(room, player, statusMember, effect, status) {
+  const requestedTargets = Array.isArray(effect.targets) ? effect.targets : [effect.targets || "self"];
+  const opponent = opponentOf(room, player.id);
+  const members = [];
+  for (const requestedTarget of requestedTargets) {
+    if (requestedTarget === "self" || requestedTarget === "target") {
+      members.push(statusMember);
+      continue;
+    }
+    if (requestedTarget === "origin") {
+      members.push(getRoomMember(room, status.originActorId));
+      continue;
+    }
+    if (requestedTarget === "allies") {
+      members.push(...aliveMembers(player));
+      continue;
+    }
+    if (requestedTarget === "enemies") {
+      members.push(...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member)));
     }
   }
   return [...new Map(members.filter(Boolean).map((member) => [member.id, member])).values()];
@@ -605,6 +676,86 @@ function targetNameForSkill(room, player, actor, targetId, skill) {
   const targets = targetsForSkill(room, player, actor, targetId, skill);
   if (skill.targetType === "self") return getCharacterById(actor.characterId).name;
   return targets[0] ? getCharacterById(targets[0].characterId).name : "objetivo invalido";
+}
+
+function applyComplexStatusEffects(room, player) {
+  const events = [];
+  for (const member of aliveMembers(player)) {
+    const memberCharacter = getCharacterById(member.characterId);
+    for (const status of member.statusEffects || []) {
+      if (status.type !== "complex" || status.turns <= 0 || status.createdTurn === room.turn) continue;
+      for (const effect of status.effects || []) {
+        if (effect.type === "damage-reduction" || effect.type === "buffDamage" || effect.type === "invulnerable" || effect.type === "stun") {
+          continue;
+        }
+
+        const targets = resolveComplexEffectTargets(room, player, member, effect, status).filter((target) => target.hp > 0);
+        if (targets.length === 0) continue;
+
+        if (effect.type === "damage") {
+          let totalDamage = 0;
+          for (const target of targets) {
+            totalDamage += applyDamage(target, Math.max(0, Number(effect.value || 0)), effect.damageType || "basic");
+          }
+          if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano continuo.`);
+          continue;
+        }
+
+        if (effect.type === "heal" || effect.type === "self-heal") {
+          let totalHeal = 0;
+          for (const target of targets) {
+            const targetCharacter = getCharacterById(target.characterId);
+            const before = target.hp;
+            target.hp = Math.min(targetCharacter.maxHp, target.hp + effect.value);
+            totalHeal += target.hp - before;
+          }
+          if (totalHeal > 0) events.push(`${status.sourceSkillName} curo ${totalHeal} de vida.`);
+          continue;
+        }
+
+        if (effect.type === "shield") {
+          let totalShield = 0;
+          for (const target of targets) {
+            const shieldBefore = shieldValue(target);
+            addStatus(target, {
+              id: randomUUID(),
+              type: "shield",
+              turns: null,
+              value: effect.value,
+              remainingShield: effect.value,
+              isStackable: effect.isStackable,
+              sourceSkillId: `${status.id}-${effect.type}`,
+              sourceSkillName: status.sourceSkillName,
+              sourceActorName: status.sourceActorName,
+              originActorId: status.originActorId,
+              originCharacterId: status.originCharacterId,
+              createdTurn: room.turn,
+              descriptions: [statusDescription({ ...effect, remainingShield: effect.value }, memberCharacter)]
+            });
+            target.shield = shieldValue(target);
+            totalShield += Math.max(0, target.shield - shieldBefore);
+          }
+          if (totalShield > 0) events.push(`${status.sourceSkillName} otorgo ${totalShield} de escudo.`);
+          continue;
+        }
+
+        if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
+          const affectedPlayers = [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
+          const changedChakra = emptyChakra();
+          for (const affectedPlayer of affectedPlayers) {
+            const changed = effect.type === "gain-chakra"
+              ? applyChakraGain(affectedPlayer, Math.max(0, Number(effect.value || 0)), effect.chakraType)
+              : applyChakraRemoval(affectedPlayer, Math.max(0, Number(effect.value || 0)), effect.chakraType);
+            for (const type of CHAKRA_TYPES) changedChakra[type] += changed[type] || 0;
+          }
+          if (totalChakra(changedChakra) > 0) {
+            events.push(`${status.sourceSkillName} ${effect.type === "gain-chakra" ? "gano" : "elimino"} ${chakraLabel(changedChakra)}.`);
+          }
+        }
+      }
+    }
+  }
+  return events;
 }
 
 function validateSkillAction(room, playerId, actorId, targetId, skillId) {
@@ -623,6 +774,8 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   if (queuedActorFor(player, actor.id)) return `${actorCharacter.name} ya tiene una habilidad en cola este turno.`;
   if (skillCooldown(actor, skill.id) > 0) return `${skill.name} esta en cooldown.`;
   if (queuedSkillFor(player, actor.id, skill.id)) return `${skill.name} ya esta en cola.`;
+  const requirementError = validateSkillRequirements(skill, player, opponent, actor);
+  if (requirementError) return requirementError;
   if (!canPaySkillCost(player.chakra, skill.chakra, queuedNeutralChakraCost(player))) return `No tienes chakra suficiente: requiere ${chakraLabel(skill.chakra)}.`;
 
   const targets = targetsForSkill(room, player, actor, targetId, skill);
@@ -693,10 +846,29 @@ function applyQueuedSkill(room, player, action) {
     const targets = resolveEffectTargets(room, player, actor, action.targetId, skill, effect).filter((target) => target.hp > 0);
     if (targets.length === 0) continue;
 
+    if (effect.type === "complex") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "complex",
+          turns: effect.duration,
+          effects: Array.isArray(effect.effects) ? effect.effects : [],
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          remainingReductions: {}
+        });
+      }
+      continue;
+    }
+
     if (effect.type === "damage") {
       const buffedDamage = Math.max(0, Number(effect.value || 0)) + damageBuffValue(actor, skill, room.turn);
       for (const target of targets) {
-        const dealt = applyDamage(target, buffedDamage, effect.damageType || "basic");
+        const targetDamage = buffedDamage + damageBonusForTarget(effect, target);
+        const dealt = applyDamage(target, targetDamage, effect.damageType || "basic");
         totalDamage += dealt;
       }
       continue;
@@ -724,6 +896,7 @@ function applyQueuedSkill(room, player, action) {
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: [statusDescription({ ...effect, remainingReduction: effect.value }, actorCharacter)]
         });
@@ -743,6 +916,7 @@ function applyQueuedSkill(room, player, action) {
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: [statusDescription(effect, actorCharacter)]
         });
@@ -764,6 +938,7 @@ function applyQueuedSkill(room, player, action) {
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: [statusDescription({ ...effect, remainingShield: effect.value }, actorCharacter)]
         });
@@ -782,6 +957,7 @@ function applyQueuedSkill(room, player, action) {
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: [statusDescription(effect, actorCharacter)]
         });
@@ -798,6 +974,7 @@ function applyQueuedSkill(room, player, action) {
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: [statusDescription(effect, actorCharacter)]
         });
@@ -856,7 +1033,17 @@ function resolveTurn(room, playerId, neutralChakraPayment = {}) {
       return "No tienes chakra suficiente para pagar el coste neutral.";
     }
     payChakra(player, neutralPayment);
-    room.log.unshift(`${player.name} pago ${chakraLabel(neutralPayment)} como chakra neutral.`);
+  }
+
+  reduceCooldowns(player);
+  for (const event of applyComplexStatusEffects(room, player)) {
+    room.log.unshift(event);
+  }
+  if (!teamAlive(player)) {
+    room.phase = "finished";
+    room.winnerId = opponent.id;
+    room.log.unshift(`${opponent.name} gano la partida.`);
+    return null;
   }
 
   const queue = player.queue.splice(0);
@@ -882,6 +1069,152 @@ function resolveTurn(room, playerId, neutralChakraPayment = {}) {
   return null;
 }
 
+function surrender(room, playerId) {
+  if (room.phase !== "battle") return "Solo puedes rendirte durante una partida activa.";
+  const player = findPlayer(room, playerId);
+  const opponent = opponentOf(room, playerId);
+  if (!player || !opponent || player.isBot) return "No puedes rendirte ahora.";
+
+  room.phase = "finished";
+  room.winnerId = opponent.id;
+  room.botTurnInProgress = false;
+  room.log.unshift(`${player.name} se rindio. ${opponent.name} gano la partida.`);
+  return null;
+}
+
+function botTargetIdsForSkill(room, bot, actor, skill) {
+  const opponent = opponentOf(room, bot.id);
+  if (skill.targetType === "self") return [actor.id];
+  if (skill.targetType === "ally") return aliveMembers(bot).map((member) => member.id);
+  if (skill.targetType === "allies") return [aliveMembers(bot)[0]?.id].filter(Boolean);
+  if (skill.targetType === "enemy") {
+    return aliveMembers(opponent)
+      .filter((member) => canBeTargetedBy(bot, member))
+      .map((member) => member.id);
+  }
+  if (skill.targetType === "enemies") {
+    return [aliveMembers(opponent).find((member) => canBeTargetedBy(bot, member))?.id].filter(Boolean);
+  }
+  if (skill.targetType === "allPlayers") {
+    return [
+      aliveMembers(bot)[0]?.id,
+      aliveMembers(opponent).find((member) => canBeTargetedBy(bot, member))?.id
+    ].filter(Boolean);
+  }
+  return [];
+}
+
+function estimateDamageAgainstTarget(actor, skill, effect, target, currentTurn) {
+  const rawDamage = Math.max(0, Number(effect.value || 0))
+    + damageBuffValue(actor, skill, currentTurn)
+    + damageBonusForTarget(effect, target);
+  const damageType = effect.damageType || "basic";
+  const shield = damageType === "basic" || damageType === "piercing" ? shieldValue(target) : 0;
+  return Math.max(0, rawDamage - shield);
+}
+
+function botSkillCanKill(room, bot, actor, skill, targetId) {
+  const targets = resolveEffectTargets(room, bot, actor, targetId, skill, { targets: "target" })
+    .filter((target) => target.hp > 0);
+  return (skill.effects || [])
+    .filter((effect) => effect.type === "damage")
+    .some((effect) => targets.some((target) => estimateDamageAgainstTarget(actor, skill, effect, target, room.turn) >= target.hp));
+}
+
+function botActionPriority(room, bot, actor, skill, targetId) {
+  let priority = 10;
+  const description = skill.botDescription || "";
+
+  if (description.includes("invulnerable-")) {
+    priority = 1;
+    if (actor.hp <= 50) priority = 12;
+    if (actor.hp <= 25) priority = 18;
+  }
+
+  if (botSkillCanKill(room, bot, actor, skill, targetId)) {
+    priority += 80;
+  }
+
+  if (description.includes("damage-")) priority += 8;
+  if (description.includes("heal-") && actor.hp <= 60) priority += 8;
+  return priority;
+}
+
+function botSkillOptions(room, bot) {
+  const options = [];
+  for (const actor of aliveMembers(bot)) {
+    const actorCharacter = getCharacterById(actor.characterId);
+    for (const skill of actorCharacter.skills) {
+      for (const targetId of botTargetIdsForSkill(room, bot, actor, skill)) {
+        const validation = validateSkillAction(room, bot.id, actor.id, targetId, skill.id);
+        if (typeof validation !== "string") {
+          options.push({
+            actorId: actor.id,
+            targetId,
+            skillId: skill.id,
+            botDescription: skill.botDescription,
+            priority: botActionPriority(room, bot, actor, skill, targetId)
+          });
+        }
+      }
+    }
+  }
+  return options;
+}
+
+function botNeutralPayment(player) {
+  let remaining = queuedNeutralChakraCost(player);
+  const payment = emptyChakra();
+  for (const type of CHAKRA_TYPES) {
+    if (remaining <= 0) break;
+    const amount = Math.min(remaining, player.chakra[type] || 0);
+    payment[type] = amount;
+    remaining -= amount;
+  }
+  return payment;
+}
+
+function playBotTurn(room) {
+  const bot = findPlayer(room, room.activePlayerId);
+  if (!bot?.isBot || room.phase !== "battle") return;
+
+  const maxActions = aliveMembers(bot).length;
+  for (let actionIndex = 0; actionIndex < maxActions; actionIndex += 1) {
+    bot.botSkillPlan = botSkillOptions(room, bot);
+    if (bot.botSkillPlan.length === 0) break;
+
+    const action = weightedRandomItem(bot.botSkillPlan);
+    const error = queueSkill(room, bot.id, action.actorId, action.targetId, action.skillId);
+    if (error) break;
+  }
+  bot.botSkillPlan = botSkillOptions(room, bot);
+}
+
+function scheduleBotIfNeeded(room) {
+  const activePlayer = findPlayer(room, room.activePlayerId);
+  if (room?.phase !== "battle" || !activePlayer?.isBot || room.botTurnInProgress) return;
+
+  room.botTurnInProgress = true;
+  playBotTurn(room);
+  broadcast(room);
+
+  setTimeout(() => {
+    const currentRoom = rooms.get(room.code);
+    const bot = currentRoom ? findPlayer(currentRoom, currentRoom.activePlayerId) : null;
+    if (!currentRoom) return;
+    if (currentRoom.phase !== "battle" || !bot?.isBot) {
+      currentRoom.botTurnInProgress = false;
+      return;
+    }
+
+    resolveTurn(currentRoom, bot.id, botNeutralPayment(bot));
+    bot.botSkillPlan = [];
+    currentRoom.botTurnInProgress = false;
+    broadcast(currentRoom);
+    scheduleBotIfNeeded(currentRoom);
+  }, 2000);
+}
+
 app.get("/api/characters", (_req, res) => {
   res.json(characters);
 });
@@ -905,7 +1238,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const code = createRoomCode();
+    const code = createRoomCode(rooms);
     const player = {
       id: socket.id,
       name: playerName,
@@ -919,6 +1252,7 @@ io.on("connection", (socket) => {
     };
     const room = {
       code,
+      mode: "pvp",
       phase: "lobby",
       players: [player],
       activePlayerId: null,
@@ -926,6 +1260,39 @@ io.on("connection", (socket) => {
       turn: 0,
       chat: [],
       log: ["Sala creada. Esperando al segundo jugador."]
+    };
+    rooms.set(code, room);
+    socketRooms.set(socket.id, code);
+    socket.join(code);
+    callback?.({ ok: true, room: publicRoom(room), playerId: socket.id });
+    broadcast(room);
+  });
+
+  socket.on("room:createBot", ({ name }, callback) => {
+    const playerName = cleanPlayerName(name) || "Jugador";
+    const code = createRoomCode(rooms);
+    const player = {
+      id: socket.id,
+      name: playerName,
+      side: "red",
+      connected: true,
+      ready: false,
+      chakra: emptyChakra(),
+      chakraExchange: null,
+      queue: [],
+      team: []
+    };
+    const bot = createBotPlayer(code);
+    const room = {
+      code,
+      mode: "bot",
+      phase: "lobby",
+      players: [player, bot],
+      activePlayerId: null,
+      winnerId: null,
+      turn: 0,
+      chat: [],
+      log: ["Partida vs IA creada. Elige tu equipo."]
     };
     rooms.set(code, room);
     socketRooms.set(socket.id, code);
@@ -989,6 +1356,7 @@ io.on("connection", (socket) => {
     player.ready = true;
     room.log.unshift(`${player.name} confirmo su equipo.`);
     maybeStart(room);
+    scheduleBotIfNeeded(room);
     callback?.({ ok: true });
     broadcast(room);
   });
@@ -1020,6 +1388,25 @@ io.on("connection", (socket) => {
     }
 
     const error = resolveTurn(room, socket.id, neutralChakra);
+    if (error) {
+      callback?.({ ok: false, error });
+      return;
+    }
+
+    scheduleBotIfNeeded(room);
+    callback?.({ ok: true });
+    broadcast(room);
+  });
+
+  socket.on("battle:surrender", (_payload, callback) => {
+    const code = socketRooms.get(socket.id);
+    const room = rooms.get(code);
+    if (!room) {
+      callback?.({ ok: false, error: "No estas en una sala." });
+      return;
+    }
+
+    const error = surrender(room, socket.id);
     if (error) {
       callback?.({ ok: false, error });
       return;
@@ -1137,7 +1524,7 @@ io.on("connection", (socket) => {
       room.log.unshift(`${player.name} se desconecto.`);
     }
 
-    if (room.players.every((item) => !item.connected)) {
+    if (room.players.every((item) => item.isBot || !item.connected)) {
       rooms.delete(room.code);
     } else {
       broadcast(room);

@@ -265,6 +265,15 @@ label {
   padding: 0;
 }
 
+.surrender-button {
+  background: #b42318;
+  color: #fff;
+}
+
+.surrender-button:hover:not(:disabled) {
+  background: #8f1d15;
+}
+
 .chakra-exchange-modal {
   background: #fff;
   border: 1px solid #d8e0e8;
@@ -1003,6 +1012,17 @@ label {
   display: flex;
   gap: 8px;
   font-weight: 900;
+}
+
+.chakra-total {
+  background: #17202a;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  min-width: 28px;
+  padding: 5px 8px;
+  text-align: center;
 }
 
 .chakra-pool {

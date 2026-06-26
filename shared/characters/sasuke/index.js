@@ -10,7 +10,8 @@ export const sasuke = {
       name: "Chidori",
       chakra: { ninjutsu: 1, bloodline: 1 },
       targetType: "enemy",
-      description: "Sasuke usa su version de Chidori, inflingiendo 30 de dano perforante a un enemigo.",
+      description: "Sasuke usa su version de Chidori, inflingiendo 30 de dano perforante a un enemigo. Solo puede usarse con Sharingan activo.",
+      requires: [{ type: "hasStatusEffect", effectId: "sharingan", message: "Chidori requiere Sharingan activo." }],
       effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }]
     },
     {
@@ -20,8 +21,15 @@ export const sasuke = {
       targetType: "self",
       description: "Sasuke activa su Sharingan, ganando 20 de reduccion de dano por 3 turnos y aumentando Chidori en 15 de dano.",
       effects: [
-        { type: "damage-reduction", value: 20, duration: 3, targets: "self" },
-        { type: "buffDamage", value: 15, duration: 3, targets: "self", skillIds: ["chidori"] }
+        {
+          type: "complex",
+          duration: 3,
+          targets: "self",
+          effects: [
+            { type: "damage-reduction", value: 20, targets: "self" },
+            { type: "buffDamage", value: 15, targets: "self", skillIds: ["chidori"] }
+          ]
+        }
       ],
       cooldown: 4
     },
@@ -43,7 +51,7 @@ export const sasuke = {
       chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "invulnerable", value: 1, targets: "self" }],
+      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4
     }
   ]
