@@ -29,7 +29,7 @@ export const kankurou = {
       effects: [
         { type: "complex", duration: 4, targets: "enemies", effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }] }
       ],
-      cooldown: 1,
+      cooldown: 3,
       family:["physical","instant"]
     },
     {

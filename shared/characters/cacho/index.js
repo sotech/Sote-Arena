@@ -10,7 +10,7 @@ export const cacho = {
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
       uncountereable: true,
-      description: "Cacho utiliza un Lariat sobre el enemigo inflige 30 de dano a un enemigo.",
+      description: "Cacho utiliza un Lariat sobre el enemigo inflige 30 de dano a un enemigo. Esta habilidad no puede ser contrarrestada.",
       effects: [
         { type: "damage", value: 30, targets: "target" }
         ],
