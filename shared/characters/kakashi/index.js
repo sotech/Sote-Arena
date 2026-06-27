@@ -7,41 +7,38 @@ export const kakashi = {
     {
       id: "raikiri",
       name: "Raikiri",
-      chakra: { ninjutsu: 2 },
+      chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
-      description: "Usando su habilidad ilustre, Kakashi inflige 40 de dano perforante a un enemigo. Inflige 10 de dano adicional si el objetivo tiene 50 de vida o menos.",
+      description: "Usando su habilidad ilustre, Kakashi inflige 50 de dano perforante a un enemigo.",
       effects: [
-        {
-          type: "damage",
-          value: 40,
-          damageType: "piercing",
-          targets: "target",
-          bonusWhen: [{ bonus: 10, require: { type: "hasMaxHp", hp: 50 } }]
-        }
+        { type: "damage", value: 50, damageType: "piercing", targets: "target" },
+        { type: "instakill", targets: "target", when: { type: "hasStatusEffect", effectId: "ninken-trap" } }
       ],
-      family:["chakra","instant"]
+      family:["chakra","instant"],
+      cooldown: 1
     },
     {
-      id: "tactical-read",
-      name: "Lectura tactica",
-      chakra: { genjutsu: 2 , neutralChakra: 1 },
-      targetType: "enemy",
-      description: "Leyendo sus novelas aburridas, Kakashi inflige 15 de dano y aturde las habilidades fisicas 2 turnos a un enemigo.",
+      id: "kakashi-sharingan",
+      name: "Sharingan de Kakashi",
+      chakra: { bloodline: 1 },
+      targetType: "self",
+      isSecret: true,
+      description: "Kakashi activa su Sharingan en secreto. Durante 1 turno, todas las habilidades usadas sobre Kakashi seran reflejadas.",
       effects: [
-        { type: "damage", value: 15, targets: "target" },
-        { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 1, targets: "self", familiesAffected: ["physical"] }] }
+        { type: "reflect", duration: 1, targets: "self", trigger: "incoming", charges: -1, reflectTo: "caster", showStatusEffect: false }
       ],
-      cooldown: 3,
+      cooldown: 2,
       family:["mental","instant"]
     },
     {
       id: "ninken-trap",
       name: "Trampa Ninken",
-      chakra: { bloodline: 1, neutralChakra: 1 },
-      targetType: "enemies",
-      description: "Una trampa de perros y herramientras ninja, infligen 25 de dano perforante a todos los enemigos.",
+      chakra: { ninjutsu: 2 },
+      targetType: "enemy",
+      description: "Kakashi usa sus ninken para infligir 10 de dano a un enemigo y aturdirlo 2 turnos. Mientras el objetivo este afectado, Raikiri lo matara instantaneamente.",
       effects: [
-        { type: "damage", value: 25, damageType: "piercing", targets: "target" },
+        { type: "damage", value: 10, targets: "target" },
+        { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 2, targets: "self" }] }
       ],
       cooldown: 1,
       family:["physical","instant"]

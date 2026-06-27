@@ -56,9 +56,10 @@ export const kankurou = {
       id: "puppet-substitution",
       name: "Jutsu de sustitucion de marionetas",
       chakra: { neutralChakra: 1 },
-      targetType: "self",
-      description: "Vuelve invulnerable al lanzador durante 1 turno.",
-      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
+      targetType: "enemy",
+      isSecret: true,
+      description: "Coloca una trampa de marionetas en un objetivo. Durante el siguiente turno, la primera habilidad usada por ese objetivo sera countereada.",
+      effects: [{ type: "counter", duration: 1, targets: "target", trigger: "outgoing", charges: 1 }],
       cooldown: 4,
       family:["physical","instant"]
     }

@@ -1,7 +1,7 @@
-import { normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
+import { normalizeHpOperator, normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
 import { getSkillNameById } from "../../shared/characters.js";
 import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
-import { skillFamiliesLabel } from "../../shared/effects.js";
+import { skillFamiliesLabel, stunFamiliesAffected } from "../../shared/effects.js";
 
 export function chakraCostLabel(chakra = {}) {
   return Object.entries(chakra)
@@ -23,7 +23,7 @@ export function groupStatusEffects(effects = []) {
     groups.set(key, {
       id: key,
       sourceSkillId: effect.sourceSkillId,
-      sourceSkillName: effect.sourceSkillName,
+      sourceSkillName: effect.sourceSkillName ? getSkillNameById(effect.sourceSkillName) : getSkillNameById(effect.sourceSkillId),
       className: effect.type,
       effects: [effect]
     });
@@ -73,6 +73,7 @@ export function effectDescription(effect) {
     });
     return [`${damageTypeLabel(effect.damageType)}: ${effect.value}`, ...bonuses].join(" | ");
   }
+  if (effect.type === "instakill") return "Muerte instantanea";
   if (effect.type === "heal") return `Cura: ${effect.value}`;
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo destruible: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
@@ -84,16 +85,39 @@ export function effectDescription(effect) {
     const duration = durationDescription(effect.duration);
     return `${value < 0 ? "Reduce" : "Aumenta"} dano: ${value < 0 ? "-" : "+"}${amount}${duration}${scope}`;
   }
+  if (effect.type === "modifyDamageByMissingHp") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const amount = Number(effect.amountPerStep ?? effect.value ?? 0);
+    const hpStep = Math.max(1, Number(effect.hpStep || 1));
+    const duration = durationDescription(effect.duration);
+    return `Aumenta dano: +${amount} por cada ${hpStep} HP faltante${duration}${scope}`;
+  }
   if (effect.type === "modifyDamageType") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const duration = durationDescription(effect.duration);
     return `Cambia tipo de dano: ${damageTypeLabel(effect.damageType)}${duration}${scope}`;
+  }
+  if (effect.type === "modifyTargetType") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = durationDescription(effect.duration);
+    return `Cambia objetivos: ${targetTypeLabel(effect.targetType)}${duration}${scope}`;
+  }
+  if (effect.type === "modifyTargetCount") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = durationDescription(effect.duration);
+    return `Limita objetivos: ${effect.count ?? effect.value}${effect.random === false ? "" : " al azar"}${duration}${scope}`;
   }
   if (effect.type === "addEffectToBase") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const duration = durationDescription(effect.duration);
     const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
     return `Agrega efecto${duration}${scope}${descriptions ? `: ${descriptions}` : ""}`;
+  }
+  if (effect.type === "replaceEffects") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = durationDescription(effect.duration);
+    const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
+    return `Reemplaza efectos${duration}${scope}${descriptions ? `: ${descriptions}` : ""}`;
   }
   if (effect.type === "replaceSkill") {
     const duration = durationDescription(effect.duration);
@@ -109,10 +133,13 @@ export function effectDescription(effect) {
     return `${label}: ${entries.join(", ") || "sin cambios"}${scope}`;
   }
   if (effect.type === "stun") {
-    const scope = effect.familiesAffected?.length ? ` (${skillFamiliesLabel(effect.familiesAffected)})` : "";
+    const affectedFamilies = stunFamiliesAffected(effect);
+    const scope = affectedFamilies.length ? ` (${skillFamiliesLabel(affectedFamilies)})` : "";
     return `Aturde: ${effect.value} turno(s)${scope}`;
   }
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
+  if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
+  if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
   if (effect.type === "remove-chakra") return `Elimina chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
   if (effect.type === "complex") {
@@ -130,7 +157,7 @@ export function chakraEffectTypeLabel(type) {
 export function damageTypeLabel(type = "basic") {
   if (type === "piercing") return "Dano perforante";
   if (type === "affliction") return "Dano afliccion";
-  return "Dano";
+  return "Dano normal";
 }
 
 export function targetTypeLabel(type) {
@@ -155,6 +182,20 @@ export function requirementDescription(requirement) {
   if (type === "hasStatusEffect") {
     return `${scopeLabel}: tiene status ${getSkillNameById(requirement.effectId || requirement.statusEffectId || requirement.id)}`;
   }
+  if (type === "hasSkill") {
+    return `${scopeLabel}: tiene habilidad ${getSkillNameById(requirement.skillId || requirement.id || requirement.value)}`;
+  }
+  if (type === "hp") {
+    const operator = {
+      eq: "igual a",
+      gte: "igual o mayor a",
+      lte: "igual o menor a",
+      gt: "mayor a",
+      lt: "menor a",
+      ne: "distinta a"
+    }[normalizeHpOperator(requirement.operator || requirement.comparison)] || "igual o mayor a";
+    return `${scopeLabel}: vida ${operator} ${requirement.hp ?? requirement.value}`;
+  }
   if (type === "hasMinHp") {
     return `${scopeLabel}: minimo ${requirement.minHp ?? requirement.hp ?? requirement.value} HP`;
   }
@@ -170,6 +211,20 @@ function targetConditionDescription(requirement) {
   const type = normalizeRequireType(requirement.type || requirement.condition);
   if (type === "hasStatusEffect") {
     return `${subject} tiene status ${getSkillNameById(requirement.effectId || requirement.statusEffectId || requirement.id)}`;
+  }
+  if (type === "hasSkill") {
+    return `${subject} tiene habilidad ${getSkillNameById(requirement.skillId || requirement.id || requirement.value)}`;
+  }
+  if (type === "hp") {
+    const operator = {
+      eq: "igual a",
+      gte: "igual o mayor a",
+      lte: "igual o menor a",
+      gt: "mayor a",
+      lt: "menor a",
+      ne: "distinta a"
+    }[normalizeHpOperator(requirement.operator || requirement.comparison)] || "igual o mayor a";
+    return `${subject} tiene vida ${operator} ${requirement.hp ?? requirement.value}`;
   }
   if (type === "hasMinHp") {
     return `${subject} tiene minimo ${requirement.minHp ?? requirement.hp ?? requirement.value} HP`;

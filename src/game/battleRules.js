@@ -1,4 +1,5 @@
-import { normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
+import { compareHp, normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
+import { stunFamiliesAffected } from "../../shared/effects.js";
 
 export function teamHealthPercent(player) {
   if (!player?.team?.length) return 1;
@@ -38,9 +39,10 @@ export function hasStatus(member, type) {
 }
 
 function stunAffectsSkill(effect, skill) {
-  if (!Array.isArray(effect.familiesAffected) || effect.familiesAffected.length === 0) return true;
+  const affectedFamilies = stunFamiliesAffected(effect);
+  if (affectedFamilies.length === 0) return true;
   const skillFamilies = Array.isArray(skill?.family) ? skill.family : [];
-  return effect.familiesAffected.some((family) => skillFamilies.includes(family));
+  return affectedFamilies.some((family) => skillFamilies.includes(family));
 }
 
 export function isSkillStunned(member, skill) {
@@ -75,10 +77,12 @@ function memberHasStatusEffect(member, effectId) {
   });
 }
 
-function requireCandidates(requirement, me, opponent, actor) {
+function requireCandidates(requirement, me, opponent, actor, selectedTargets = []) {
   const scope = normalizeRequireScope(requirement.scope || requirement.target);
   const allies = (me?.team || []).filter((member) => member.hp > 0);
   const enemies = (opponent?.team || []).filter((member) => member.hp > 0);
+  if (scope === "target") return selectedTargets.slice(0, 1);
+  if (scope === "anyTarget") return selectedTargets;
   if (scope === "anyAlly") return allies;
   if (scope === "anyEnemy") return enemies;
   return actor ? [actor] : [];
@@ -89,6 +93,14 @@ function memberMeetsRequirement(member, requirement) {
   if (type === "hasStatusEffect") {
     const effectId = requirement.effectId || requirement.statusEffectId || requirement.id;
     return Boolean(effectId && memberHasStatusEffect(member, effectId));
+  }
+  if (type === "hasSkill") {
+    const skillId = requirement.skillId || requirement.id || requirement.value;
+    const character = member.character;
+    return Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId));
+  }
+  if (type === "hp") {
+    return compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value);
   }
   if (type === "hasMinHp") {
     const minHp = Number(requirement.minHp ?? requirement.hp ?? requirement.value ?? 0);
@@ -101,8 +113,9 @@ function memberMeetsRequirement(member, requirement) {
   return false;
 }
 
-export function meetsSkillRequirements(skill, me, opponent, actor) {
+export function meetsSkillRequirements(skill, me, opponent, actor, selectedTargets = []) {
   return (skill?.requires || []).every((requirement) => (
-    requireCandidates(requirement, me, opponent, actor).some((member) => memberMeetsRequirement(member, requirement))
+    (["target", "anyTarget"].includes(normalizeRequireScope(requirement.scope || requirement.target)) && selectedTargets.length === 0)
+      || requireCandidates(requirement, me, opponent, actor, selectedTargets).some((member) => memberMeetsRequirement(member, requirement))
   ));
 }

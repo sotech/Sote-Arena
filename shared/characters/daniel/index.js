@@ -18,7 +18,7 @@ export const daniel = {
     {
       id: "cats-blessing",
       name: "Bendición de gato",
-      chakra: { genjutsu: 1, neutralChakra: 1 },
+      chakra: { genjutsu: 1, taijutsu: 1 },
       targetType: "self",
       description: `Daniel-san invoca a su gata para que lo proteja. 
           Durante 3 turnos, Patada de sombra ataca a todos los objetivos. Daniel-san obtiene 15 puntos de reduccion de daño durante este tiempo.`,
@@ -27,7 +27,7 @@ export const daniel = {
           type: "complex", duration: 3, targets: "self", effects: 
           [
             { type: "damage-reduction", value: 15, targets: "self" },
-            { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "shadow-kick", skillId: "shadow-kick-improved" }
+            { type: "modifyTargetType", targetType: "enemies", targets: "self", skillIds: ["shadow-kick"] }
           ] 
       },
       ],
@@ -37,7 +37,7 @@ export const daniel = {
     {
       id: "crackling-curtain",
       name: "Cortina crujiente",
-      chakra: { neutralChakra: 2},
+      chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemies",
       description: `Daniel usa la cortina del primo para atacar y cubrir a sus aliados. Inflige 15 puntos de daño a todos los enemigos y otorga 15 puntos de escudo a todos los aliados. No puede acumularse consigo mismo. `,
       effects: [
@@ -58,18 +58,6 @@ export const daniel = {
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
       family:["chakra","instant"]
-    },
-    {
-      id: "shadow-kick-improved",
-      name: "Patada de sombra mejorada",
-      chakra: { taijutsu: 1, neutralChakra: 1 },
-      targetType: "enemies",
-      description: "Daniel-san usa su patada de sombra para infligir 30 puntos de daño a todos los enemigos.",
-      effects: [
-        { type: "damage", value: 30, targets: "enemies" }
-      ],
-      family: ["physical","instant"],
-      isExtraSkill: true
     },
   ]
 };

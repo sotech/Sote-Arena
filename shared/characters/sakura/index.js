@@ -9,8 +9,10 @@ export const sakura = {
       name: "Golpe de chakra",
       chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "Sakura utiliza su control de chakra en su puño e inflige 20 de dano a un enemigo.",
-      effects: [{ type: "damage", value: 20, targets: "target" }],
+      description: "Sakura utiliza su control de chakra en su puño e inflige 15 de dano a un enemigo por 2 turnos.",
+      effects: [
+        { type: "complex", duration: 2, targets: "target", mode: "pauseOnStun", effects: [{ type: "damage", value: 15, targets: "self" }] }
+      ],
       family:["physical","chakra","instant"]
     },
     {

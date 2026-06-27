@@ -73,8 +73,11 @@ function botSkillCanKill(room, bot, actor, skill, targetId, engine) {
   const targets = engine.resolveEffectTargets(room, bot, actor, targetId, skill, { targets: "target" })
     .filter((target) => target.hp > 0);
   return (skill.effects || [])
-    .filter((effect) => effect.type === "damage")
-    .some((effect) => targets.some((target) => estimateDamageAgainstTarget(actor, skill, effect, target, room.turn, engine) >= target.hp));
+    .some((effect) => {
+      if (effect.type === "instakill") return targets.length > 0;
+      return effect.type === "damage"
+        && targets.some((target) => estimateDamageAgainstTarget(actor, skill, effect, target, room.turn, engine) >= target.hp);
+    });
 }
 
 function botEffectiveHealing(room, bot, actor, skill, targetId, engine) {

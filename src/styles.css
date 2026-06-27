@@ -176,6 +176,41 @@ h2 {
   overflow: hidden;
 }
 
+.patch-notes-view {
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 24px;
+}
+
+.patch-notes-content {
+  background: #f7f9fc;
+  border: 1px solid #e5ebf2;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.patch-notes-content subheader {
+  color: #17202a;
+  display: block;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.patch-notes-content ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.patch-notes-content li {
+  color: #4a5968;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
 label {
   color: #4a5968;
   display: grid;
@@ -213,6 +248,24 @@ label {
   max-width: 1240px;
   padding: 12px 14px;
   font-weight: 900;
+}
+
+.asset-preload-bar {
+  background: rgba(23, 32, 42, 0.14);
+  height: 4px;
+  left: 0;
+  overflow: hidden;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 2000;
+}
+
+.asset-preload-bar span {
+  background: #f05d23;
+  display: block;
+  height: 100%;
+  transition: width 180ms ease;
 }
 
 .modal-backdrop {
@@ -1586,6 +1639,15 @@ label {
   outline: 3px solid #f05d23;
 }
 
+.battle-skill-strip button.unavailable {
+  filter: grayscale(0.35);
+  opacity: 0.46;
+}
+
+.battle-skill-strip button[aria-disabled="true"] {
+  cursor: pointer;
+}
+
 .skill-footer.compact {
   box-shadow: none;
   grid-column: auto;
@@ -1793,6 +1855,15 @@ label {
 }
 
 @media (max-width: 768px) {
+  body {
+    font-size: 12px;
+  }
+
+  button,
+  input {
+    font-size: 12px;
+  }
+
   .topbar {
     align-items: center;
     gap: 10px;
@@ -1814,7 +1885,15 @@ label {
   }
 
   h1 {
-    font-size: 34px;
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  .eyebrow {
+    font-size: 9px;
   }
 
   .version-tag {
@@ -2403,6 +2482,17 @@ label {
     height: 220px;
     min-height: 220px;
     padding: 12px;
+  }
+
+  .skill-footer h2 {
+    font-size: 14px;
+  }
+
+  .skill-footer p,
+  .skill-footer li,
+  .skill-footer-meta {
+    font-size: 10px;
+    line-height: 1.25;
   }
 
   .side-main,

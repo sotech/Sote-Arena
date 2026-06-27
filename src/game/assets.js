@@ -1,5 +1,9 @@
 const characterImages = import.meta.glob("../assets/characters/*.png", { eager: true, query: "?url", import: "default" });
 const skillImages = import.meta.glob("../assets/skills/*.png", { eager: true, query: "?url", import: "default" });
+const soundAssets = import.meta.glob("../assets/sounds/*.mp3", { eager: true, query: "?url", import: "default" });
+const bgmAssets = import.meta.glob("../assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" });
+const advantageBgmAssets = import.meta.glob("../assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" });
+const disadvantageBgmAssets = import.meta.glob("../assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" });
 
 export const skullImage = `data:image/svg+xml;utf8,${encodeURIComponent(`
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
@@ -19,6 +23,15 @@ export function characterImage(characterId) {
 export function skillImage(skillId) {
   return skillImages[`../assets/skills/${skillId}.png`] || fallbackSkillImage(skillId);
 }
+
+export const allAssetUrls = [
+  ...Object.values(characterImages),
+  ...Object.values(skillImages),
+  ...Object.values(soundAssets),
+  ...Object.values(bgmAssets),
+  ...Object.values(advantageBgmAssets),
+  ...Object.values(disadvantageBgmAssets)
+];
 
 function fallbackSkillImage(skillId) {
   const letter = (skillId || "?").slice(0, 1).toUpperCase();

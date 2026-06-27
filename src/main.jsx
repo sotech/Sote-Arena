@@ -1,18 +1,23 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Search, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Search, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
-import { characterImage, skillImage, skullImage } from "./game/assets.js";
+import { ChakraCost, ChakraIcon, ChakraPool, Health, SquareImage } from "./components/common.jsx";
+import { ChatPanel, CollapsiblePanel } from "./components/ChatPanel.jsx";
+import { MainMenu } from "./components/MainMenu.jsx";
+import { OptionsModal, ResultModal } from "./components/Overlays.jsx";
+import { PatchNotesView } from "./components/PatchNotesView.jsx";
+import { StatusEffects } from "./components/StatusEffects.jsx";
+import { allAssetUrls, characterImage, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
 import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
-import { effectDescription, groupStatusEffects, requirementDescription, statusEffectGroupMeta, statusEffectGroupValue, targetTypeLabel } from "./game/labels.js";
+import { effectDescription, requirementDescription, targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
-import { activeSkillsForMember, baseSkillsForCharacter } from "../shared/skillReplacements.js";
+import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
 import "./styles.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
@@ -27,8 +32,7 @@ const RESULT_AUDIO_FADE_MS = 1000;
 const BGM_FADE_MS = 1000;
 const BGM_VOLUME_RATIO = 0.5;
 const ADVANTAGE_HEALTH_SHARE = 0.68;
-const GAME_VERSION = "1.1.5";
-const MOBILE_QUERY = "(max-width: 768px)";
+const GAME_VERSION = "1.1.6";
 const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
 const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
@@ -44,6 +48,7 @@ function App() {
   const [targetId, setTargetId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [assetProgress, setAssetProgress] = useState({ loaded: 0, total: 0, done: false });
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [sfxVolume, setSfxVolume] = useState(0.5);
   const [musicVolume, setMusicVolume] = useState(0.5);
@@ -76,6 +81,38 @@ function App() {
     return () => {
       socket.off("characters", setCharacters);
       socket.off("room:update", setRoom);
+    };
+  }, []);
+
+  useEffect(() => {
+    const urls = [...new Set(allAssetUrls.filter(Boolean))];
+    let cancelled = false;
+    setAssetProgress({ loaded: 0, total: urls.length, done: urls.length === 0 });
+
+    async function preload(url) {
+      try {
+        const response = await fetch(url, { cache: "force-cache" });
+        if (response.ok) await response.blob();
+      } catch {
+        await new Promise((resolve) => {
+          const image = new Image();
+          image.onload = resolve;
+          image.onerror = resolve;
+          image.src = url;
+        });
+      } finally {
+        if (!cancelled) {
+          setAssetProgress((current) => {
+            const loaded = Math.min(current.total, current.loaded + 1);
+            return { ...current, loaded, done: loaded >= current.total };
+          });
+        }
+      }
+    }
+
+    urls.forEach((url) => preload(url));
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -584,6 +621,16 @@ function App() {
     if (!response.ok) setError(response.error);
   }
 
+  async function unconfirmTeam() {
+    setError("");
+    const response = await callSocket("team:unselect", {});
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setSelected([]);
+  }
+
   async function useSkill(skillId, selectedTargetId = targetId) {
     setError("");
     const response = await callSocket("battle:skill", { actorId, targetId: selectedTargetId, skillId });
@@ -710,6 +757,11 @@ function App() {
 
       {error && <div className="alert">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
+      {!assetProgress.done && (
+        <div className="asset-preload-bar" aria-label="Descargando assets">
+          <span style={{ width: `${assetProgress.total ? Math.round((assetProgress.loaded / assetProgress.total) * 100) : 0}%` }} />
+        </div>
+      )}
 
       {!room && homeView === "menu" && (
         <MainMenu
@@ -721,6 +773,10 @@ function App() {
           onCharacters={() => {
             setError("");
             setHomeView("characters");
+          }}
+          onPatchNotes={() => {
+            setError("");
+            setHomeView("patch-notes");
           }}
           onOptions={() => setOptionsOpen(true)}
         />
@@ -768,6 +824,15 @@ function App() {
         />
       )}
 
+      {!room && homeView === "patch-notes" && (
+        <PatchNotesView
+          onBack={() => {
+            setError("");
+            setHomeView("menu");
+          }}
+        />
+      )}
+
       {room?.phase === "lobby" && (
         <Lobby
           characters={characters}
@@ -776,6 +841,7 @@ function App() {
           room={room}
           onToggle={toggleCharacter}
           onConfirm={confirmTeam}
+          onUnconfirm={unconfirmTeam}
           onSendChat={sendChatMessage}
         />
       )}
@@ -814,29 +880,6 @@ function App() {
         />
       )}
     </main>
-  );
-}
-
-function MainMenu({ onPlay, onPlayBot, onCharacters, onOptions }) {
-  return (
-    <section className="panel main-menu">
-      <button type="button" onClick={onPlay}>
-        <Swords size={20} />
-        Jugar
-      </button>
-      <button type="button" onClick={onPlayBot}>
-        <Zap size={20} />
-        Jugar vs IA
-      </button>
-      <button type="button" className="secondary" onClick={onCharacters}>
-        <Users size={20} />
-        Personajes
-      </button>
-      <button type="button" onClick={onOptions}>
-        <Shield size={20} />
-        Opciones
-      </button>
-    </section>
   );
 }
 
@@ -896,62 +939,6 @@ function CharacterChakraUsage({ character }) {
   );
 }
 
-function OptionsModal({ sfxVolume, musicVolume, canSurrender = false, onSfxVolumeChange, onMusicVolumeChange, onSurrender, onClose }) {
-  return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="options-title">
-      <div className="options-modal">
-        <header>
-          <h2 id="options-title">Opciones</h2>
-          <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar opciones">
-            <X size={18} />
-          </button>
-        </header>
-        <label>
-          SFX {Math.round(sfxVolume * 100)}%
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(sfxVolume * 100)}
-            onChange={(event) => onSfxVolumeChange(Number(event.target.value) / 100)}
-          />
-        </label>
-        <label>
-          Musica {Math.round(musicVolume * 100)}%
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(musicVolume * 100)}
-            onChange={(event) => onMusicVolumeChange(Number(event.target.value) / 100)}
-          />
-        </label>
-        {canSurrender && (
-          <button type="button" className="surrender-button" onClick={onSurrender}>
-            Rendirse
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ResultModal({ title, reason, onReturnHome }) {
-  return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="result-title">
-      <div className="result-modal">
-        <p className="eyebrow">Partida finalizada</p>
-        <h2 id="result-title">{title}</h2>
-        {reason && <p className="result-reason">{reason}</p>}
-        <button onClick={onReturnHome}>
-          <Swords size={18} />
-          Regresar al inicio
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function CharactersCatalog({ characters, onBack }) {
   const pageSize = 10;
   const [page, setPage] = useState(1);
@@ -963,7 +950,7 @@ function CharactersCatalog({ characters, onBack }) {
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
-  const inspectedSkills = inspectedCharacter?.skills || [];
+  const inspectedSkills = visibleBaseSkillsForCharacter(inspectedCharacter);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
 
   useEffect(() => {
@@ -973,10 +960,10 @@ function CharactersCatalog({ characters, onBack }) {
   useEffect(() => {
     if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
       setInspectedCharacterId(pageCharacters[0]?.id || "");
-      setInspectedSkillId(pageCharacters[0]?.skills?.[0]?.id || "");
+      setInspectedSkillId(visibleBaseSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
     } else if (!inspectedCharacterId && pageCharacters[0]) {
       setInspectedCharacterId(pageCharacters[0].id);
-      setInspectedSkillId(pageCharacters[0].skills[0]?.id || "");
+      setInspectedSkillId(visibleBaseSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
     }
   }, [filteredCharacters, inspectedCharacterId, pageCharacters]);
 
@@ -987,7 +974,7 @@ function CharactersCatalog({ characters, onBack }) {
   function inspectCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(character?.skills[0]?.id || "");
+    setInspectedSkillId(visibleBaseSkillsForCharacter(character)?.[0]?.id || "");
   }
 
   return (
@@ -1047,7 +1034,7 @@ function CharactersCatalog({ characters, onBack }) {
   );
 }
 
-function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat }) {
+function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfirm, onSendChat }) {
   const pageSize = 10;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -1058,7 +1045,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
-  const inspectedSkills = inspectedCharacter?.skills || [];
+  const inspectedSkills = visibleBaseSkillsForCharacter(inspectedCharacter);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
@@ -1082,7 +1069,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
   function clickCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(character?.skills[0]?.id || "");
+    setInspectedSkillId(visibleBaseSkillsForCharacter(character)?.[0]?.id || "");
     onToggle(characterId);
   }
 
@@ -1111,9 +1098,9 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onSendChat
               )}
             </div>
           </div>
-          <button disabled={selected.length !== 3 || me?.ready} onClick={onConfirm}>
+          <button disabled={!me?.ready && selected.length !== 3} onClick={me?.ready ? onUnconfirm : onConfirm}>
             <Shield size={18} />
-            Confirmar
+            {me?.ready ? "Desconfirmar" : "Confirmar"}
           </button>
         </div>
         <CharacterSearch value={search} onChange={setSearch} placeholder="Buscar personaje" disabled={me?.ready} />
@@ -1194,11 +1181,16 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
     .find((member) => member.id === inspectedMemberId) || selectedActor;
-  const inspectedSkills = inspectedMember?.character?.skills || [];
+  const inspectedSkills = visibleSkillsForMember(inspectedMember, inspectedMember?.character);
   const selectedActorSkills = activeSkillsForMember(selectedActor, selectedActor?.character);
+  const selectedActorDisplaySkills = actionSkillsForMember(selectedActor, selectedActor?.character);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
   const pendingSkill = selectedActorSkills.find((skill) => skill.id === pendingSkillId);
-  const eligibleTargetIds = new Set(pendingSkill ? eligibleTargetsForSkill(pendingSkill, me, opponent, selectedActor).map((member) => member.id) : []);
+  const pendingEligibleTargets = pendingSkill
+    ? eligibleTargetsForSkill(pendingSkill, me, opponent, selectedActor)
+      .filter((member) => meetsSkillRequirements(pendingSkill, me, opponent, selectedActor, [member]))
+    : [];
+  const eligibleTargetIds = new Set(pendingEligibleTargets.map((member) => member.id));
   const hasQueuedSkills = (me?.queue || []).length > 0;
   const exchangeRecord = me?.chakraExchange?.turn === room.turn ? me.chakraExchange : null;
   const exchange = exchangeRecord && !exchangeRecord.undone ? exchangeRecord : null;
@@ -1231,7 +1223,10 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   }
 
   function canPrepareSkill(skill) {
+    if (!skill || skill.passive === true) return false;
     const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
+    const validTargets = eligibleTargetsForSkill(skill, me, opponent, selectedActor)
+      .filter((member) => meetsSkillRequirements(skill, me, opponent, selectedActor, [member]));
     return isMyTurn
       && room.phase !== "finished"
       && !isSkillStunned(selectedActor, skill)
@@ -1240,7 +1235,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       && !isQueuedSkill(me, selectedActor?.id, skill.id)
       && meetsSkillRequirements(skill, me, opponent, selectedActor)
       && canPaySkillChakra(me?.chakra, chakraCost, queuedNeutralChakra)
-      && eligibleTargetsForSkill(skill, me, opponent, selectedActor).length > 0;
+      && validTargets.length > 0;
   }
 
   function inspectMember(member) {
@@ -1330,7 +1325,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
             {exchange && hasQueuedSkills && <small className="chakra-exchange-hint">Hay habilidades en cola</small>}
           </div>
           <div className="skill-list">
-            {selectedActorSkills.map((skill) => {
+            {selectedActorDisplaySkills.map((skill) => {
               const isPending = pendingSkillId === skill.id;
               const disabled = !isPending && !canPrepareSkill(skill);
               const cooldown = skillCooldownFor(selectedActor, skill.id);
@@ -1349,7 +1344,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
                   <span className="skill-copy">
                     <strong>{skill.name}</strong>
                     <small>
-                      {targetTypeLabel(skill.targetType)} - <ChakraCost chakra={chakraCost} />
+                      {skill.passive ? "Pasiva - no usable" : <>{targetTypeLabel(skill.targetType)} - <ChakraCost chakra={chakraCost} /></>}
                     </small>
                   </span>
                 </button>
@@ -1421,81 +1416,6 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           }}
         />
       )}
-    </section>
-  );
-}
-
-function ChatPanel({ messages, onSend, collapsible = false }) {
-  const [message, setMessage] = useState("");
-
-  async function submit(event) {
-    event.preventDefault();
-    const sent = await onSend(message);
-    if (sent) setMessage("");
-  }
-
-  const content = (
-    <>
-      <div className="chat-messages" aria-live="polite">
-        {messages.length === 0 ? (
-          <p className="chat-empty">No hay mensajes.</p>
-        ) : (
-          messages.map((item) => (
-            <p key={item.id}>
-              <strong>{item.playerName}:</strong> {item.message}
-            </p>
-          ))
-        )}
-      </div>
-      <form className="chat-form" onSubmit={submit}>
-        <input value={message} maxLength={180} onChange={(event) => setMessage(event.target.value)} placeholder="Mensaje" />
-        <button type="submit" disabled={!message.trim()}>
-          Enviar
-        </button>
-      </form>
-    </>
-  );
-
-  if (collapsible) {
-    return (
-      <CollapsiblePanel title="Chat" className="chat-panel">
-        {content}
-      </CollapsiblePanel>
-    );
-  }
-
-  return (
-    <section className="panel chat-panel">
-      <h2>Chat</h2>
-      {content}
-    </section>
-  );
-}
-
-function CollapsiblePanel({ title, className = "", children }) {
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return !window.matchMedia(MOBILE_QUERY).matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-    const media = window.matchMedia(MOBILE_QUERY);
-    const syncOpen = () => setOpen(!media.matches);
-    syncOpen();
-    media.addEventListener("change", syncOpen);
-    return () => media.removeEventListener("change", syncOpen);
-  }, []);
-
-  return (
-    <section className={`panel collapsible-panel ${className} ${open ? "open" : ""}`}>
-      <button type="button" className="collapsible-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <span>{title}</span>
-        <ChevronDown size={18} />
-      </button>
-      <div className="collapsible-content" hidden={!open}>
-        {children}
-      </div>
     </section>
   );
 }
@@ -1674,7 +1594,7 @@ function EndTurnConfirmModal({ onClose, onConfirm }) {
 
 function BattleSkillFooter({ member, skill, onSkill }) {
   if (!member) return null;
-  const skills = member.character.skills || [];
+  const skills = visibleSkillsForMember(member, member.character);
   return (
     <section className="battle-skill-footer">
       <div className="battle-skill-strip" aria-label={`Habilidades de ${member.character.name}`}>
@@ -1682,7 +1602,8 @@ function BattleSkillFooter({ member, skill, onSkill }) {
           <button
             type="button"
             key={item.id}
-            className={skill?.id === item.id ? "selected" : ""}
+            className={`${skill?.id === item.id ? "selected" : ""} ${item.passive ? "unavailable" : ""}`}
+            aria-disabled={item.passive === true}
             onClick={() => onSkill(item.id)}
             aria-label={item.name}
           >
@@ -1706,8 +1627,8 @@ function SkillFooter({ skill, compact = false, inspectedName = "" }) {
         <p>{skill.description}</p>
       </div>
       <div className="skill-footer-meta">
-        <strong>{targetTypeLabel(skill.targetType)}</strong>
-        <span><ChakraCost chakra={skill.chakra} /></span>
+        <strong>{skill.passive ? "Pasiva" : targetTypeLabel(skill.targetType)}</strong>
+        <span>{skill.passive ? "No usable" : <ChakraCost chakra={skill.chakra} />}</span>
         <span>Cooldown: {skill.cooldown || 0}</span>
       </div>
       <ul>
@@ -1816,209 +1737,13 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
                 <HeartPulse size={14} /> {member.hp}
                 <Shield size={14} /> {member.shield}
               </span>
-              <StatusEffects effects={member.statusEffects || []} />
+              <StatusEffects member={member} effects={member.statusEffects || []} />
               <small>{eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : ownTeam ? "Atacante" : targetable ? "Rival" : "Objetivo"}</small>
             </div>
           );
         })}
       </div>
     </div>
-  );
-}
-
-function SquareImage({ alt, src }) {
-  return <img className="square-img" src={src} alt={alt} width="48" height="48" />;
-}
-
-function StatusEffects({ effects }) {
-  const [openEffectId, setOpenEffectId] = useState("");
-  const [hoverEffectId, setHoverEffectId] = useState("");
-  const [tooltipPosition, setTooltipPosition] = useState(null);
-  const rowRef = useRef(null);
-  const tooltipRef = useRef(null);
-
-  useEffect(() => {
-    if (!openEffectId) return undefined;
-    function closeOnOutsideClick(event) {
-      if (rowRef.current?.contains(event.target)) return;
-      if (tooltipRef.current?.contains(event.target)) return;
-      setOpenEffectId("");
-    }
-    document.addEventListener("click", closeOnOutsideClick);
-    return () => document.removeEventListener("click", closeOnOutsideClick);
-  }, [openEffectId]);
-
-  const groups = groupStatusEffects(effects);
-  const activeEffectId = openEffectId || hoverEffectId;
-  const activeGroup = groups.find((group) => group.id === activeEffectId);
-
-  useLayoutEffect(() => {
-    if (!activeGroup || !tooltipPosition || !tooltipRef.current || !isDesktopTooltip()) return;
-    const rect = tooltipRef.current.getBoundingClientRect();
-    const viewportHeight = window.innerHeight;
-    const topOverflow = 16 - rect.top;
-    const bottomOverflow = rect.bottom - (viewportHeight - 16);
-
-    if (topOverflow > 0) {
-      setTooltipPosition((current) => current ? { ...current, top: current.top + topOverflow } : current);
-    } else if (bottomOverflow > 0) {
-      setTooltipPosition((current) => current ? { ...current, top: current.top - bottomOverflow } : current);
-    }
-  }, [activeGroup, tooltipPosition]);
-
-  function isDesktopTooltip() {
-    return typeof window !== "undefined" && !window.matchMedia(MOBILE_QUERY).matches;
-  }
-
-  function positionDesktopTooltip(element) {
-    if (!isDesktopTooltip()) return;
-    const rect = element.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const width = Math.min(460, viewportWidth - 32);
-    const centeredLeft = rect.left + (rect.width / 2) - (width / 2);
-    const left = Math.min(Math.max(centeredLeft, 16), viewportWidth - width - 16);
-    const spaceAbove = rect.top - 16;
-    const spaceBelow = viewportHeight - rect.bottom - 16;
-    const placement = spaceAbove >= 180 || spaceAbove >= spaceBelow ? "above" : "below";
-
-    setTooltipPosition({
-      left,
-      top: placement === "above" ? rect.top - 10 : rect.bottom + 10,
-      width,
-      placement
-    });
-  }
-
-  function tooltipContent(group) {
-    return (
-      <>
-        <strong>{group.sourceSkillName}</strong>
-        <ul>
-          {group.effects.flatMap((effect) => effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]).map((description, index) => (
-            <li key={`${description}-${index}`}>{description}</li>
-          ))}
-        </ul>
-        <small>{statusEffectGroupMeta(group)}</small>
-      </>
-    );
-  }
-
-  if (!effects.length) return <span className="status-row" aria-label="Sin efectos" />;
-
-  return (
-    <span className="status-row" ref={rowRef}>
-      {groups.map((group) => (
-        <span
-          className={`status-icon ${group.className} ${openEffectId === group.id ? "open" : ""}`}
-          key={group.id}
-          tabIndex={0}
-          onMouseEnter={(event) => {
-            if (!isDesktopTooltip()) return;
-            setHoverEffectId(group.id);
-            positionDesktopTooltip(event.currentTarget);
-          }}
-          onMouseLeave={() => {
-            setHoverEffectId("");
-          }}
-          onFocus={(event) => {
-            if (!isDesktopTooltip()) return;
-            setHoverEffectId(group.id);
-            positionDesktopTooltip(event.currentTarget);
-          }}
-          onBlur={() => {
-            setHoverEffectId("");
-          }}
-          onClick={(event) => {
-            event.stopPropagation();
-            positionDesktopTooltip(event.currentTarget);
-            setOpenEffectId((current) => (current === group.id ? "" : group.id));
-          }}
-        >
-          <img src={skillImage(group.sourceSkillId)} alt={group.sourceSkillName} />
-          <b>{statusEffectGroupValue(group)}</b>
-          <span className="status-tooltip inline-status-tooltip" role="tooltip">
-            {tooltipContent(group)}
-          </span>
-        </span>
-      ))}
-      {activeGroup && tooltipPosition && createPortal(
-        <span
-          className={`status-tooltip status-tooltip-portal ${tooltipPosition.placement}`}
-          ref={tooltipRef}
-          role="tooltip"
-          style={{
-            "--tooltip-left": `${tooltipPosition.left}px`,
-            "--tooltip-top": `${tooltipPosition.top}px`,
-            "--tooltip-width": `${tooltipPosition.width}px`
-          }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {tooltipContent(activeGroup)}
-        </span>,
-        document.body
-      )}
-    </span>
-  );
-}
-
-function ChakraPool({ chakra }) {
-  return (
-    <div className="chakra-pool">
-      {chakraTypes.map((type) => (
-        <span className={`chakra-chip ${type.className}`} key={type.id}>
-          <ChakraIcon type={type.id} />
-          <b>{chakra?.[type.id] || 0}</b>
-          {type.label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function ChakraIcon({ type }) {
-  const chakraType = chakraTypes.find((item) => item.id === type);
-  const className = type === "neutralChakra" ? "neutral" : chakraType?.className || "";
-  return (
-    <svg className={`chakra-svg ${className}`} viewBox="0 0 16 16" aria-hidden="true">
-      <rect className="chakra-border" x="1" y="1" width="14" height="14" rx="4" />
-      <rect className="chakra-inner-border" x="2.5" y="2.5" width="11" height="11" rx="3" />
-      <rect className="chakra-fill" x="4" y="4" width="8" height="8" rx="2" />
-    </svg>
-  );
-}
-
-function ChakraCost({ chakra = {} }) {
-  const entries = chakraTypes
-    .map((type) => ({ ...type, amount: chakra[type.id] || 0 }))
-    .filter((type) => type.amount > 0);
-  const neutralAmount = neutralChakraCost(chakra);
-  if (neutralAmount > 0) {
-    entries.push({ id: "neutralChakra", label: "Neutral", amount: neutralAmount });
-  }
-
-  if (!entries.length) return <span className="chakra-cost empty">Sin chakra</span>;
-
-  return (
-    <span className="chakra-cost">
-      {entries.map((type) => (
-        <span className="chakra-cost-item" key={type.id}>
-          <ChakraIcon type={type.id} />
-          <b>{type.amount}</b>
-          <span>{type.label}</span>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function Health({ current, max }) {
-  const width = Math.max(0, Math.round((current / max) * 100));
-  const level = width <= 30 ? "low" : width <= 70 ? "mid" : "high";
-  return (
-    <span className={`health ${level}`} aria-label={`${width}% vida`}>
-      <span style={{ width: `${width}%` }} />
-    </span>
   );
 }
 
