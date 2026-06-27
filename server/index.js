@@ -723,6 +723,29 @@ export function damageBonusForTarget(effect, target, actor) {
   }, 0);
 }
 
+function snapshotComplexEffects(effects, actor, skill, target, currentTurn) {
+  return (effects || []).map((childEffect) => {
+    if (childEffect.type !== "damage") {
+      return { ...childEffect };
+    }
+
+    const baseDamage = Math.max(0, Number(childEffect.value || 0));
+    const buffedDamage = baseDamage + damageBuffValue(actor, skill, currentTurn);
+    const damageType = modifiedDamageType(
+      actor,
+      skill,
+      childEffect.damageType || "basic",
+      currentTurn
+    );
+
+    return {
+      ...childEffect,
+      value: buffedDamage + damageBonusForTarget(childEffect, target, actor),
+      damageType
+    };
+  });
+}
+
 function validateSkillRequirements(skill, player, opponent, actor) {
   for (const requirement of skill.requires || []) {
     const candidates = requireCandidates(requirement, player, opponent, actor);
@@ -986,7 +1009,13 @@ function applyQueuedSkill(room, player, action) {
           id: randomUUID(),
           type: "complex",
           turns: effect.duration,
-          effects: Array.isArray(effect.effects) ? effect.effects : [],
+          effects: snapshotComplexEffects(
+            Array.isArray(effect.effects) ? effect.effects : [],
+            actor,
+            skill,
+            target,
+            room.turn
+          ),
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,

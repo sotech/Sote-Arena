@@ -25,8 +25,10 @@ export const kankurou = {
       name: "Rafaga de marionetas de hierro",
       chakra: { neutralChakra: 1 },
       targetType: "enemies",
-      description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de dano de afliccion.",
-      effects: [{ type: "damage", value: 10, targets: "target", damageType: "affliction" }],
+      description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de dano de afliccion durante 4 turnos.",
+      effects: [
+        { type: "complex", duration: 4, targets: "enemies", effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }] }
+      ],
       cooldown: 1,
       family:["physical","instant"]
     },

@@ -31,5 +31,14 @@ export function activeSkillsForMember(member, character = member?.character) {
 }
 
 export function activeSkillForMember(member, character, skillId) {
+  const skills = character?.skills || [];
+  const baseSkill = baseSkillsForCharacter(character).find((skill) => skill.id === skillId);
+
+  if (baseSkill) {
+    const replacement = replacementEffectsForSkill(member, baseSkill).at(-1);
+    if (!replacement) return baseSkill;
+    return skills.find((skill) => skill.id === replacement.skillId) || baseSkill;
+  }
+
   return activeSkillsForMember(member, character).find((skill) => skill.id === skillId);
 }
