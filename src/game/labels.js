@@ -113,6 +113,16 @@ export function effectDescription(effect) {
     const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
     return `Agrega efecto${duration}${scope}${descriptions ? `: ${descriptions}` : ""}`;
   }
+  if (effect.type === "addUncountereable") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = durationDescription(effect.duration);
+    return `No countereable${duration}${scope}`;
+  }
+  if (effect.type === "addNonReflectable") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = durationDescription(effect.duration);
+    return `No reflejable${duration}${scope}`;
+  }
   if (effect.type === "replaceEffects") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const duration = durationDescription(effect.duration);

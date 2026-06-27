@@ -80,6 +80,8 @@ const skillModifierEffectTypes = [
   "modifyTargetType",
   "modifyTargetCount",
   "addEffectToBase",
+  "addUncountereable",
+  "addNonReflectable",
   "replaceEffects",
   "replaceSkill",
   ...chakraCostModifierTypes
@@ -640,6 +642,17 @@ export function damageBuffValue(actor, skill, currentTurn) {
   return directBuffs + complexBuffs;
 }
 
+export function isSkillCountereable(actor, skill, currentTurn) {
+  return skill?.uncountereable !== true
+    && skill?.uncounterable !== true
+    && activeSkillModifiers(actor, skill, currentTurn, "addUncountereable").length === 0;
+}
+
+export function isSkillReflectable(actor, skill, currentTurn) {
+  return skill?.nonReflectable !== true
+    && activeSkillModifiers(actor, skill, currentTurn, "addNonReflectable").length === 0;
+}
+
 export function modifiedDamageType(actor, skill, baseDamageType = "basic", currentTurn) {
   let type = ["basic", "normal", "piercing", "affliction"].includes(baseDamageType) ? baseDamageType : "basic";
   for (const effect of actor.statusEffects || []) {
@@ -1103,7 +1116,8 @@ function consumeReactiveStatus(room, member, status, currentTurn) {
   }
 }
 
-function firstCounterForAction(actor, selectedTargets, skill) {
+function firstCounterForAction(actor, selectedTargets, skill, currentTurn) {
+  if (!isSkillCountereable(actor, skill, currentTurn)) return null;
   const outgoing = (actor.statusEffects || []).find((status) => status.type === "counter" && reactiveStatusApplies(status, skill, "outgoing"));
   if (outgoing) return { member: actor, status: outgoing };
   for (const target of selectedTargets) {
@@ -1113,7 +1127,8 @@ function firstCounterForAction(actor, selectedTargets, skill) {
   return null;
 }
 
-function firstReflectForAction(selectedTargets, skill) {
+function firstReflectForAction(actor, selectedTargets, skill, currentTurn) {
+  if (!isSkillReflectable(actor, skill, currentTurn)) return null;
   for (const target of selectedTargets) {
     const status = (target.statusEffects || []).find((effect) => effect.type === "reflect" && reactiveStatusApplies(effect, skill, "incoming"));
     if (status) return { member: target, status };
@@ -1199,7 +1214,7 @@ export function applyQueuedSkill(room, player, action) {
     return `${actorCharacter.name} desperdicio ${skill.name}: el objetivo ya no es valido.`;
   }
 
-  const counter = firstCounterForAction(actor, selectedTargets, effectiveSkill);
+  const counter = firstCounterForAction(actor, selectedTargets, effectiveSkill, room.turn);
   if (counter) {
     consumeReactiveStatus(room, counter.member, counter.status, room.turn);
     addCounteredNotice(actor, counter.status, room.turn);
@@ -1207,7 +1222,7 @@ export function applyQueuedSkill(room, player, action) {
     return `${actorCharacter.name} uso ${skill.name}, pero fue cancelada por un counter.`;
   }
 
-  const reflect = firstReflectForAction(selectedTargets, effectiveSkill);
+  const reflect = firstReflectForAction(actor, selectedTargets, effectiveSkill, room.turn);
   const resolvedTargetId = reflect ? reflectedTargetId(room, player, actor, reflect.status) : action.targetId;
   const resolvedSkill = reflect ? reflectedSkill(effectiveSkill, reflect.status) : effectiveSkill;
   const effectSourcePlayer = reflect ? ownerOfMember(room, reflect.member) : player;
@@ -1381,7 +1396,7 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
-    if (["modifyTargetType", "modifyTargetCount", "addEffectToBase", "replaceEffects", "counter", "reflect"].includes(effect.type)) {
+    if (["modifyTargetType", "modifyTargetCount", "addEffectToBase", "addUncountereable", "addNonReflectable", "replaceEffects", "counter", "reflect"].includes(effect.type)) {
       for (const target of targets) {
         addStatus(target, {
           id: randomUUID(),
@@ -1405,7 +1420,7 @@ export function applyQueuedSkill(room, player, action) {
           createdTurn: room.turn,
           descriptions: [statusDescription(effect, actorCharacter)]
         });
-        if (effect.type === "addEffectToBase") totalAddedBaseEffects += 1;
+        if (effect.type === "addEffectToBase" || effect.type === "addUncountereable" || effect.type === "addNonReflectable") totalAddedBaseEffects += 1;
         if (effect.type === "replaceEffects") totalAddedBaseEffects += 1;
       }
       continue;

@@ -31,6 +31,8 @@ function effectBotDescription(effect) {
   if (effect.type === "modifyTargetType") return `modifyTargetType-${effect.targetType || ""}`;
   if (effect.type === "modifyTargetCount") return `modifyTargetCount-${effect.count ?? effect.value ?? ""}`;
   if (effect.type === "addEffectToBase") return `addEffectToBase-${(effect.effects || []).map(effectBotDescription).join(",")}`;
+  if (effect.type === "addUncountereable") return `addUncountereable-${(effect.skillIds || []).join(",") || "all"}`;
+  if (effect.type === "addNonReflectable") return `addNonReflectable-${(effect.skillIds || []).join(",") || "all"}`;
   if (effect.type === "replaceEffects") return `replaceEffects-${(effect.effects || []).map(effectBotDescription).join(",")}`;
   if (effect.type === "replaceSkill") return `replaceSkill-${effect.baseSkillId || ""}-${effect.skillId || ""}`;
   if (effect.type === "counter") return `counter-${effect.trigger || "incoming"}-${effect.charges ?? effect.value ?? 1}`;

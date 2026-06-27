@@ -1,4 +1,6 @@
 import { addEffectToBaseEffect } from "./addEffectToBase.js";
+import { addNonReflectableEffect } from "./addNonReflectable.js";
+import { addUncountereableEffect } from "./addUncountereable.js";
 import { complexEffect } from "./complex.js";
 import { counterEffect } from "./counter.js";
 import { damageEffect } from "./damage.js";
@@ -35,6 +37,8 @@ export const effectTypes = {
   modifyTargetType: modifyTargetTypeEffect,
   modifyTargetCount: modifyTargetCountEffect,
   addEffectToBase: addEffectToBaseEffect,
+  addUncountereable: addUncountereableEffect,
+  addNonReflectable: addNonReflectableEffect,
   replaceEffects: replaceEffectsEffect,
   replaceSkill: replaceSkillEffect,
   modifyChakraCost: modifyChakraCostEffect,

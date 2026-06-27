@@ -12,6 +12,8 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "modifyTargetType") return `${actorCharacter.name} ha modificado los objetivos de este personaje.`;
   if (effect.type === "modifyTargetCount") return `${actorCharacter.name} ha modificado la cantidad de objetivos de este personaje.`;
   if (effect.type === "addEffectToBase") return `${actorCharacter.name} ha agregado efectos a las habilidades de este personaje.`;
+  if (effect.type === "addUncountereable") return `${actorCharacter.name} ha hecho habilidades de este personaje incountereables.`;
+  if (effect.type === "addNonReflectable") return `${actorCharacter.name} ha hecho habilidades de este personaje no reflejables.`;
   if (effect.type === "replaceEffects") return `${actorCharacter.name} ha reemplazado los efectos de habilidades de este personaje.`;
   if (effect.type === "replaceSkill") return `${actorCharacter.name} ha reemplazado una habilidad de este personaje.`;
   if (effect.type === "counter") return `${actorCharacter.name} ha preparado un counter.`;
@@ -84,6 +86,8 @@ export function modifierDescriptions(effect) {
   if (effect.type === "modifyTargetType") return [`${effect.sourceActorName || "Un personaje"} cambio los objetivos de habilidades.`];
   if (effect.type === "modifyTargetCount") return [`${effect.sourceActorName || "Un personaje"} limito la cantidad de objetivos de habilidades.`];
   if (effect.type === "addEffectToBase") return addEffectToBaseDescriptions(effect);
+  if (effect.type === "addUncountereable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades incountereables.`];
+  if (effect.type === "addNonReflectable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades no reflejables.`];
   if (effect.type === "replaceEffects") return replaceEffectsDescriptions(effect);
   if (effect.type === "replaceSkill") return replaceSkillDescriptions(effect);
   if (effect.type === "counter") return [`${effect.sourceActorName || "Un personaje"} preparo un counter.`];
@@ -134,6 +138,8 @@ export function simpleEffectDescription(effect) {
     const descriptions = (effect.effects || []).map(simpleEffectDescription).join(" + ");
     return `Agrega efectos${scope}${descriptions ? `: ${descriptions}` : ""}.`;
   }
+  if (effect.type === "addUncountereable") return "Hace que habilidades no puedan ser countereadas.";
+  if (effect.type === "addNonReflectable") return "Hace que habilidades no puedan ser reflejadas.";
   if (effect.type === "replaceSkill") {
     const duration = effect.duration === -1 || effect.turns === -1 ? " permanentemente" : "";
     return `Reemplaza${duration} ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;

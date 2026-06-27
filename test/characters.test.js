@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { characters, getCharacterById, getSkillNameById } from "../shared/characters.js";
 import { naruto } from "../shared/characters/naruto/index.js";
 import { effectTypes, skillClassesLabel, supportedEffectTypes } from "../shared/effects.js";
-import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, expireStartTurnSecretEffects, expireStatusEffects, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn } from "../server/index.js";
+import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn } from "../server/index.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
 import { meetsSkillRequirements, playerHealthShare } from "../src/game/battleRules.js";
@@ -95,6 +95,8 @@ test("skill effects use the documented effect system", () => {
           assert.ok(Number(effect.count ?? effect.value) > 0);
         } else if (effect.type === "addEffectToBase" || effect.type === "replaceEffects") {
           assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
+        } else if (effect.type === "addUncountereable" || effect.type === "addNonReflectable") {
+          assert.ok(effect.duration > 0 || effect.duration === -1);
         } else if (effect.type === "replaceSkill") {
           assert.ok(effect.duration > 0 || effect.duration === -1);
           assert.ok(effect.skillId);
@@ -706,6 +708,104 @@ test("Puppet Substitution counters the target next skill and shows both notices"
     && effect.sourceSkillId === "puppet-substitution"
     && effect.descriptions.includes("Jutsu de sustitucion de marionetas ha finalizado.")
   )));
+});
+
+test("Cacho Lariat cannot be countered by Puppet Substitution", () => {
+  const kankurouMember = { id: "kankurou", characterId: "kankurou", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const cachoMember = { id: "cacho", characterId: "cacho", hp: 150, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [kankurouMember] };
+  const opponent = { id: "p2", name: "P2", team: [cachoMember] };
+  const room = { players: [player, opponent], turn: 1 };
+  const cacho = getCharacterById("cacho");
+  const lariat = cacho.skills.find((skill) => skill.id === "cacho-lariat");
+
+  assert.equal(lariat.uncountereable, true);
+
+  applyQueuedSkill(room, player, {
+    actorId: "kankurou",
+    targetId: "cacho",
+    skillId: "puppet-substitution",
+    actorName: "Kankurou",
+    targetName: "Cacho",
+    skillName: "Jutsu de sustitucion de marionetas"
+  });
+
+  const lariatLog = applyQueuedSkill(room, opponent, {
+    actorId: "cacho",
+    targetId: "kankurou",
+    skillId: "cacho-lariat",
+    actorName: "Cacho",
+    targetName: "Kankurou",
+    skillName: "Lariat de Cacho"
+  });
+
+  assert.equal(lariatLog, "Cacho uso Lariat de Cacho e hizo 30 dano.");
+  assert.equal(kankurouMember.hp, 70);
+  assert.equal(cachoMember.statusEffects.some((effect) => effect.type === "counter"), true);
+  assert.equal(cachoMember.statusEffects.some((effect) => effect.type === "countered"), false);
+});
+
+test("Chidori cannot be reflected", () => {
+  const sasukeMember = { id: "sasuke", characterId: "sasuke", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const kakashiMember = {
+    id: "kakashi",
+    characterId: "kakashi",
+    hp: 100,
+    statusEffects: [{
+      id: "reflect",
+      type: "reflect",
+      turns: 1,
+      trigger: "incoming",
+      charges: 1,
+      reflectTo: "caster"
+    }],
+    skillCooldowns: {}
+  };
+  const player = { id: "p1", name: "P1", team: [sasukeMember] };
+  const opponent = { id: "p2", name: "P2", team: [kakashiMember] };
+  const room = { players: [player, opponent], turn: 1 };
+  const sasuke = getCharacterById("sasuke");
+  const chidori = sasuke.skills.find((skill) => skill.id === "chidori");
+
+  assert.equal(chidori.nonReflectable, true);
+
+  const log = applyQueuedSkill(room, player, {
+    actorId: "sasuke",
+    targetId: "kakashi",
+    skillId: "chidori",
+    actorName: "Sasuke Uchiha",
+    targetName: "Kakashi",
+    skillName: "Chidori"
+  });
+
+  assert.equal(log, "Sasuke Uchiha uso Chidori e hizo 35 dano.");
+  assert.equal(kakashiMember.hp, 65);
+  assert.equal(sasukeMember.hp, 100);
+  assert.equal(kakashiMember.statusEffects.some((effect) => effect.type === "reflect"), true);
+  assert.equal(sasukeMember.statusEffects.some((effect) => effect.type === "reflected"), false);
+});
+
+test("addUncountereable and addNonReflectable modify matching skills", () => {
+  const member = {
+    statusEffects: [{
+      id: "anti-counter",
+      type: "addUncountereable",
+      turns: 2,
+      skillIds: ["rasengan"]
+    }, {
+      id: "anti-reflect",
+      type: "addNonReflectable",
+      turns: 2,
+      skillIds: ["chidori"]
+    }]
+  };
+
+  assert.equal(isSkillCountereable(member, { id: "rasengan", name: "Rasengan" }, 1), false);
+  assert.equal(isSkillCountereable(member, { id: "shadow-clones", name: "Clones de sombra" }, 1), true);
+  assert.equal(isSkillReflectable(member, { id: "chidori", name: "Chidori" }, 1), false);
+  assert.equal(isSkillReflectable(member, { id: "rasengan", name: "Rasengan" }, 1), true);
+  assert.equal(effectDescription({ type: "addUncountereable", duration: 2, targets: "self", skillIds: ["rasengan"] }), "No countereable por 2 turno(s) (Rasengan)");
+  assert.equal(effectDescription({ type: "addNonReflectable", duration: 2, targets: "self", skillIds: ["chidori"] }), "No reflejable por 2 turno(s) (Chidori)");
 });
 
 test("secret statuses are only serialized as visible for the owner that placed them", () => {
