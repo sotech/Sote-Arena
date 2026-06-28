@@ -1,8 +1,8 @@
 import React from "react";
 import { chakraTypes, neutralChakraCost } from "../game/chakra.js";
 
-export function SquareImage({ alt, src }) {
-  return <img className="square-img" src={src} alt={alt} width="48" height="48" />;
+export function SquareImage({ alt, src, className = "" }) {
+  return <img className={`square-img ${className}`.trim()} src={src} alt={alt} width="48" height="48" />;
 }
 
 export function ChakraPool({ chakra }) {

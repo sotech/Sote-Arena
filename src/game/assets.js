@@ -17,7 +17,7 @@ export const skullImage = `data:image/svg+xml;utf8,${encodeURIComponent(`
 `.replace(/\s+/g, " ").trim())}`;
 
 export function characterImage(characterId) {
-  return characterImages[`../assets/characters/${characterId}.png`];
+  return characterImages[`../assets/characters/${characterId}.png`] || fallbackCharacterImage(characterId);
 }
 
 export function skillImage(skillId) {
@@ -41,6 +41,19 @@ function fallbackSkillImage(skillId) {
       <rect width="80" height="80" rx="10" fill="hsl(${hue}, 70%, 35%)"/>
       <circle cx="40" cy="40" r="24" fill="rgba(255,255,255,.9)"/>
       <text x="40" y="49" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="900" fill="hsl(${hue}, 70%, 30%)">${letter}</text>
+    </svg>
+  `.replace(/\s+/g, " ").trim())}`;
+}
+
+function fallbackCharacterImage(characterId) {
+  const letter = (characterId || "?").slice(0, 1).toUpperCase();
+  const hue = [...(characterId || "character")].reduce((total, char) => total + char.charCodeAt(0), 0) % 360;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
+      <rect width="80" height="80" rx="10" fill="hsl(${hue}, 65%, 28%)"/>
+      <circle cx="40" cy="31" r="17" fill="rgba(255,255,255,.88)"/>
+      <path d="M17 75c4-19 17-29 23-29s19 10 23 29H17Z" fill="rgba(255,255,255,.88)"/>
+      <text x="40" y="41" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="hsl(${hue}, 65%, 26%)">${letter}</text>
     </svg>
   `.replace(/\s+/g, " ").trim())}`;
 }

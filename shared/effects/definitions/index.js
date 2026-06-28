@@ -1,6 +1,7 @@
 import { addEffectToBaseEffect } from "./addEffectToBase.js";
 import { addNonReflectableEffect } from "./addNonReflectable.js";
 import { addUncountereableEffect } from "./addUncountereable.js";
+import { allyCountStatusEffect } from "./allyCountStatus.js";
 import { complexEffect } from "./complex.js";
 import { counterEffect } from "./counter.js";
 import { damageEffect } from "./damage.js";
@@ -31,6 +32,7 @@ export const effectTypes = {
   "self-heal": selfHealEffect,
   shield: shieldEffect,
   "damage-reduction": damageReductionEffect,
+  allyCountStatus: allyCountStatusEffect,
   modifyDamage: modifyDamageEffect,
   modifyDamageByMissingHp: modifyDamageByMissingHpEffect,
   modifyDamageType: modifyDamageTypeEffect,

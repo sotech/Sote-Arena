@@ -6,6 +6,10 @@ export function visibleBaseSkillsForCharacter(character) {
   return (character?.skills || []).filter((skill) => !skill.hideUntilReplaced);
 }
 
+export function allSkillsForCharacter(character) {
+  return character?.skills || [];
+}
+
 function skillReplacementApplies(effect, baseSkill) {
   return effect?.type === "replaceSkill"
     && (effect.turns > 0 || effect.turns === -1)
