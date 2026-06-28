@@ -32,6 +32,8 @@ export function groupStatusEffects(effects = []) {
 }
 
 export function statusEffectGroupValue(group) {
+  const damageModifier = groupStatusDamageModifierValue(group);
+  if (damageModifier !== null) return damageModifier > 0 ? `+${damageModifier}` : String(damageModifier);
   if (group.effects.some((effect) => effect.turns === -1)) return "∞";
   const timedEffects = group.effects.filter((effect) => Number.isFinite(effect.turns));
   if (timedEffects.length > 0) {
@@ -45,8 +47,22 @@ export function statusEffectGroupMeta(group) {
   return [...new Set(metas)].join(" | ");
 }
 
+function groupStatusDamageModifierValue(group) {
+  const damageModifiers = group.effects.flatMap((effect) => {
+    if (effect.type === "modifyDamage") return [effect];
+    if (effect.type === "complex") return (effect.effects || []).filter((childEffect) => childEffect.type === "modifyDamage");
+    return [];
+  });
+  if (damageModifiers.length === 0) return null;
+  return damageModifiers.reduce((total, effect) => total + Number(effect.value || 0), 0);
+}
+
 export function statusEffectValue(effect) {
   if (effect.type === "shield") return effect.remainingShield || effect.value;
+  if (effect.type === "modifyDamage") {
+    const value = Number(effect.value || 0);
+    return value > 0 ? `+${value}` : String(value);
+  }
   if (effect.turns === -1) return "∞";
   if (Number.isFinite(effect.turns)) return effect.turns;
   return effect.turns;
@@ -78,6 +94,12 @@ export function effectDescription(effect) {
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo destruible: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
   if (effect.type === "damage-reduction") return `Reduccion de dano: ${effect.value} por ${effect.duration} turno(s)`;
+  if (effect.type === "allyCountStatus") {
+    const shield = Number(effect.shieldPerAlly || 0);
+    const reduction = Number(effect.damageReductionPerAlly || 0);
+    const maxShield = Number.isFinite(Number(effect.maxShield)) ? `, max ${effect.maxShield} escudo` : "";
+    return `Por aliado vivo: ${reduction} reduccion de dano, ${shield} escudo${maxShield}`;
+  }
   if (effect.type === "modifyDamage") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const value = Number(effect.value || 0);
@@ -174,6 +196,7 @@ export function targetTypeLabel(type) {
   if (type === "enemy") return "Enemigo";
   if (type === "enemies") return "Todos los enemigos";
   if (type === "ally") return "Aliado";
+  if (type === "otherAlly") return "Otro aliado";
   if (type === "allies") return "Todos los aliados";
   if (type === "self") return "Propio";
   if (type === "allPlayers") return "Todos";

@@ -3,17 +3,17 @@ import assert from "node:assert/strict";
 import { characters, getCharacterById, getSkillNameById } from "../shared/characters.js";
 import { naruto } from "../shared/characters/naruto/index.js";
 import { effectTypes, skillClassesLabel, supportedEffectTypes } from "../shared/effects.js";
-import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn } from "../server/index.js";
+import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, exchangeChakra, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn, undoChakraExchange } from "../server/index.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
-import { meetsSkillRequirements, playerHealthShare } from "../src/game/battleRules.js";
+import { eligibleTargetsForSkill, meetsSkillRequirements, playerHealthShare } from "../src/game/battleRules.js";
 import { effectDescription, groupStatusEffects, statusEffectGroupValue } from "../src/game/labels.js";
 
 const chakraTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
 
 test("catalog exposes the playable characters", () => {
-  assert.equal(characters.length, 10);
-  assert.equal(new Set(characters.map((character) => character.id)).size, 10);
+  assert.equal(characters.length, 12);
+  assert.equal(new Set(characters.map((character) => character.id)).size, 12);
 });
 
 test("characters can be imported from individual folders", () => {
@@ -33,19 +33,42 @@ test("player health share uses current HP and ignores shields", () => {
   assert.equal(playerHealthShare({ team: [{ hp: 0 }] }, { team: [{ hp: 0 }] }), 0.5);
 });
 
+test("chakra exchange can be retried after undoing it", () => {
+  const player = {
+    id: "p1",
+    chakra: { taijutsu: 5, ninjutsu: 0, bloodline: 0, genjutsu: 0 },
+    queue: [],
+    team: []
+  };
+  const room = {
+    phase: "battle",
+    activePlayerId: "p1",
+    turn: 1,
+    players: [player]
+  };
+
+  assert.equal(exchangeChakra(room, "p1", "ninjutsu", { taijutsu: 5 }), null);
+  assert.deepEqual(player.chakra, { taijutsu: 0, ninjutsu: 1, bloodline: 0, genjutsu: 0 });
+  assert.equal(undoChakraExchange(room, "p1"), null);
+  assert.deepEqual(player.chakra, { taijutsu: 5, ninjutsu: 0, bloodline: 0, genjutsu: 0 });
+  assert.equal(exchangeChakra(room, "p1", "bloodline", { taijutsu: 5 }), null);
+  assert.deepEqual(player.chakra, { taijutsu: 0, ninjutsu: 0, bloodline: 1, genjutsu: 0 });
+});
+
 test("every character can fight with four configured skills", () => {
   for (const character of characters) {
     const baseSkills = baseSkillsForCharacter(character);
-    assert.equal(character.maxHp, character.id === "cacho" ? 150 : 100);
+    const expectedMaxHp = character.id === "cacho" ? 150 : character.id === "mai" ? 70 : 100;
+    assert.equal(character.maxHp, expectedMaxHp);
     assert.equal(character.role, undefined);
-    assert.equal(baseSkills.length, character.id === "cacho" ? 3 : 4);
+    assert.equal(baseSkills.length, ["cacho", "mai"].includes(character.id) ? 3 : 4);
     assert.ok(character.skills.every((skill) => skill.passive === true || Object.values(skill.chakra).some((amount) => amount > 0)));
     assert.ok(character.skills.every((skill) => Array.isArray(skill.effects) && skill.effects.length > 0));
   }
 });
 
 test("every character has a final self-defense skill with invulnerability", () => {
-  for (const character of characters.filter((character) => !["kankurou", "cacho"].includes(character.id))) {
+  for (const character of characters.filter((character) => !["kankuro", "cacho", "mai"].includes(character.id))) {
     const lastSkill = baseSkillsForCharacter(character).at(-1);
     assert.equal(lastSkill.targetType, "self");
     assert.equal(lastSkill.cooldown, 4);
@@ -84,13 +107,14 @@ test("skill effects use the documented effect system", () => {
           assert.equal(effect.value, undefined);
         } else if (effect.type === "modifyDamage") {
           assert.notEqual(effect.value, 0);
+          if (effect.isStackable !== undefined) assert.equal(typeof effect.isStackable, "boolean");
         } else if (effect.type === "modifyDamageByMissingHp") {
           assert.notEqual(Number(effect.amountPerStep ?? effect.value ?? 0), 0);
           assert.ok(Number(effect.hpStep || 0) > 0);
         } else if (effect.type === "modifyDamageType") {
           assert.ok(["basic", "normal", "piercing", "affliction"].includes(effect.damageType));
         } else if (effect.type === "modifyTargetType") {
-          assert.ok(["self", "enemy", "ally", "enemies", "allies", "allPlayers"].includes(effect.targetType));
+          assert.ok(["self", "enemy", "ally", "otherAlly", "enemies", "allies", "allPlayers"].includes(effect.targetType));
         } else if (effect.type === "modifyTargetCount") {
           assert.ok(Number(effect.count ?? effect.value) > 0);
         } else if (effect.type === "addEffectToBase" || effect.type === "replaceEffects") {
@@ -101,6 +125,8 @@ test("skill effects use the documented effect system", () => {
           assert.ok(effect.duration > 0 || effect.duration === -1);
           assert.ok(effect.skillId);
           if (effect.showStatusEffect !== undefined) assert.equal(typeof effect.showStatusEffect, "boolean");
+        } else if (effect.type === "allyCountStatus") {
+          assert.ok(Number(effect.damageReductionPerAlly || 0) > 0 || Number(effect.shieldPerAlly || 0) > 0);
         } else if (effect.type === "counter" || effect.type === "reflect") {
           assert.ok(effect.duration > 0 || effect.duration === -1);
         } else if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
@@ -122,7 +148,7 @@ test("skill effects use the documented effect system", () => {
 
 test("skills cover the supported target categories", () => {
   const targetTypes = new Set(characters.flatMap((character) => character.skills.map((skill) => skill.targetType)));
-  for (const type of ["self", "enemy", "ally", "enemies", "allies"]) {
+  for (const type of ["self", "enemy", "ally", "otherAlly", "enemies", "allies"]) {
     assert.ok(targetTypes.has(type));
   }
 });
@@ -164,6 +190,45 @@ test("status effect instances keep separate visual groups", () => {
   assert.deepEqual(groups.map(statusEffectGroupValue), [3, 1]);
 });
 
+test("stacked damage status groups show their current damage modifier", () => {
+  const groups = groupStatusEffects([
+    {
+      id: "cat-scratch-stack",
+      type: "modifyDamage",
+      turns: -1,
+      value: 10,
+      sourceSkillId: "cat-scratch",
+      sourceSkillName: "Aranazo de gato",
+      skillIds: ["cat-scratch"]
+    }
+  ]);
+
+  assert.equal(statusEffectGroupValue(groups[0]), "+10");
+});
+
+test("stacked damage status descriptions show the accumulated modifier", () => {
+  const member = { statusEffects: [] };
+  const status = {
+    id: "cat-scratch-stack",
+    type: "modifyDamage",
+    turns: -1,
+    value: 5,
+    sourceSkillId: "cat-scratch",
+    sourceSkillName: "Aranazo de gato",
+    sourceActorName: "Mai",
+    skillIds: ["cat-scratch"],
+    isStackable: true,
+    createdTurn: 1
+  };
+
+  addStatus(member, status);
+  addStatus(member, { ...status, id: "cat-scratch-stack-2", createdTurn: 2 });
+
+  assert.equal(member.statusEffects.length, 1);
+  assert.equal(member.statusEffects[0].value, 10);
+  assert.ok(member.statusEffects[0].descriptions.some((description) => description.includes("10")));
+});
+
 test("skill ids are shown as skill names in descriptions", () => {
   assert.equal(
     effectDescription({ type: "modifyDamage", value: 10, duration: 4, targets: "self", skillIds: ["puppet-ambush"] }),
@@ -190,6 +255,245 @@ test("modifyDamage accepts negative values as damage reduction", () => {
     effectDescription({ type: "modifyDamage", value: -10, duration: 2, targets: "self", skillIds: ["chidori"] }),
     "Reduce dano: -10 por 2 turno(s) (Chidori)"
   );
+});
+
+test("Hinata skills match the requested effects", () => {
+  const hinata = getCharacterById("hinata");
+  const gentleFist = hinata.skills.find((skill) => skill.id === "gentle-fist");
+  const byakuganGuard = hinata.skills.find((skill) => skill.id === "byakugan-guard");
+  const chakraSeal = hinata.skills.find((skill) => skill.id === "chakra-seal");
+
+  assert.equal(gentleFist.cooldown, 1);
+  assert.deepEqual(gentleFist.chakra, { taijutsu: 1, neutralChakra: 1 });
+  assert.deepEqual(gentleFist.effects, [
+    { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
+  ]);
+  assert.equal(byakuganGuard.cooldown, 4);
+  assert.deepEqual(byakuganGuard.chakra, { bloodline: 1 });
+  assert.equal(byakuganGuard.targetType, "self");
+  assert.deepEqual(chakraSeal.chakra, { bloodline: 1, neutralChakra: 1 });
+  assert.deepEqual(chakraSeal.effects, [{ type: "damage", value: 15, targets: "target" }]);
+});
+
+test("Byakugan Guard modifies Hinata skills through reusable effects", () => {
+  const hinataMember = { id: "hinata", characterId: "hinata", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const ally = { id: "ally", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const enemy = { id: "enemy", characterId: "sakura", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [hinataMember, ally] };
+  const opponent = { id: "p2", name: "P2", chakra: { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 }, queue: [], team: [enemy] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "hinata",
+    targetId: "hinata",
+    skillId: "byakugan-guard",
+    actorName: "Hinata Hyuga",
+    targetName: "Hinata Hyuga",
+    skillName: "Guardia Byakugan"
+  });
+
+  const chakraSeal = getCharacterById("hinata").skills.find((skill) => skill.id === "chakra-seal");
+  assert.equal(damageBuffValue(hinataMember, chakraSeal, 2), 5);
+  assert.deepEqual(modifiedSkillChakraCost(hinataMember, chakraSeal), {
+    taijutsu: 0,
+    ninjutsu: 0,
+    bloodline: 1,
+    genjutsu: 0,
+    neutralChakra: 0
+  });
+  assert.deepEqual(addedEffectsForSkill(hinataMember, chakraSeal, 2), [
+    { type: "shield", value: 15, targets: "allies", isStackable: false }
+  ]);
+
+  room.turn = 2;
+  applyQueuedSkill(room, player, {
+    actorId: "hinata",
+    targetId: "enemy",
+    skillId: "gentle-fist",
+    actorName: "Hinata Hyuga",
+    targetName: "Sakura Haruno",
+    skillName: "Puno suave"
+  });
+
+  assert.equal(enemy.statusEffects.filter((effect) => effect.type === "complex").length, 2);
+  resolveTurn(room, "p1");
+  assert.equal(enemy.hp, 85);
+  assert.equal(Object.values(opponent.chakra).reduce((total, amount) => total + amount, 0), 0);
+});
+
+test("Aizen skills match the requested effects", () => {
+  const aizen = getCharacterById("aizen");
+  const massacre = aizen.skills.find((skill) => skill.id === "flash-step-massacre");
+  const kyouka = aizen.skills.find((skill) => skill.id === "kyouka-suijetsu-scatter");
+  const hado = aizen.skills.find((skill) => skill.id === "hado-90-black-coffin");
+  const corpse = aizen.skills.find((skill) => skill.id === "false-corpse");
+
+  assert.equal(aizen.maxHp, 100);
+  assert.deepEqual(massacre.chakra, { genjutsu: 1, neutralChakra: 1 });
+  assert.equal(massacre.cooldown, 1);
+  assert.equal(massacre.family.includes("physical"), true);
+  assert.deepEqual(kyouka.chakra, { bloodline: 1, neutralChakra: 1 });
+  assert.equal(kyouka.isSecret, true);
+  assert.equal(kyouka.effects[1].type, "counter");
+  assert.deepEqual(kyouka.effects[1].effects, [{
+    type: "damage",
+    value: 30,
+    targets: "enemies",
+    damageType: "piercing",
+    ignoreInvulnerable: true,
+    randomTargetCount: 1,
+    statusNoticeDescription: "Este objetivo recibio dano de Dispersate, Kyouka Suijetsu de Aizen."
+  }]);
+  assert.deepEqual(hado.chakra, { ninjutsu: 1, neutralChakra: 1 });
+  assert.equal(hado.cooldown, 3);
+  assert.equal(hado.effects[0].mode, "cancelable");
+  assert.equal(hado.effects[1].cancelIfOriginStunned, true);
+  assert.deepEqual(corpse.chakra, { neutralChakra: 1 });
+  assert.equal(corpse.cooldown, 4);
+});
+
+test("Aizen Flash Step Massacre has an owner-visible secret delayed mark that ignores invulnerability on damage", () => {
+  const aizenMember = { id: "aizen", characterId: "aizen", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const target = { id: "target", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [aizenMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [target] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "aizen",
+    targetId: "target",
+    skillId: "flash-step-massacre",
+    actorName: "Aizen Sosuke",
+    targetName: "Naruto Uzumaki",
+    skillName: "Masacre paso flash"
+  });
+
+  assert.equal(aizenMember.statusEffects.some((effect) => effect.type === "complex" && effect.effects.some((child) => child.type === "invulnerable")), true);
+  assert.equal(target.statusEffects.some((effect) => effect.isSecret && effect.sourceSkillId === "flash-step-massacre"), true);
+  assert.equal(publicRoom(room, "p1").players[1].team[0].statusEffects.length, 1);
+  assert.equal(publicRoom(room, "p2").players[1].team[0].statusEffects.length, 0);
+
+  resolveTurn(room, "p1");
+  assert.equal(target.hp, 100);
+
+  resolveTurn(room, "p2");
+  assert.equal(target.hp, 100);
+
+  addStatus(target, {
+    id: "temporary-invulnerable",
+    type: "invulnerable",
+    turns: 1,
+    sourceSkillId: "test-invulnerable",
+    sourceSkillName: "Invulnerable",
+    createdTurn: 3
+  });
+  resolveTurn(room, "p1");
+
+  assert.equal(target.hp, 65);
+  assert.equal(aizenMember.statusEffects.some((effect) => effect.type === "secret-ended" && effect.sourceSkillId === "flash-step-massacre"), false);
+});
+
+test("Aizen Kyouka Suijetsu counters and damages a random enemy with a visible notice", () => {
+  const aizenMember = { id: "aizen", characterId: "aizen", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const enemy = { id: "enemy", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [aizenMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [enemy] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "aizen",
+    targetId: "enemy",
+    skillId: "kyouka-suijetsu-scatter",
+    actorName: "Aizen Sosuke",
+    targetName: "Naruto Uzumaki",
+    skillName: "Dispersate, Kyouka Suijetsu"
+  });
+  assert.equal(publicRoom(room, "p2").players[1].team[0].statusEffects.length, 0);
+
+  room.turn = 2;
+  const message = applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "aizen",
+    skillId: "rasengan",
+    actorName: "Naruto Uzumaki",
+    targetName: "Aizen Sosuke",
+    skillName: "Rasengan"
+  });
+
+  assert.match(message, /cancelada por un counter/);
+  assert.match(message, /Dispersate, Kyouka Suijetsu hizo 30 dano/);
+  assert.equal(enemy.hp, 70);
+  assert.ok(enemy.statusEffects.some((effect) => (
+    effect.type === "triggered-effect-notice"
+    && effect.descriptions.includes("Este objetivo recibio dano de Dispersate, Kyouka Suijetsu de Aizen.")
+  )));
+  room.activePlayerId = "p2";
+  resolveTurn(room, "p2");
+  resolveTurn(room, "p1");
+  assert.equal(aizenMember.statusEffects.some((effect) => effect.type === "secret-ended"), false);
+});
+
+test("Aizen Hado 90 creates a cancelable channel on Aizen and a damaging stun on the target", () => {
+  const aizenMember = { id: "aizen", characterId: "aizen", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const target = { id: "target", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [aizenMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [target] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "aizen",
+    targetId: "target",
+    skillId: "hado-90-black-coffin",
+    actorName: "Aizen Sosuke",
+    targetName: "Naruto Uzumaki",
+    skillName: "Hado 90: Cofre negro"
+  });
+
+  assert.ok(aizenMember.statusEffects.some((effect) => effect.type === "complex" && effect.mode === "cancelable"));
+  assert.equal(isSkillStunned(target, { id: "rasengan", family: ["chakra", "instant"] }), true);
+  assert.ok(target.statusEffects.some((effect) => effect.type === "complex" && effect.cancelIfOriginStunned === true));
+
+  resolveTurn(room, "p1");
+  assert.equal(target.hp, 75);
+
+  resolveTurn(room, "p2");
+  resolveTurn(room, "p1");
+  resolveTurn(room, "p2");
+
+  assert.equal(aizenMember.statusEffects.some((effect) => effect.sourceSkillId === "hado-90-black-coffin"), false);
+  assert.equal(target.statusEffects.some((effect) => effect.sourceSkillId === "hado-90-black-coffin"), false);
+});
+
+test("Aizen Hado 90 cancellation removes the channel and target status", () => {
+  const aizenMember = { id: "aizen", characterId: "aizen", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const target = { id: "target", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [aizenMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [target] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "aizen",
+    targetId: "target",
+    skillId: "hado-90-black-coffin",
+    actorName: "Aizen Sosuke",
+    targetName: "Naruto Uzumaki",
+    skillName: "Hado 90: Cofre negro"
+  });
+  addStatus(aizenMember, {
+    id: "stunned-aizen",
+    type: "stun",
+    turns: 1,
+    familiesAffected: ["chakra"],
+    sourceSkillId: "test-stun",
+    sourceSkillName: "Test stun",
+    createdTurn: 1
+  });
+
+  resolveTurn(room, "p1");
+
+  assert.equal(aizenMember.statusEffects.some((effect) => effect.sourceSkillId === "hado-90-black-coffin"), false);
+  assert.equal(target.statusEffects.some((effect) => effect.sourceSkillId === "hado-90-black-coffin"), false);
+  assert.equal(target.hp, 100);
 });
 
 test("Cacho Bloodlust is hidden and dynamically buffs Lariat by missing HP", () => {
@@ -226,6 +530,116 @@ test("Cacho Bloodlust is hidden and dynamically buffs Lariat by missing HP", () 
 
   cachoMember.hp = 130;
   assert.equal(damageBuffValue(cachoMember, lariat, 2), 10);
+});
+
+test("Mai skills match the requested effects", () => {
+  const mai = getCharacterById("mai");
+  const scratch = mai.skills.find((skill) => skill.id === "cat-scratch");
+  const prrr = mai.skills.find((skill) => skill.id === "prrr");
+  const licks = mai.skills.find((skill) => skill.id === "licks");
+  const protection = mai.skills.find((skill) => skill.id === "ally-protection");
+
+  assert.equal(mai.maxHp, 70);
+  assert.deepEqual(scratch.effects, [
+    { type: "damage", value: 15, damageType: "piercing", targets: "target" },
+    { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
+  ]);
+  assert.deepEqual(prrr.effects, [
+    { type: "modifyChakraCost", chakra: { neutralChakra: -1 }, duration: 4, targets: "target" }
+  ]);
+  assert.equal(prrr.cooldown, 5);
+  assert.equal(licks.targetType, "otherAlly");
+  assert.equal(licks.cooldown, 3);
+  assert.deepEqual(licks.effects, [
+    { type: "complex", duration: 2, targets: "target", mode: "interruptible", effects: [{ type: "heal", value: 10, targets: "self" }] }
+  ]);
+  assert.equal(protection.passive, true);
+  assert.equal(protection.trigger, "battleStart");
+  assert.deepEqual(protection.effects, [
+    { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 10, shieldPerAlly: 10, maxShield: 40 }
+  ]);
+});
+
+test("Mai Cat Scratch permanently stacks its own damage", () => {
+  const maiMember = { id: "mai", characterId: "mai", hp: 70, statusEffects: [], skillCooldowns: {} };
+  const target = { id: "target", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [maiMember] };
+  const opponent = { id: "p2", name: "P2", team: [target] };
+  const room = { players: [player, opponent], turn: 1 };
+
+  applyQueuedSkill(room, player, {
+    actorId: "mai",
+    targetId: "target",
+    skillId: "cat-scratch",
+    actorName: "Mai",
+    targetName: "Naruto Uzumaki",
+    skillName: "Aranazo de gato"
+  });
+  assert.equal(target.hp, 85);
+  assert.equal(damageBuffValue(maiMember, { id: "cat-scratch" }, 2), 5);
+
+  room.turn = 2;
+  applyQueuedSkill(room, player, {
+    actorId: "mai",
+    targetId: "target",
+    skillId: "cat-scratch",
+    actorName: "Mai",
+    targetName: "Naruto Uzumaki",
+    skillName: "Aranazo de gato"
+  });
+  assert.equal(target.hp, 65);
+  assert.equal(damageBuffValue(maiMember, { id: "cat-scratch" }, 3), 10);
+});
+
+test("Mai Licks can only target another ally", () => {
+  const mai = getCharacterById("mai");
+  const maiMember = { id: "mai", characterId: "mai", character: mai, hp: 70, statusEffects: [], skillCooldowns: {} };
+  const ally = { id: "ally", characterId: "naruto", character: getCharacterById("naruto"), hp: 80, statusEffects: [], skillCooldowns: {} };
+  const me = { id: "p1", team: [maiMember, ally] };
+  const opponent = { id: "p2", team: [] };
+  const licks = mai.skills.find((skill) => skill.id === "licks");
+
+  assert.deepEqual(
+    eligibleTargetsForSkill(licks, me, opponent, maiMember).map((member) => member.id),
+    ["ally"]
+  );
+});
+
+test("Mai Prrr reduces neutral costs and Ally Protection scales with living allies", () => {
+  const maiMember = { id: "mai", characterId: "mai", hp: 70, statusEffects: [], skillCooldowns: {} };
+  const allyOne = { id: "ally-one", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const allyTwo = { id: "ally-two", characterId: "sakura", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [maiMember, allyOne, allyTwo] };
+  const opponent = { id: "p2", name: "P2", team: [] };
+  const room = { players: [player, opponent], turn: 1 };
+
+  applyQueuedSkill(room, player, {
+    actorId: "mai",
+    targetId: "ally-one",
+    skillId: "prrr",
+    actorName: "Mai",
+    targetName: "Naruto Uzumaki",
+    skillName: "Prrr"
+  });
+  assert.deepEqual(modifiedSkillChakraCost(allyOne, { id: "rasengan", chakra: { ninjutsu: 1, neutralChakra: 1 } }), {
+    taijutsu: 0,
+    ninjutsu: 1,
+    bloodline: 0,
+    genjutsu: 0,
+    neutralChakra: 0
+  });
+
+  applyQueuedSkill(room, player, {
+    passive: true,
+    actorId: "mai",
+    targetId: "mai",
+    skillId: "ally-protection",
+    actorName: "Mai",
+    targetName: "Mai",
+    skillName: "Proteccion de aliado"
+  });
+  assert.equal(maiMember.shield, 20);
+  assert.ok(maiMember.statusEffects.some((effect) => effect.type === "damage-reduction" && effect.value === 20 && effect.turns === -1));
 });
 
 test("bonusWhen can check target or self conditions", () => {
@@ -363,7 +777,7 @@ test("invulnerable blocks enemy effects unless they explicitly ignore it", () =>
 });
 
 test("complex damage from an enemy source is blocked while the target is invulnerable", () => {
-  const kankurou = { id: "kankurou-member", hp: 100, statusEffects: [] };
+  const kankuro = { id: "kankuro-member", hp: 100, statusEffects: [] };
   const target = {
     id: "target-member",
     hp: 100,
@@ -375,12 +789,12 @@ test("complex damage from an enemy source is blocked while the target is invulne
         turns: 3,
         sourceSkillId: "iron-puppet-barrage",
         sourceSkillName: "Rafaga de marionetas de hierro",
-        originActorId: "kankurou-member",
+        originActorId: "kankuro-member",
         effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }]
       }
     ]
   };
-  const sourcePlayer = { id: "source", team: [kankurou] };
+  const sourcePlayer = { id: "source", team: [kankuro] };
   const targetPlayer = { id: "target", team: [target] };
   const room = { players: [sourcePlayer, targetPlayer] };
   const sourceMember = sourcePlayer.team[0];
@@ -391,17 +805,17 @@ test("complex damage from an enemy source is blocked while the target is invulne
 });
 
 test("continuous damage triggers when the affected player turn starts", () => {
-  const kankurouMember = { id: "kankurou", characterId: "kankurou", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const kankuroMember = { id: "kankuro", characterId: "kankuro", hp: 100, statusEffects: [], skillCooldowns: {} };
   const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
-  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [kankurouMember] };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [kankuroMember] };
   const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [narutoMember] };
   const room = { players: [player, opponent], activePlayerId: "p1", phase: "battle", turn: 1, log: [] };
 
   applyQueuedSkill(room, player, {
-    actorId: "kankurou",
+    actorId: "kankuro",
     targetId: "naruto",
     skillId: "iron-puppet-barrage",
-    actorName: "Kankurou",
+    actorName: "Kankuro",
     targetName: "Naruto Uzumaki",
     skillName: "Rafaga de marionetas de hierro"
   });
@@ -648,9 +1062,9 @@ test("Kakashi skills match Raikiri, Sharingan, and Ninken Trap rules", () => {
   ]);
 });
 
-test("Kankurou Puppet Substitution is a secret outgoing counter trap", () => {
-  const kankurou = getCharacterById("kankurou");
-  const puppetSubstitution = kankurou.skills.find((skill) => skill.id === "puppet-substitution");
+test("Kankuro Puppet Substitution is a secret outgoing counter trap", () => {
+  const kankuro = getCharacterById("kankuro");
+  const puppetSubstitution = kankuro.skills.find((skill) => skill.id === "puppet-substitution");
 
   assert.equal(puppetSubstitution.targetType, "enemy");
   assert.equal(puppetSubstitution.isSecret, true);
@@ -664,17 +1078,17 @@ test("Kankurou Puppet Substitution is a secret outgoing counter trap", () => {
 });
 
 test("Puppet Substitution counters the target next skill and shows both notices", () => {
-  const kankurouMember = { id: "kankurou", characterId: "kankurou", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const kankuroMember = { id: "kankuro", characterId: "kankuro", hp: 100, statusEffects: [], skillCooldowns: {} };
   const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
-  const player = { id: "p1", name: "P1", team: [kankurouMember] };
+  const player = { id: "p1", name: "P1", team: [kankuroMember] };
   const opponent = { id: "p2", name: "P2", team: [narutoMember] };
   const room = { players: [player, opponent], turn: 1 };
 
   const trapLog = applyQueuedSkill(room, player, {
-    actorId: "kankurou",
+    actorId: "kankuro",
     targetId: "naruto",
     skillId: "puppet-substitution",
-    actorName: "Kankurou",
+    actorName: "Kankuro",
     targetName: "Naruto Uzumaki",
     skillName: "Jutsu de sustitucion de marionetas"
   });
@@ -687,23 +1101,23 @@ test("Puppet Substitution counters the target next skill and shows both notices"
 
   const counteredLog = applyQueuedSkill(room, opponent, {
     actorId: "naruto",
-    targetId: "kankurou",
+    targetId: "kankuro",
     skillId: "rasengan",
     actorName: "Naruto Uzumaki",
-    targetName: "Kankurou",
+    targetName: "Kankuro",
     skillName: "Rasengan"
   });
 
   assert.equal(counteredLog, "Naruto Uzumaki uso Rasengan, pero fue cancelada por un counter.");
-  assert.equal(kankurouMember.hp, 100);
+  assert.equal(kankuroMember.hp, 100);
   assert.equal(narutoMember.skillCooldowns.rasengan, 1);
   assert.equal(narutoMember.statusEffects.some((effect) => effect.type === "counter"), false);
   assert.ok(narutoMember.statusEffects.some((effect) => (
     effect.type === "countered"
     && effect.turns === 1
-    && effect.descriptions.includes("Kankurou de Jutsu de sustitucion de marionetas ha contrarrestado a este personaje.")
+    && effect.descriptions.includes("Kankuro de Jutsu de sustitucion de marionetas ha contrarrestado a este personaje.")
   )));
-  assert.ok(kankurouMember.statusEffects.some((effect) => (
+  assert.ok(kankuroMember.statusEffects.some((effect) => (
     effect.type === "secret-ended"
     && effect.sourceSkillId === "puppet-substitution"
     && effect.descriptions.includes("Jutsu de sustitucion de marionetas ha finalizado.")
@@ -711,9 +1125,9 @@ test("Puppet Substitution counters the target next skill and shows both notices"
 });
 
 test("Cacho Lariat cannot be countered by Puppet Substitution", () => {
-  const kankurouMember = { id: "kankurou", characterId: "kankurou", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const kankuroMember = { id: "kankuro", characterId: "kankuro", hp: 100, statusEffects: [], skillCooldowns: {} };
   const cachoMember = { id: "cacho", characterId: "cacho", hp: 150, statusEffects: [], skillCooldowns: {} };
-  const player = { id: "p1", name: "P1", team: [kankurouMember] };
+  const player = { id: "p1", name: "P1", team: [kankuroMember] };
   const opponent = { id: "p2", name: "P2", team: [cachoMember] };
   const room = { players: [player, opponent], turn: 1 };
   const cacho = getCharacterById("cacho");
@@ -722,25 +1136,25 @@ test("Cacho Lariat cannot be countered by Puppet Substitution", () => {
   assert.equal(lariat.uncountereable, true);
 
   applyQueuedSkill(room, player, {
-    actorId: "kankurou",
+    actorId: "kankuro",
     targetId: "cacho",
     skillId: "puppet-substitution",
-    actorName: "Kankurou",
+    actorName: "Kankuro",
     targetName: "Cacho",
     skillName: "Jutsu de sustitucion de marionetas"
   });
 
   const lariatLog = applyQueuedSkill(room, opponent, {
     actorId: "cacho",
-    targetId: "kankurou",
+    targetId: "kankuro",
     skillId: "cacho-lariat",
     actorName: "Cacho",
-    targetName: "Kankurou",
+    targetName: "Kankuro",
     skillName: "Lariat de Cacho"
   });
 
   assert.equal(lariatLog, "Cacho uso Lariat de Cacho e hizo 30 dano.");
-  assert.equal(kankurouMember.hp, 70);
+  assert.equal(kankuroMember.hp, 70);
   assert.equal(cachoMember.statusEffects.some((effect) => effect.type === "counter"), true);
   assert.equal(cachoMember.statusEffects.some((effect) => effect.type === "countered"), false);
 });
@@ -809,9 +1223,9 @@ test("addUncountereable and addNonReflectable modify matching skills", () => {
 });
 
 test("secret statuses are only serialized as visible for the owner that placed them", () => {
-  const kankurouMember = { id: "kankurou", characterId: "kankurou", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const kankuroMember = { id: "kankuro", characterId: "kankuro", hp: 100, statusEffects: [], skillCooldowns: {} };
   const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
-  const player = { id: "p1", name: "P1", side: "red", ready: true, connected: true, chakra: {}, queue: [], team: [kankurouMember] };
+  const player = { id: "p1", name: "P1", side: "red", ready: true, connected: true, chakra: {}, queue: [], team: [kankuroMember] };
   const opponent = { id: "p2", name: "P2", side: "blue", ready: true, connected: true, chakra: {}, queue: [], team: [narutoMember] };
   const room = {
     code: "TEST",
@@ -827,10 +1241,10 @@ test("secret statuses are only serialized as visible for the owner that placed t
   };
 
   applyQueuedSkill(room, player, {
-    actorId: "kankurou",
+    actorId: "kankuro",
     targetId: "naruto",
     skillId: "puppet-substitution",
-    actorName: "Kankurou",
+    actorName: "Kankuro",
     targetName: "Naruto Uzumaki",
     skillName: "Jutsu de sustitucion de marionetas"
   });

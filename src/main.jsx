@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Plus, Search, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Monitor, Plus, Search, Smartphone, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
@@ -14,10 +14,10 @@ import { StatusEffects } from "./components/StatusEffects.jsx";
 import { allAssetUrls, characterImage, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
 import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
-import { effectDescription, requirementDescription, targetTypeLabel } from "./game/labels.js";
+import { targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
-import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
+import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter } from "../shared/skillReplacements.js";
 import "./styles.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
@@ -32,7 +32,7 @@ const RESULT_AUDIO_FADE_MS = 1000;
 const BGM_FADE_MS = 1000;
 const BGM_VOLUME_RATIO = 0.5;
 const ADVANTAGE_HEALTH_SHARE = 0.68;
-const GAME_VERSION = "1.1.6";
+const GAME_VERSION = "1.2.0";
 const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
 const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
@@ -52,6 +52,7 @@ function App() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [sfxVolume, setSfxVolume] = useState(0.5);
   const [musicVolume, setMusicVolume] = useState(0.5);
+  const [mobilePreview, setMobilePreview] = useState(false);
   const turnAudioRef = useRef(null);
   const messageAudioRef = useRef(null);
   const resultAudioRef = useRef(null);
@@ -727,14 +728,24 @@ function App() {
   }
 
   return (
-    <main>
+    <main className={mobilePreview ? "mobile-preview" : ""}>
       <section className="topbar">
         <div className="topbar-brand">
           <h1>Sote Arena</h1>
           <span className="version-tag">v{GAME_VERSION}</span>
         </div>
-        {room && (
-          <div className="topbar-actions">
+        <div className="topbar-actions">
+          <button
+            type="button"
+            className={`secondary desktop-mobile-preview-button ${mobilePreview ? "active" : ""}`}
+            onClick={() => setMobilePreview((current) => !current)}
+            aria-pressed={mobilePreview}
+            title={mobilePreview ? "Volver a vista escritorio" : "Vista mobile"}
+          >
+            {mobilePreview ? <Monitor size={16} /> : <Smartphone size={16} />}
+          </button>
+          {room && (
+            <>
             {room.phase === "lobby" && (
               <button className="secondary" onClick={returnHome}>
                 <ChevronLeft size={16} />
@@ -751,8 +762,9 @@ function App() {
                 {room.code}
               </button>
             )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </section>
 
       {error && <div className="alert">{error}</div>}
@@ -885,11 +897,13 @@ function App() {
 
 function filterCharacters(characters, search) {
   const query = search.trim().toLowerCase();
-  if (!query) return characters;
-  return characters.filter((character) => (
-    character.name.toLowerCase().includes(query)
-    || character.id.toLowerCase().includes(query)
-  ));
+  const filtered = query
+    ? characters.filter((character) => (
+      character.name.toLowerCase().includes(query)
+      || character.id.toLowerCase().includes(query)
+    ))
+    : characters;
+  return [...filtered].sort((first, second) => first.name.localeCompare(second.name, "es", { sensitivity: "base" }));
 }
 
 function CharacterSearch({ value, onChange, placeholder, disabled = false }) {
@@ -950,7 +964,7 @@ function CharactersCatalog({ characters, onBack }) {
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
-  const inspectedSkills = visibleBaseSkillsForCharacter(inspectedCharacter);
+  const inspectedSkills = allSkillsForCharacter(inspectedCharacter);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
 
   useEffect(() => {
@@ -960,10 +974,10 @@ function CharactersCatalog({ characters, onBack }) {
   useEffect(() => {
     if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
       setInspectedCharacterId(pageCharacters[0]?.id || "");
-      setInspectedSkillId(visibleBaseSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
+      setInspectedSkillId(allSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
     } else if (!inspectedCharacterId && pageCharacters[0]) {
       setInspectedCharacterId(pageCharacters[0].id);
-      setInspectedSkillId(visibleBaseSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
+      setInspectedSkillId(allSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
     }
   }, [filteredCharacters, inspectedCharacterId, pageCharacters]);
 
@@ -974,7 +988,7 @@ function CharactersCatalog({ characters, onBack }) {
   function inspectCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(visibleBaseSkillsForCharacter(character)?.[0]?.id || "");
+    setInspectedSkillId(allSkillsForCharacter(character)?.[0]?.id || "");
   }
 
   return (
@@ -1045,7 +1059,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
-  const inspectedSkills = visibleBaseSkillsForCharacter(inspectedCharacter);
+  const inspectedSkills = allSkillsForCharacter(inspectedCharacter);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
@@ -1069,7 +1083,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
   function clickCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(visibleBaseSkillsForCharacter(character)?.[0]?.id || "");
+    setInspectedSkillId(allSkillsForCharacter(character)?.[0]?.id || "");
     onToggle(characterId);
   }
 
@@ -1181,7 +1195,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
     .find((member) => member.id === inspectedMemberId) || selectedActor;
-  const inspectedSkills = visibleSkillsForMember(inspectedMember, inspectedMember?.character);
+  const inspectedSkills = allSkillsForCharacter(inspectedMember?.character);
   const selectedActorSkills = activeSkillsForMember(selectedActor, selectedActor?.character);
   const selectedActorDisplaySkills = actionSkillsForMember(selectedActor, selectedActor?.character);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
@@ -1195,7 +1209,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const exchangeRecord = me?.chakraExchange?.turn === room.turn ? me.chakraExchange : null;
   const exchange = exchangeRecord && !exchangeRecord.undone ? exchangeRecord : null;
   const canUndoExchange = Boolean(exchange && !hasQueuedSkills && (me?.chakra?.[exchange.receivedType] || 0) > 0);
-  const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchangeRecord && totalChakra(me?.chakra) >= 5;
+  const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchange && totalChakra(me?.chakra) >= 5;
   const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar chakra";
   const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
   const chakraTotal = totalChakra(me?.chakra);
@@ -1594,7 +1608,7 @@ function EndTurnConfirmModal({ onClose, onConfirm }) {
 
 function BattleSkillFooter({ member, skill, onSkill }) {
   if (!member) return null;
-  const skills = visibleSkillsForMember(member, member.character);
+  const skills = allSkillsForCharacter(member.character);
   return (
     <section className="battle-skill-footer">
       <div className="battle-skill-strip" aria-label={`Habilidades de ${member.character.name}`}>
@@ -1611,37 +1625,38 @@ function BattleSkillFooter({ member, skill, onSkill }) {
           </button>
         ))}
       </div>
-      <SkillFooter skill={skill} inspectedName={member.character.name} />
+      <SkillFooter skill={skill} />
     </section>
   );
 }
 
-function SkillFooter({ skill, compact = false, inspectedName = "" }) {
+function SkillFooter({ skill, compact = false }) {
   if (!skill) return null;
   return (
     <footer className={`skill-footer ${compact ? "compact" : ""}`}>
       <SquareImage alt={skill.name} src={skillImage(skill.id)} />
-      <div>
-        <p className="eyebrow">{inspectedName ? `Habilidad de ${inspectedName}` : "Habilidad seleccionada"}</p>
+      <div className="skill-footer-body">
         <h2>{skill.name}</h2>
-        <p>{skill.description}</p>
+        <p className="skill-footer-description">{skill.description}</p>
+        <div className="skill-footer-meta">
+          <span><b>Objetivo:</b> {skill.passive ? "Pasiva" : footerTargetTypeLabel(skill.targetType)}</span>
+          <span><b>Costo:</b> {skill.passive ? "No usable" : <ChakraCost chakra={skill.chakra} />}</span>
+          <span><b>Cooldown:</b> {skill.cooldown || 0}</span>
+        </div>
+        <p className="skill-footer-families"><b>Familias:</b> {skill.family?.length ? skillClassesLabel(skill.family) : "Ninguna"}</p>
       </div>
-      <div className="skill-footer-meta">
-        <strong>{skill.passive ? "Pasiva" : targetTypeLabel(skill.targetType)}</strong>
-        <span>{skill.passive ? "No usable" : <ChakraCost chakra={skill.chakra} />}</span>
-        <span>Cooldown: {skill.cooldown || 0}</span>
-      </div>
-      <ul>
-        {(skill.effects || []).map((effect, index) => (
-          <li key={`${effect.type}-${index}`}>{effectDescription(effect)}</li>
-        ))}
-        {(skill.requires || []).map((requirement, index) => (
-          <li key={`requirement-${index}`}>Requiere: {requirementDescription(requirement)}</li>
-        ))}
-        {skill.family?.length ? <li>Clases: {skillClassesLabel(skill.family)}</li> : null}
-      </ul>
     </footer>
   );
+}
+
+function footerTargetTypeLabel(type) {
+  if (type === "enemy") return "1 enemigo";
+  if (type === "ally" || type === "otherAlly") return "1 aliado";
+  if (type === "enemies") return "Todos los enemigos";
+  if (type === "allies") return "Todos los aliados";
+  if (type === "self") return "A si mismo";
+  if (type === "allPlayers") return "Todos los personajes";
+  return targetTypeLabel(type);
 }
 
 function BalanceBar({ me, opponent }) {
@@ -1716,6 +1731,8 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
           const untargetable = targetable && hasStatus(member, "invulnerable");
           const eligible = choosingTarget && eligibleTargetIds.has(member.id);
           const selectable = member.hp > 0 && (eligible || (!choosingTarget && ownTeam));
+          const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.character.id);
+          const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");
           return (
             <div
               className={`fighter ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
@@ -1729,7 +1746,11 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
               aria-disabled={!selectable}
             >
               <div className="fighter-top">
-                <SquareImage alt={member.hp <= 0 ? `${member.character.name} derrotado` : member.character.name} src={member.hp <= 0 ? skullImage : characterImage(member.character.id)} />
+                <SquareImage
+                  alt={member.hp <= 0 ? `${member.character.name} derrotado` : member.character.name}
+                  className={mirrorEnemyPortrait ? "enemy-combat-portrait" : ""}
+                  src={portraitSrc}
+                />
               </div>
               <strong>{member.character.name}</strong>
               <Health current={member.hp} max={member.character.maxHp} />

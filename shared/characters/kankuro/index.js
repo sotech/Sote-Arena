@@ -1,6 +1,6 @@
-export const kankurou = {
-  id: "kankurou",
-  name: "Kankurou",
+export const kankuro = {
+  id: "kankuro",
+  name: "Kankuro",
   avatar: "KA",
   maxHp: 100,
   skills: [
@@ -9,7 +9,7 @@ export const kankurou = {
       name: "Emboscada de marionetas",
       chakra: { neutralChakra: 2 },
       targetType: "enemy",
-      description: "Usando sus marionetas para la ofensiva, Kankurou inflige 30 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
+      description: "Usando sus marionetas para la ofensiva, Kankuro inflige 30 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
       effects: [
         {
           type: "damage",
@@ -37,7 +37,7 @@ export const kankurou = {
       name: "Preparacion de marionetas",
       chakra: { neutralChakra: 1 },
       targetType: "self",
-      description: "Kankuro prepara sus marionetas para atacar. Kankurou gana 5 puntos de defensa destruible y por 4 turnos el dano de Rafaga de marionetas de hierro aumenta en 5 y el dano de Emboscada de marionetas aumenta en 10.",
+      description: "Kankuro prepara sus marionetas para atacar. Kankuro gana 5 puntos de defensa destruible y por 4 turnos el dano de Rafaga de marionetas de hierro aumenta en 5 y el dano de Emboscada de marionetas aumenta en 10.",
       effects: [
         { type: "shield", value: 5, targets: "self", isStackable: true },
         {

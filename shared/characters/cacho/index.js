@@ -10,9 +10,9 @@ export const cacho = {
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
       uncountereable: true,
-      description: "Cacho utiliza un Lariat sobre el enemigo inflige 30 de dano a un enemigo. Esta habilidad no puede ser contrarrestada.",
+      description: "Cacho utiliza un Lariat sobre el enemigo inflige 20 de dano a un enemigo. Esta habilidad no puede ser contrarrestada.",
       effects: [
-        { type: "damage", value: 30, targets: "target" }
+        { type: "damage", value: 20, targets: "target" }
         ],
       family:["physical","instant"],
       cooldown: 1
@@ -51,9 +51,9 @@ export const cacho = {
       trigger: "battleStart",
       chakra: {},
       targetType: "self",
-      description: "Cacho posee una ira primigenea. Lariat de Cacho aumenta en 5 por cada 10 puntos de vida que le falte a Cacho.",
+      description: "Cacho posee una ira primigenea. Lariat de Cacho aumenta en 5 por cada 15 puntos de vida que le falte a Cacho.",
       effects: [
-        { type: "modifyDamageByMissingHp", amountPerStep: 5, hpStep: 10, duration: -1, targets: "self", skillIds: ["cacho-lariat"] }
+        { type: "modifyDamageByMissingHp", amountPerStep: 5, hpStep: 15, duration: -1, targets: "self", skillIds: ["cacho-lariat"] }
       ],
       family:["physical","instant"]
     }

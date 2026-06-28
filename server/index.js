@@ -204,7 +204,11 @@ function positiveEffectValue(effect, field = "value") {
 
 function affectedPlayersForChakraEffect(room, player, targets, effect) {
   if (effect.type === "remove-chakra" && !effect.chakraType) {
-    return [opponentOf(room, player.id)].filter(Boolean);
+    const targetOwners = [...new Map(targets
+      .map((target) => ownerOfMember(room, target))
+      .filter(Boolean)
+      .map((owner) => [owner.id, owner])).values()];
+    return targetOwners.length > 0 ? targetOwners : [opponentOf(room, player.id)].filter(Boolean);
   }
   return [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
 }
@@ -302,13 +306,13 @@ function moveQueuedSkill(room, playerId, actionId, direction) {
   return null;
 }
 
-function exchangeChakra(room, playerId, receivedType, spent) {
+export function exchangeChakra(room, playerId, receivedType, spent) {
   if (room.phase !== "battle") return "La batalla todavia no esta activa.";
   if (room.activePlayerId !== playerId) return "No es tu turno.";
   if (!CHAKRA_TYPES.includes(receivedType)) return "El chakra elegido no es valido.";
 
   const player = findPlayer(room, playerId);
-  if (player.chakraExchange?.turn === room.turn) return "Ya intercambiaste chakra este turno.";
+  if (player.chakraExchange?.turn === room.turn && !player.chakraExchange.undone) return "Ya intercambiaste chakra este turno.";
   if (totalChakra(player.chakra) < 5) return "Necesitas al menos 5 chakras para intercambiar.";
 
   const selected = cleanChakraSelection(spent);
@@ -326,7 +330,7 @@ function exchangeChakra(room, playerId, receivedType, spent) {
   return null;
 }
 
-function undoChakraExchange(room, playerId) {
+export function undoChakraExchange(room, playerId) {
   if (room.phase !== "battle") return "La batalla todavia no esta activa.";
   if (room.activePlayerId !== playerId) return "No es tu turno.";
 
@@ -378,19 +382,40 @@ function secretEndNotice(effect, currentTurn) {
     sourceSkillId: effect.sourceSkillId || "secret",
     sourceSkillName: `${sourceSkillName} ha finalizado`,
     sourceActorName: effect.sourceActorName,
-    createdTurn: currentTurn,
+    createdTurn: currentTurn - 1,
     descriptions: [`${sourceSkillName} ha finalizado.`]
   };
 }
 
 function addSecretEndNotice(room, fallbackMember, effect, currentTurn) {
+  if (effect.suppressSecretEndNotice) return;
   const targetMember = room ? getRoomMember(room, effect.originActorId) || fallbackMember : fallbackMember;
   targetMember.statusEffects = [...(targetMember.statusEffects || []), secretEndNotice(effect, currentTurn)];
+}
+
+function linkedStatusEffect(status, effect) {
+  if (status.statusLinkId) {
+    return effect.type === "complex"
+      && effect.statusLinkId === status.statusLinkId
+      && effect.originActorId === status.originActorId;
+  }
+  return effect.type === "complex"
+    && effect.sourceSkillId === status.sourceSkillId
+    && effect.originActorId === status.originActorId;
+}
+
+function removeLinkedStatusEffects(room, status) {
+  for (const player of room.players || []) {
+    for (const member of player.team || []) {
+      member.statusEffects = (member.statusEffects || []).filter((effect) => !linkedStatusEffect(status, effect));
+    }
+  }
 }
 
 export function expireStatusEffects(player, currentTurn, room = null) {
   player.team.forEach((member) => {
     const endedSecrets = [];
+    const endedLinkedStatuses = [];
     const nextEffects = (member.statusEffects || [])
       .map((effect) => {
         if (effect.type === "shield") return effect;
@@ -398,8 +423,11 @@ export function expireStatusEffects(player, currentTurn, room = null) {
         const nextEffect = effect.createdTurn === currentTurn || effect.pausedThisTurn
           ? { ...effect, pausedThisTurn: false }
           : { ...effect, turns: effect.turns - 1 };
-        if (nextEffect.turns <= 0 && effect.isSecret) {
+        if (nextEffect.turns <= 0 && effect.isSecret && effect.showStatusEffect !== true) {
           endedSecrets.push(effect);
+        }
+        if (nextEffect.turns <= 0 && effect.type === "complex" && effect.statusLinkId) {
+          endedLinkedStatuses.push(effect);
         }
         return nextEffect.type === "complex"
           ? { ...nextEffect, descriptions: complexDescriptions(nextEffect) }
@@ -407,6 +435,7 @@ export function expireStatusEffects(player, currentTurn, room = null) {
       })
       .filter((effect) => (effect.type === "shield" ? (effect.remainingShield || 0) > 0 : effect.turns > 0 || effect.turns === -1));
     member.statusEffects = nextEffects;
+    if (room) endedLinkedStatuses.forEach((effect) => removeLinkedStatusEffects(room, effect));
     endedSecrets.forEach((effect) => addSecretEndNotice(room, member, effect, currentTurn));
   });
 }
@@ -426,7 +455,7 @@ export function expireStartTurnSecretEffects(player, currentTurn, room = null) {
           && (!originOwner || originOwner.id === player.id);
         if (!isStartTurnSecret) return effect;
         const nextEffect = { ...effect, turns: effect.turns - 1 };
-        if (nextEffect.turns <= 0) endedSecrets.push(effect);
+        if (nextEffect.turns <= 0 && effect.showStatusEffect !== true) endedSecrets.push(effect);
         return nextEffect;
       })
       .filter((effect) => (effect.type === "shield" ? (effect.remainingShield || 0) > 0 : effect.turns > 0 || effect.turns === -1));
@@ -505,7 +534,9 @@ export function addStatus(member, status) {
   }
   if (skillModifierEffectTypes.includes(status.type) || status.type === "counter" || status.type === "reflect") {
     if (existing) {
-      existing.value = status.value;
+      existing.value = status.isStackable
+        ? Number(existing.value || 0) + Number(status.value || 0)
+        : status.value;
       existing.damageType = status.damageType;
       existing.targetType = status.targetType;
       existing.count = status.count;
@@ -521,8 +552,9 @@ export function addStatus(member, status) {
       existing.charges = status.charges;
       existing.reflectTo = status.reflectTo;
       existing.showStatusEffect = status.showStatusEffect;
+      existing.isStackable = status.isStackable;
       existing.isSecret = Boolean(status.isSecret);
-      existing.descriptions = modifierDescriptions(status);
+      existing.descriptions = modifierDescriptions(existing);
       existing.createdTurn = status.createdTurn;
       existing.originActorId = status.originActorId;
       existing.originCharacterId = status.originCharacterId;
@@ -831,6 +863,7 @@ function targetsForSkill(room, player, actor, targetId, skill, currentTurn = roo
   if (targetType === "self") targets = [actor];
   if (targetType === "enemy") targets = [getMember(opponent, targetId)].filter(Boolean).filter((member) => canBeTargetedBy(player, member));
   if (targetType === "ally") targets = [getMember(player, targetId)].filter(Boolean);
+  if (targetType === "otherAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.id !== actor.id);
   if (targetType === "enemies") targets = aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member));
   if (targetType === "allies") targets = aliveMembers(player);
   if (targetType === "allPlayers") targets = [...aliveMembers(player), ...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member))];
@@ -916,10 +949,22 @@ function applyComplexStatusEffects(room, player) {
       }
       if (status.mode === "cancelOnStun" || status.mode === "cancelable") {
         if (isSkillStunned(member, { id: status.sourceSkillId, family: status.interruptFamilies || [] })) {
-          status.turns = 0;
+          removeLinkedStatusEffects(room, status);
           events.push(`${status.sourceSkillName} fue cancelado por aturdimiento.`);
           continue;
         }
+      }
+      if (status.cancelIfOriginStunned) {
+        const originMember = getRoomMember(room, status.originActorId);
+        if (originMember && isSkillStunned(originMember, { id: status.sourceSkillId, family: status.interruptFamilies || [] })) {
+          removeLinkedStatusEffects(room, status);
+          events.push(`${status.sourceSkillName} fue cancelado por aturdimiento.`);
+          continue;
+        }
+      }
+      if (room.turn <= status.createdTurn + Number(status.activationDelayTurns || 0)) {
+        status.pausedThisTurn = true;
+        continue;
       }
       for (const effect of status.effects || []) {
         if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "stun") {
@@ -1107,13 +1152,96 @@ function addReflectedNotice(member, status, currentTurn) {
   });
 }
 
+function addTriggeredEffectNotice(member, status, effect, currentTurn) {
+  if (!effect.statusNoticeDescription) return;
+  addStatus(member, {
+    id: randomUUID(),
+    type: "triggered-effect-notice",
+    turns: Number(effect.statusNoticeTurns || 1),
+    showStatusEffect: true,
+    sourceSkillId: status.sourceSkillId,
+    sourceSkillName: status.sourceSkillName || "Efecto disparado",
+    sourceActorName: status.sourceActorName,
+    createdTurn: currentTurn,
+    descriptions: [effect.statusNoticeDescription]
+  });
+}
+
+function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
+  const sourceMember = getRoomMember(room, status.originActorId) || statusMember;
+  const sourcePlayer = ownerOfMember(room, sourceMember) || ownerOfMember(room, statusMember);
+  if (!sourcePlayer) return [];
+  const triggeredSkill = {
+    id: status.sourceSkillId,
+    name: status.sourceSkillName,
+    targetType: "self",
+    ignoreTargetTypeModifiers: true
+  };
+  const events = [];
+
+  for (const effect of status.effects || []) {
+    const targets = resolveEffectTargets(room, sourcePlayer, sourceMember, statusMember.id, triggeredSkill, effect)
+      .filter((target) => target.hp > 0)
+      .filter((target) => canEffectAffectTarget(room, sourcePlayer, target, effect));
+    if (targets.length === 0) continue;
+
+    if (effect.type === "damage") {
+      let totalDamage = 0;
+      for (const target of targets) {
+        if (!effectAppliesToTarget(effect, target, sourceMember)) continue;
+        const dealt = applyDamage(target, positiveEffectValue(effect), effect.damageType || "basic");
+        totalDamage += dealt;
+        if (dealt > 0) addTriggeredEffectNotice(target, status, effect, currentTurn);
+      }
+      if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano.`);
+      continue;
+    }
+
+    if (effect.type === "complex") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "complex",
+          turns: effect.duration,
+          mode: effect.mode,
+          interruptFamilies: effect.interruptFamilies,
+          activationDelayTurns: effect.activationDelayTurns,
+          cancelIfOriginStunned: effect.cancelIfOriginStunned,
+          statusLinkId: effect.statusLinkId,
+          suppressSecretEndNotice: effect.suppressSecretEndNotice,
+          showStatusEffect: effect.showStatusEffect,
+          isSecret: Boolean(effect.isSecret),
+          effects: snapshotComplexEffects(
+            Array.isArray(effect.effects) ? effect.effects : [],
+            sourceMember,
+            triggeredSkill,
+            target,
+            currentTurn
+          ),
+          sourceSkillId: status.sourceSkillId,
+          sourceSkillName: status.sourceSkillName,
+          sourceActorName: status.sourceActorName,
+          originActorId: status.originActorId,
+          originCharacterId: status.originCharacterId,
+          createdTurn: currentTurn,
+          remainingReductions: {}
+        });
+      }
+    }
+  }
+
+  return events;
+}
+
 function consumeReactiveStatus(room, member, status, currentTurn) {
-  if (status.charges === -1) return;
+  const triggeredEvents = applyTriggeredStatusEffects(room, member, status, currentTurn);
+  if (status.charges === -1) return triggeredEvents;
   status.charges = Math.max(0, Number(status.charges ?? 1) - 1);
   if (status.charges <= 0) {
     member.statusEffects = (member.statusEffects || []).filter((effect) => effect !== status);
     if (status.isSecret) addSecretEndNotice(room, member, status, currentTurn);
   }
+  return triggeredEvents;
 }
 
 function firstCounterForAction(actor, selectedTargets, skill, currentTurn) {
@@ -1216,10 +1344,13 @@ export function applyQueuedSkill(room, player, action) {
 
   const counter = firstCounterForAction(actor, selectedTargets, effectiveSkill, room.turn);
   if (counter) {
-    consumeReactiveStatus(room, counter.member, counter.status, room.turn);
+    const triggeredEvents = consumeReactiveStatus(room, counter.member, counter.status, room.turn);
     addCounteredNotice(actor, counter.status, room.turn);
     setSkillCooldown(actor, skill.id, skill.cooldown || 0);
-    return `${actorCharacter.name} uso ${skill.name}, pero fue cancelada por un counter.`;
+    return [
+      `${actorCharacter.name} uso ${skill.name}, pero fue cancelada por un counter.`,
+      ...(triggeredEvents || [])
+    ].join(" ");
   }
 
   const reflect = firstReflectForAction(actor, selectedTargets, effectiveSkill, room.turn);
@@ -1277,6 +1408,10 @@ export function applyQueuedSkill(room, player, action) {
           turns: effect.duration,
           mode: effect.mode,
           interruptFamilies: effect.interruptFamilies,
+          activationDelayTurns: effect.activationDelayTurns,
+          cancelIfOriginStunned: effect.cancelIfOriginStunned,
+          statusLinkId: effect.statusLinkId,
+          suppressSecretEndNotice: effect.suppressSecretEndNotice,
           showStatusEffect: effect.showStatusEffect,
           isSecret: Boolean(skill.isSecret || effect.isSecret || effect.type === "counter" || effect.type === "reflect"),
           effects: snapshotComplexEffects(
@@ -1354,6 +1489,57 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
+    if (effect.type === "allyCountStatus") {
+      const aliveAllyCount = aliveMembers(player)
+        .filter((member) => effect.excludeSelf === false || member.id !== actor.id)
+        .length;
+      const damageReductionValue = Math.max(0, aliveAllyCount * Number(effect.damageReductionPerAlly || 0));
+      const shieldValueTotal = Math.min(
+        Number.isFinite(Number(effect.maxShield)) ? Number(effect.maxShield) : Infinity,
+        Math.max(0, aliveAllyCount * Number(effect.shieldPerAlly || 0))
+      );
+      for (const target of targets) {
+        if (!effectAppliesToTarget(effect, target, actor)) continue;
+        if (damageReductionValue > 0) {
+          addStatus(target, {
+            id: randomUUID(),
+            type: "damage-reduction",
+            turns: effect.duration,
+            value: damageReductionValue,
+            remainingReduction: damageReductionValue,
+            restoresEachTurn: effect.restoresEachTurn !== false,
+            sourceSkillId: skill.id,
+            sourceSkillName: skill.name,
+            sourceActorName: actorCharacter.name,
+            ...statusOrigin(actor),
+            createdTurn: room.turn,
+            descriptions: [statusDescription({ type: "damage-reduction", value: damageReductionValue, remainingReduction: damageReductionValue }, actorCharacter)]
+          });
+          totalDamageReduction += damageReductionValue;
+        }
+        if (shieldValueTotal > 0) {
+          const shieldBefore = shieldValue(target);
+          addStatus(target, {
+            id: randomUUID(),
+            type: "shield",
+            turns: null,
+            value: shieldValueTotal,
+            remainingShield: shieldValueTotal,
+            isStackable: effect.isStackable === true,
+            sourceSkillId: skill.id,
+            sourceSkillName: skill.name,
+            sourceActorName: actorCharacter.name,
+            ...statusOrigin(actor),
+            createdTurn: room.turn,
+            descriptions: [statusDescription({ type: "shield", value: shieldValueTotal, remainingShield: shieldValueTotal }, actorCharacter)]
+          });
+          target.shield = shieldValue(target);
+          totalShield += Math.max(0, target.shield - shieldBefore);
+        }
+      }
+      continue;
+    }
+
     if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
       for (const target of targets) {
         addStatus(target, {
@@ -1364,6 +1550,7 @@ export function applyQueuedSkill(room, player, action) {
           amountPerStep: effect.amountPerStep,
           hpStep: effect.hpStep,
           skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          isStackable: effect.isStackable,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,

@@ -63,6 +63,7 @@ export function eligibleTargetsForSkill(skill, me, opponent, actor) {
 
   if (skill.targetType === "self") return actor.hp > 0 ? [actor] : [];
   if (skill.targetType === "ally" || skill.targetType === "allies") return allies;
+  if (skill.targetType === "otherAlly") return allies.filter((member) => member.id !== actor.id);
   if (skill.targetType === "enemy" || skill.targetType === "enemies") return enemies;
   if (skill.targetType === "allPlayers") return [...allies, ...enemies];
   return [];

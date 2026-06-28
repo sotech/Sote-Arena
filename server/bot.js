@@ -42,6 +42,7 @@ function botTargetIdsForSkill(room, bot, actor, skill, engine) {
   const opponent = opponentOf(room, bot.id);
   if (skill.targetType === "self") return [actor.id];
   if (skill.targetType === "ally") return engine.aliveMembers(bot).map((member) => member.id);
+  if (skill.targetType === "otherAlly") return engine.aliveMembers(bot).filter((member) => member.id !== actor.id).map((member) => member.id);
   if (skill.targetType === "allies") return [engine.aliveMembers(bot)[0]?.id].filter(Boolean);
   if (skill.targetType === "enemy") {
     return engine.aliveMembers(opponent)

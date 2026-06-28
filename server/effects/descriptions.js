@@ -6,6 +6,7 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo destruible.`;
   if (effect.type === "instakill") return `${actorCharacter.name} ha ejecutado a este personaje.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value} de reduccion de dano.`;
+  if (effect.type === "allyCountStatus") return `${actorCharacter.name} ha ganado proteccion por sus aliados vivos.`;
   if (effect.type === "modifyDamage") return `${actorCharacter.name} ha modificado el dano de este personaje en ${effect.value}.`;
   if (effect.type === "modifyDamageByMissingHp") return `${actorCharacter.name} ha modificado el dano de este personaje segun su vida faltante.`;
   if (effect.type === "modifyDamageType") return `${actorCharacter.name} ha modificado el tipo de dano de este personaje.`;
@@ -116,6 +117,12 @@ export function simpleEffectDescription(effect) {
   if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
   if (effect.type === "shield") return `Otorga ${effect.value} de escudo destruible.`;
   if (effect.type === "damage-reduction") return `Otorga ${effect.value} de reduccion de dano.`;
+  if (effect.type === "allyCountStatus") {
+    const shield = Number(effect.shieldPerAlly || 0);
+    const reduction = Number(effect.damageReductionPerAlly || 0);
+    const maxShield = Number.isFinite(Number(effect.maxShield)) ? `, maximo ${effect.maxShield} escudo` : "";
+    return `Otorga ${reduction} reduccion de dano y ${shield} escudo por aliado vivo${maxShield}.`;
+  }
   if (effect.type === "modifyDamage") {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
     const amount = Math.abs(Number(effect.value || 0));
@@ -171,6 +178,9 @@ export function complexDescriptions(effect) {
     }
     if (effect.mode === "pauseOnStun" || effect.mode === "interruptible") {
       return `${effect.sourceSkillName || "Esta habilidad"} puede ser interrumpida si el personaje es aturdido.`;
+    }
+    if (effect.cancelIfOriginStunned) {
+      return `${effect.sourceSkillName || "Esta habilidad"} puede ser cancelada si el lanzador es aturdido.`;
     }
     return null;
   })();

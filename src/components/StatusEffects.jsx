@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getSkillNameById } from "../../shared/characters.js";
 import { skillImage } from "../game/assets.js";
-import { groupStatusEffects, statusEffectGroupMeta } from "../game/labels.js";
+import { groupStatusEffects, statusEffectGroupMeta, statusEffectGroupValue } from "../game/labels.js";
 
 const MOBILE_QUERY = "(max-width: 768px)";
 
@@ -80,7 +80,10 @@ export function StatusEffects({ member, effects }) {
   function tooltipContent(group) {
     return (
       <>
-        <strong>{group.sourceSkillName}</strong>
+        <span className="status-tooltip-title">
+          <img src={skillImage(group.sourceSkillId)} alt="" aria-hidden="true" />
+          <strong>{group.sourceSkillName}</strong>
+        </span>
         <ul>
           {group.effects.flatMap((effect) => [
             ...(effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]),
@@ -126,6 +129,7 @@ export function StatusEffects({ member, effects }) {
           }}
         >
           <img src={skillImage(group.sourceSkillId)} alt={group.sourceSkillName} />
+          <b>{statusEffectGroupValue(group)}</b>
           <span className="status-tooltip inline-status-tooltip" role="tooltip">
             {tooltipContent(group)}
           </span>

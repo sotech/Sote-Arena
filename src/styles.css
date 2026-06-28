@@ -1,6 +1,6 @@
 :root {
   color: #17202a;
-  background: #eef2f7;
+  background: #eef2f7 url("./assets/bgs/background.png") center / cover fixed no-repeat;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -9,7 +9,9 @@
 }
 
 body {
+  background: transparent;
   margin: 0;
+  min-height: 100vh;
 }
 
 button,
@@ -27,8 +29,8 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 10px 14px;
+  min-height: 40px;
+  padding: 8px 12px;
   font-weight: 800;
 }
 
@@ -46,27 +48,35 @@ input {
 
 main {
   min-height: 100vh;
-  padding: 28px;
+  padding: 16px 20px;
 }
 
 .topbar {
   align-items: center;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  margin: 0 auto 22px;
-  max-width: 1240px;
+  margin: 0 auto 12px;
+  max-width: 1160px;
 }
 
 .topbar-actions {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 7px;
   grid-column: 3;
   justify-self: end;
 }
 
 .topbar h1 {
   text-align: center;
+}
+
+.desktop-mobile-preview-button {
+  display: inline-flex;
+}
+
+.desktop-mobile-preview-button.active {
+  background: #17202a;
 }
 
 .topbar-brand {
@@ -89,6 +99,19 @@ main {
   white-space: nowrap;
 }
 
+main.mobile-preview {
+  border-left: 1px solid #d8e0e8;
+  border-right: 1px solid #d8e0e8;
+  box-shadow: 0 20px 70px rgba(29, 42, 55, 0.18);
+  font-size: 12px;
+  margin: 0 auto;
+  max-width: 768px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding: 18px;
+  width: 768px;
+}
+
 h1,
 h2,
 p {
@@ -96,12 +119,12 @@ p {
 }
 
 h1 {
-  font-size: clamp(34px, 7vw, 76px);
+  font-size: clamp(30px, 4.8vw, 52px);
   line-height: 0.95;
 }
 
 h2 {
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .eyebrow {
@@ -156,8 +179,11 @@ h2 {
 }
 
 .main-menu {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   display: grid;
-  gap: 14px;
+  gap: 10px;
   margin: 0 auto;
   max-width: 420px;
   padding: 24px;
@@ -569,14 +595,14 @@ label {
 .battle {
   align-items: stretch;
   display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   margin: 0 auto;
-  max-width: 1240px;
+  max-width: 1160px;
 }
 
 .battle {
-  grid-template-rows: auto minmax(0, clamp(620px, calc(100vh - 300px), 780px)) auto;
+  grid-template-rows: auto minmax(0, clamp(500px, calc(100vh - 250px), 620px)) auto;
 }
 
 .section-head {
@@ -783,12 +809,12 @@ label {
 
 .status,
 .combat-log {
-  padding: 20px;
+  padding: 14px;
 }
 
 .side-stack {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
   height: 100%;
   min-height: 0;
@@ -814,14 +840,14 @@ label {
   border-bottom: 1px solid #e5ebf2;
   display: flex;
   justify-content: space-between;
-  padding: 14px 0;
+  padding: 10px 0;
 }
 
 .log,
 .combat-log {
   display: grid;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 7px;
+  margin-top: 12px;
 }
 
 .combat-log {
@@ -843,14 +869,15 @@ label {
 .log p,
 .combat-log p {
   color: #4e5e6e;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .chat-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: 14px;
+  padding: 12px;
 }
 
 .chat-panel h2 {
@@ -934,8 +961,8 @@ label {
 .arena {
   align-items: stretch;
   display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr) 420px minmax(0, 1fr);
+  gap: 12px;
+  grid-template-columns: minmax(0, 0.95fr) 360px minmax(0, 0.95fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -946,9 +973,9 @@ label {
   border-radius: 8px;
   box-shadow: 0 16px 40px rgba(29, 42, 55, 0.08);
   display: grid;
-  gap: 10px;
+  gap: 7px;
   grid-column: 1 / -1;
-  padding: 14px 18px 18px;
+  padding: 10px 14px 12px;
 }
 
 .balance-labels {
@@ -968,7 +995,7 @@ label {
   border-radius: 8px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  height: 20px;
+  height: 14px;
   overflow: hidden;
   position: relative;
 }
@@ -1024,7 +1051,7 @@ label {
   border-radius: 8px;
   min-height: 0;
   overflow: auto;
-  padding: 18px;
+  padding: 12px;
 }
 
 .team.active {
@@ -1043,8 +1070,8 @@ label {
 
 .fighters {
   display: grid;
-  gap: 12px;
-  margin-top: 14px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .fighter {
@@ -1053,10 +1080,10 @@ label {
   color: #17202a;
   cursor: pointer;
   display: grid;
-  gap: 8px;
+  gap: 5px;
   justify-items: start;
-  min-height: 154px;
-  padding: 14px;
+  min-height: 124px;
+  padding: 10px;
   text-align: left;
 }
 
@@ -1067,6 +1094,10 @@ label {
 .fighter .square-img,
 .character-card .square-img {
   margin-bottom: 2px;
+}
+
+.fighter .square-img.enemy-combat-portrait {
+  transform: scaleX(-1);
 }
 
 .fighter-top {
@@ -1142,6 +1173,22 @@ label {
   gap: 4px;
   margin: 0;
   padding-left: 16px;
+}
+
+.status-tooltip-title {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
+.status-tooltip-title img {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  display: block;
+  height: 28px;
+  object-fit: cover;
+  width: 28px;
 }
 
 .status-tooltip li,
@@ -1259,7 +1306,7 @@ label {
 .health {
   background: #dfe6ee;
   border-radius: 999px;
-  height: 10px;
+  height: 8px;
   overflow: hidden;
   width: 100%;
 }
@@ -1280,6 +1327,480 @@ label {
 
 .health.low span {
   background: #dc2626;
+}
+
+main.mobile-preview button,
+main.mobile-preview input {
+  font-size: 12px;
+}
+
+main.mobile-preview .topbar {
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+main.mobile-preview .topbar-actions {
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+main.mobile-preview .topbar-actions button {
+  font-size: 12px;
+  min-height: 34px;
+  padding: 7px 8px;
+  width: auto;
+}
+
+main.mobile-preview h1 {
+  font-size: 28px;
+}
+
+main.mobile-preview h2 {
+  font-size: 16px;
+}
+
+main.mobile-preview .eyebrow {
+  font-size: 9px;
+}
+
+main.mobile-preview .version-tag {
+  font-size: 10px;
+  padding: 5px 7px;
+}
+
+main.mobile-preview .entry,
+main.mobile-preview .lobby,
+main.mobile-preview .battle,
+main.mobile-preview .arena {
+  grid-template-columns: 1fr;
+}
+
+main.mobile-preview .battle {
+  grid-template-rows: auto;
+}
+
+main.mobile-preview .side-stack {
+  height: auto;
+  min-height: 0;
+}
+
+main.mobile-preview .side-main,
+main.mobile-preview .chat-panel {
+  max-height: 360px;
+}
+
+main.mobile-preview .skill-footer {
+  grid-template-columns: 56px minmax(0, 1fr);
+  height: 260px;
+  min-height: 260px;
+}
+
+main.mobile-preview .skill-footer-meta {
+  grid-template-columns: 1fr;
+}
+
+main.mobile-preview .character-grid {
+  gap: 12px;
+  grid-template-columns: repeat(5, 112px);
+  overflow-x: auto;
+  padding: 20px;
+}
+
+main.mobile-preview .character-card {
+  min-height: 0;
+  padding: 8px;
+}
+
+main.mobile-preview .character-card .square-img {
+  height: 92px;
+  width: 92px;
+}
+
+main.mobile-preview .character-skill-footer {
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+main.mobile-preview .lobby-skill-strip {
+  gap: 6px;
+}
+
+main.mobile-preview .lobby-skill-strip button {
+  min-height: 44px;
+  padding: 4px;
+}
+
+main.mobile-preview .lobby-skill-strip .square-img {
+  height: 34px;
+  width: 34px;
+}
+
+main.mobile-preview .skill-footer.compact {
+  height: 190px;
+  min-height: 190px;
+  padding: 12px;
+}
+
+main.mobile-preview .arena {
+  align-items: stretch;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  order: 1;
+  overflow: visible;
+}
+
+main.mobile-preview .balance-panel {
+  gap: 5px;
+  order: 0;
+  padding: 8px 10px 10px;
+}
+
+main.mobile-preview .arena > .team {
+  order: 1;
+}
+
+main.mobile-preview .arena > .turn-panel {
+  grid-column: 1 / -1;
+  order: 2;
+}
+
+main.mobile-preview .team {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 130px;
+  padding: 7px;
+}
+
+main.mobile-preview .team h2 {
+  font-size: 12px;
+  line-height: 1.2;
+  min-height: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+main.mobile-preview .fighters {
+  align-items: stretch;
+  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 4px;
+  min-height: 0;
+}
+
+main.mobile-preview .fighter {
+  align-content: start;
+  gap: 2px;
+  grid-template-rows: auto auto auto minmax(0, 30px);
+  height: 100%;
+  justify-items: center;
+  min-height: 0;
+  padding: 3px 2px 2px;
+  text-align: center;
+}
+
+main.mobile-preview .fighter-top {
+  line-height: 0;
+  justify-content: center;
+  width: 100%;
+}
+
+main.mobile-preview .fighter .square-img {
+  height: 44px;
+  width: 44px;
+}
+
+main.mobile-preview .fighter strong {
+  display: none;
+}
+
+main.mobile-preview .fighter .health {
+  height: 5px;
+  margin: 2px 0 1px;
+  width: min(100%, 58px);
+}
+
+main.mobile-preview .fighter .stats {
+  font-size: 8px;
+  gap: 2px;
+  line-height: 1;
+  min-height: 9px;
+}
+
+main.mobile-preview .fighter .stats svg {
+  height: 9px;
+  width: 9px;
+}
+
+main.mobile-preview .fighter small {
+  display: none;
+}
+
+main.mobile-preview .status-row {
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(3, 14px);
+  grid-template-rows: repeat(2, 14px);
+  justify-content: center;
+  margin-top: 2px;
+  max-height: 30px;
+  min-height: 30px;
+  overflow: hidden;
+  width: 100%;
+}
+
+main.mobile-preview .status-icon {
+  border-radius: 4px;
+  height: 14px;
+  width: 14px;
+}
+
+main.mobile-preview .status-icon b {
+  font-size: 9px;
+}
+
+main.mobile-preview .status-row .status-icon:nth-child(n + 7) {
+  display: none;
+}
+
+main.mobile-preview .turn-panel {
+  gap: 8px;
+  grid-template-areas:
+    "header header header"
+    "chakra skills queue"
+    "end end queue";
+  grid-template-columns: minmax(0, 32.5fr) minmax(0, 32.5fr) minmax(0, 35fr);
+  min-height: 286px;
+  overflow: visible;
+  padding: 12px;
+}
+
+main.mobile-preview .turn-panel-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  grid-area: header;
+  justify-content: space-between;
+}
+
+main.mobile-preview .turn-panel-header .eyebrow {
+  white-space: nowrap;
+}
+
+main.mobile-preview .turn-panel-header h2 {
+  font-size: 16px;
+  text-align: right;
+}
+
+main.mobile-preview .turn-chakra-column {
+  align-content: start;
+  gap: 8px;
+  grid-area: chakra;
+}
+
+main.mobile-preview .chakra {
+  font-size: 12px;
+  justify-content: center;
+}
+
+main.mobile-preview .chakra-pool {
+  gap: 6px;
+  grid-template-columns: 1fr;
+}
+
+main.mobile-preview .chakra-chip {
+  min-height: 28px;
+  padding: 4px;
+}
+
+main.mobile-preview .chakra-chip span {
+  display: none;
+}
+
+main.mobile-preview .chakra-exchange-button,
+main.mobile-preview .end-turn {
+  min-height: 46px;
+  padding: 6px 5px;
+}
+
+main.mobile-preview .chakra-exchange-button {
+  flex-direction: column;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+main.mobile-preview .skill-list {
+  align-content: center;
+  align-self: stretch;
+  gap: 6px;
+  grid-area: skills;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  justify-self: center;
+  width: 100%;
+}
+
+main.mobile-preview .skill-list button {
+  align-items: center;
+  display: block;
+  height: 44px;
+  min-height: 44px;
+  padding: 4px;
+  position: relative;
+  text-align: left;
+  width: 100%;
+}
+
+main.mobile-preview .skill-copy {
+  display: block;
+  left: 8px;
+  position: absolute;
+  right: 42px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+main.mobile-preview .skill-copy strong {
+  color: #fff !important;
+  display: -webkit-box;
+  font-size: 11px;
+  line-height: 1.05;
+  max-height: 2.1em;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  opacity: 1;
+  text-align: left;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+main.mobile-preview .skill-copy small {
+  display: none;
+}
+
+main.mobile-preview .skill-icon {
+  display: flex;
+  justify-content: center;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+main.mobile-preview .skill-icon .square-img {
+  height: 32px;
+  width: 32px;
+}
+
+main.mobile-preview .end-turn {
+  align-content: center;
+  align-items: center;
+  align-self: stretch;
+  flex-direction: column;
+  font-size: 10px;
+  grid-area: end;
+  gap: 5px;
+  line-height: 1.15;
+}
+
+main.mobile-preview .queue-panel {
+  border-left: 1px solid #e5ebf2;
+  border-top: 0;
+  gap: 6px;
+  grid-area: queue;
+  min-height: 0;
+  padding-left: 8px;
+  padding-top: 0;
+}
+
+main.mobile-preview .queue-panel h3 {
+  font-size: 12px;
+  gap: 4px;
+}
+
+main.mobile-preview .queue-panel ol {
+  gap: 5px;
+  max-height: 232px;
+}
+
+main.mobile-preview .queue-panel li {
+  grid-template-columns: 24px minmax(0, 1fr);
+}
+
+main.mobile-preview .queue-action {
+  align-content: center;
+  gap: 4px;
+  grid-template-areas:
+    "image remove"
+    "copy remove";
+  grid-template-columns: minmax(0, 1fr) 12px;
+  justify-items: center;
+  min-height: 76px;
+  padding: 5px;
+  text-align: center;
+}
+
+main.mobile-preview .queue-action .square-img {
+  grid-area: image;
+  height: 26px;
+  width: 26px;
+}
+
+main.mobile-preview .queue-action strong {
+  display: none;
+}
+
+main.mobile-preview .queue-action > span {
+  grid-area: copy;
+  gap: 1px;
+  justify-items: center;
+}
+
+main.mobile-preview .queue-action > svg {
+  align-self: center;
+  grid-area: remove;
+}
+
+main.mobile-preview .queue-action span span,
+main.mobile-preview .queue-action small {
+  font-size: 9px;
+  line-height: 1.1;
+}
+
+main.mobile-preview .battle-skill-footer {
+  order: 2;
+}
+
+main.mobile-preview .battle-skill-strip {
+  padding: 8px;
+}
+
+main.mobile-preview .battle-skill-strip button {
+  min-height: 46px;
+  padding: 4px;
+}
+
+main.mobile-preview .battle-skill-strip .square-img {
+  height: 36px;
+  width: 36px;
+}
+
+main.mobile-preview .battle-skill-footer .skill-footer {
+  height: 220px;
+  min-height: 220px;
+  padding: 12px;
+}
+
+main.mobile-preview .skill-footer h2 {
+  font-size: 14px;
+}
+
+main.mobile-preview .skill-footer p,
+main.mobile-preview .skill-footer-meta {
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 .stats,
@@ -1406,12 +1927,12 @@ label {
 .turn-panel {
   align-content: start;
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .turn-panel-header {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .turn-panel-header p,
@@ -1421,7 +1942,7 @@ label {
 
 .turn-chakra-column {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .turn-title {
@@ -1515,7 +2036,7 @@ label {
 
 .skill-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1525,8 +2046,8 @@ label {
   display: flex;
   gap: 8px;
   justify-content: flex-start;
-  min-height: 82px;
-  padding: 8px;
+  min-height: 64px;
+  padding: 6px;
   text-align: left;
 }
 
@@ -1556,8 +2077,8 @@ label {
 }
 
 .skill-icon .square-img {
-  height: 38px;
-  width: 38px;
+  height: 34px;
+  width: 34px;
 }
 
 .cooldown-count {
@@ -1580,12 +2101,12 @@ label {
 }
 
 .skill-copy strong {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.15;
 }
 
 .skill-copy small {
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.2;
 }
 
@@ -1595,25 +2116,25 @@ label {
 }
 
 .skill-footer {
-  align-items: center;
+  align-items: start;
   background: #fff;
   border: 1px solid #d8e0e8;
   border-radius: 8px;
   box-shadow: 0 16px 40px rgba(29, 42, 55, 0.08);
   display: grid;
-  gap: 16px;
+  gap: 14px;
   grid-column: 1 / -1;
-  grid-template-columns: 64px minmax(0, 1fr) 180px minmax(220px, 0.7fr);
-  height: 168px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  height: 128px;
   margin-top: 0;
-  min-height: 168px;
+  min-height: 128px;
   overflow: hidden;
-  padding: 18px;
+  padding: 12px;
 }
 
 .battle-skill-footer {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   grid-column: 1 / -1;
 }
 
@@ -1624,15 +2145,15 @@ label {
   box-shadow: 0 16px 40px rgba(29, 42, 55, 0.08);
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
-  padding: 12px;
+  padding: 8px;
 }
 
 .battle-skill-strip button {
   background: #17202a;
-  min-height: 58px;
-  padding: 5px;
+  min-height: 48px;
+  padding: 4px;
 }
 
 .battle-skill-strip button.selected {
@@ -1655,43 +2176,57 @@ label {
 }
 
 .skill-footer .square-img {
-  height: 64px;
-  width: 64px;
+  height: 56px;
+  width: 56px;
 }
 
-.skill-footer > div,
-.skill-footer-meta,
-.skill-footer ul {
+.skill-footer-body {
+  display: grid;
+  gap: 5px;
   max-height: 100%;
   min-height: 0;
   overflow: auto;
 }
 
+.skill-footer h2 {
+  line-height: 1.15;
+}
+
 .skill-footer p {
   color: #4e5e6e;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.skill-footer-description {
+  margin: 0;
 }
 
 .skill-footer-meta {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.7fr);
 }
 
 .skill-footer-meta span {
   color: #657483;
-  font-weight: 900;
-}
-
-.skill-footer ul {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding-left: 18px;
-}
-
-.skill-footer li {
-  color: #4e5e6e;
   font-weight: 800;
+  min-width: 0;
+}
+
+.skill-footer-meta b,
+.skill-footer-families b {
+  color: #17202a;
+}
+
+.skill-footer-meta .chakra-cost {
+  display: inline-flex;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.skill-footer-families {
+  margin: 0;
 }
 
 .end-turn {
@@ -1719,32 +2254,33 @@ label {
 .queue-panel {
   border-top: 1px solid #e5ebf2;
   display: grid;
-  gap: 10px;
+  gap: 7px;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: 306px;
-  padding-top: 14px;
+  min-height: 220px;
+  padding-top: 10px;
 }
 
 .queue-panel h3 {
   align-items: center;
   display: flex;
-  font-size: 16px;
-  gap: 8px;
+  font-size: 14px;
+  gap: 6px;
   margin: 0;
 }
 
 .queue-panel p {
   color: #657483;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .queue-panel ol {
   align-content: start;
   display: grid;
-  gap: 8px;
+  gap: 6px;
   list-style: none;
   margin: 0;
-  max-height: 258px;
+  max-height: 190px;
   overflow: auto;
   padding: 0;
 }
@@ -1754,7 +2290,7 @@ label {
   border: 1px solid #e5ebf2;
   border-radius: 8px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1762,17 +2298,17 @@ label {
   align-content: center;
   border-right: 1px solid #e5ebf2;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   justify-items: center;
-  padding: 6px 4px;
+  padding: 4px 3px;
 }
 
 .queue-order-button {
   aspect-ratio: 1;
   background: #1f6f8b;
-  min-height: 24px;
-  padding: 4px;
-  width: 24px;
+  min-height: 20px;
+  padding: 3px;
+  width: 20px;
 }
 
 .queue-action {
@@ -1780,11 +2316,11 @@ label {
   background: transparent;
   color: #17202a;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  gap: 6px;
+  grid-template-columns: 32px minmax(0, 1fr) 16px;
   justify-content: stretch;
-  min-height: 64px;
-  padding: 8px;
+  min-height: 52px;
+  padding: 6px;
   text-align: left;
   width: 100%;
 }
@@ -1795,8 +2331,8 @@ label {
 }
 
 .queue-action .square-img {
-  height: 38px;
-  width: 38px;
+  height: 32px;
+  width: 32px;
 }
 
 .queue-action > span {
@@ -1807,7 +2343,7 @@ label {
 .queue-action span span,
 .queue-action small {
   color: #657483;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 @media (max-width: 980px) {
@@ -1834,14 +2370,12 @@ label {
 
   .skill-footer {
     grid-template-columns: 56px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     height: 260px;
     min-height: 260px;
   }
 
-  .skill-footer-meta,
-  .skill-footer ul {
-    grid-column: 1 / -1;
+  .skill-footer-meta {
+    grid-template-columns: 1fr;
   }
 
   .character-grid {
@@ -1857,6 +2391,10 @@ label {
 @media (max-width: 768px) {
   body {
     font-size: 12px;
+  }
+
+  .desktop-mobile-preview-button {
+    display: none;
   }
 
   button,
@@ -2001,19 +2539,20 @@ label {
   }
 
   .character-grid {
-    gap: 6px;
-    grid-template-columns: repeat(5, minmax(46px, 1fr));
-    padding: 10px;
+    gap: 12px;
+    grid-template-columns: repeat(5, 112px);
+    overflow-x: auto;
+    padding: 20px;
   }
 
   .character-card {
     min-height: 0;
-    padding: 4px;
+    padding: 8px;
   }
 
   .character-card .square-img {
-    height: clamp(34px, 10vw, 52px);
-    width: clamp(34px, 10vw, 52px);
+    height: 92px;
+    width: 92px;
   }
 
   .pagination {
@@ -2104,8 +2643,8 @@ label {
 
   .fighter {
     align-content: start;
-    gap: 3px;
-    grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    gap: 2px;
+    grid-template-rows: auto auto auto minmax(0, 30px);
     height: 100%;
     justify-items: center;
     min-height: 0;
@@ -2120,8 +2659,8 @@ label {
   }
 
   .fighter .square-img {
-    height: 30px;
-    width: 30px;
+    height: 44px;
+    width: 44px;
   }
 
   .fighter strong {
@@ -2129,15 +2668,16 @@ label {
   }
 
   .fighter .health {
-    height: 4px;
-    margin: 3px 0 2px;
+    height: 5px;
+    margin: 2px 0 1px;
+    width: min(100%, 58px);
   }
 
   .fighter .stats {
     font-size: 8px;
     gap: 2px;
     line-height: 1;
-    min-height: 10px;
+    min-height: 9px;
   }
 
   .fighter .stats svg {
@@ -2153,9 +2693,12 @@ label {
     display: grid;
     gap: 2px;
     grid-template-columns: repeat(3, 14px);
+    grid-template-rows: repeat(2, 14px);
     justify-content: center;
-    margin-top: 4px;
-    min-height: 14px;
+    margin-top: 2px;
+    max-height: 30px;
+    min-height: 30px;
+    overflow: hidden;
     width: 100%;
   }
 
@@ -2167,6 +2710,10 @@ label {
 
   .status-icon b {
     font-size: 9px;
+  }
+
+  .status-row .status-icon:nth-child(n + 7) {
+    display: none;
   }
 
   .status-tooltip {
@@ -2489,7 +3036,6 @@ label {
   }
 
   .skill-footer p,
-  .skill-footer li,
   .skill-footer-meta {
     font-size: 10px;
     line-height: 1.25;

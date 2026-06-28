@@ -4,10 +4,12 @@ import { sakura } from "./characters/sakura/index.js";
 import { kakashi } from "./characters/kakashi/index.js";
 import { hinata } from "./characters/hinata/index.js";
 import { gaara } from "./characters/gaara/index.js";
-import { kankurou } from "./characters/kankurou/index.js";
+import { kankuro } from "./characters/kankuro/index.js";
 import { daniel } from "./characters/daniel/index.js";
 import { kakuzu } from "./characters/kakuzu/index.js";
 import { cacho } from "./characters/cacho/index.js";
+import { mai } from "./characters/mai/index.js";
+import { aizen } from "./characters/aizen/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -25,6 +27,7 @@ function effectBotDescription(effect) {
   if (effect.type === "heal" || effect.type === "self-heal") return `heal-${effect.value}`;
   if (effect.type === "shield") return `shield-${effect.value}`;
   if (effect.type === "damage-reduction") return `damageReduction-${effect.value}`;
+  if (effect.type === "allyCountStatus") return `allyCountStatus-dr${effect.damageReductionPerAlly || 0}-shield${effect.shieldPerAlly || 0}`;
   if (effect.type === "modifyDamage") return `modifyDamage-${effect.value}`;
   if (effect.type === "modifyDamageByMissingHp") return `modifyDamageByMissingHp-${effect.amountPerStep || effect.value || 0}-per-${effect.hpStep || 1}`;
   if (effect.type === "modifyDamageType") return `modifyDamageType-${effect.damageType || "basic"}`;
@@ -35,7 +38,7 @@ function effectBotDescription(effect) {
   if (effect.type === "addNonReflectable") return `addNonReflectable-${(effect.skillIds || []).join(",") || "all"}`;
   if (effect.type === "replaceEffects") return `replaceEffects-${(effect.effects || []).map(effectBotDescription).join(",")}`;
   if (effect.type === "replaceSkill") return `replaceSkill-${effect.baseSkillId || ""}-${effect.skillId || ""}`;
-  if (effect.type === "counter") return `counter-${effect.trigger || "incoming"}-${effect.charges ?? effect.value ?? 1}`;
+  if (effect.type === "counter") return `counter-${effect.trigger || "incoming"}-${effect.charges ?? effect.value ?? 1}-${(effect.effects || []).map(effectBotDescription).join(",")}`;
   if (effect.type === "reflect") return `reflect-${effect.reflectTo || "caster"}-${effect.charges ?? effect.value ?? 1}`;
   if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") return `${effect.type}-${JSON.stringify(effect.chakra || {})}`;
   if (effect.type === "stun") return `stun-${effect.value}`;
@@ -74,4 +77,4 @@ export function getSkillNameById(id) {
   .find((skill) => skill.id === id)?.name || id;
 }
 
-export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kankurou, daniel, kakuzu, cacho].map(withSkillDefaults);
+export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kankuro, daniel, kakuzu, cacho, mai, aizen].map(withSkillDefaults);
