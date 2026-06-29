@@ -9,6 +9,7 @@ import { damageReductionEffect } from "./damageReduction.js";
 import { effectImmunityEffect } from "./effectImmunity.js";
 import { gainChakraEffect } from "./gainChakra.js";
 import { healEffect } from "./heal.js";
+import { ignoreEffectsEffect } from "./ignoreEffects.js";
 import { instakillEffect } from "./instakill.js";
 import { invulnerableEffect } from "./invulnerable.js";
 import { modifyChakraCostEffect } from "./modifyChakraCost.js";
@@ -17,6 +18,7 @@ import { modifyDamageByMissingHpEffect } from "./modifyDamageByMissingHp.js";
 import { modifyDamageTypeEffect } from "./modifyDamageType.js";
 import { modifyTargetCountEffect } from "./modifyTargetCount.js";
 import { modifyTargetTypeEffect } from "./modifyTargetType.js";
+import { payLifeEffect } from "./payLife.js";
 import { reflectEffect } from "./reflect.js";
 import { removeChakraEffect } from "./removeChakra.js";
 import { replaceEffectsEffect } from "./replaceEffects.js";
@@ -31,9 +33,11 @@ export const effectTypes = {
   instakill: instakillEffect,
   heal: healEffect,
   "self-heal": selfHealEffect,
+  payLife: payLifeEffect,
   shield: shieldEffect,
   "damage-reduction": damageReductionEffect,
   "effect-immunity": effectImmunityEffect,
+  ignoreEffects: ignoreEffectsEffect,
   allyCountStatus: allyCountStatusEffect,
   modifyDamage: modifyDamageEffect,
   modifyDamageByMissingHp: modifyDamageByMissingHpEffect,

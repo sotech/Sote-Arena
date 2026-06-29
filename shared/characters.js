@@ -27,6 +27,7 @@ function effectBotDescription(effect) {
   if (effect.type === "heal" || effect.type === "self-heal") return `heal-${effect.value}`;
   if (effect.type === "shield") return `shield-${effect.value}`;
   if (effect.type === "damage-reduction") return `damageReduction-${effect.value}`;
+  if (effect.type === "ignoreEffects") return `ignoreEffects-${(effect.ignoreEffects || []).join(",")}`;
   if (effect.type === "allyCountStatus") return `allyCountStatus-dr${effect.damageReductionPerAlly || 0}-shield${effect.shieldPerAlly || 0}`;
   if (effect.type === "modifyDamage") return `modifyDamage-${effect.value}`;
   if (effect.type === "modifyDamageByMissingHp") return `modifyDamageByMissingHp-${effect.amountPerStep || effect.value || 0}-per-${effect.hpStep || 1}`;

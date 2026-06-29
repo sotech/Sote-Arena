@@ -22,10 +22,39 @@ export const naruto = {
       name: "Multi clones de sombra",
       chakra: { neutralChakra: 2 },
       targetType: "enemies",
-      description: "Naruto inflige 20 de dano a todos los enemigos. Por 1 turno ignora todos los efectos que no sean dano o sanacion.",
+      description: "Naruto inflige 20 de dano a todos los enemigos. Por 1 turno ignora aturdimientos y efectos negativos, aunque esos estados sigan apareciendo sobre Naruto.",
       effects: [
         { type: "damage", value: 20, targets: "target" },
-        { type: "complex", duration: 1, targets: "self", effects: [{ type: "effect-immunity", targets: "self" }] }
+        {
+          type: "complex",
+          duration: 1,
+          targets: "self",
+          effects: [{
+            type: "ignoreEffects",
+            targets: "self",
+            ignoreEffects: [
+              "stun",
+              "damage-reduction",
+              "modifyDamage",
+              "modifyDamageByMissingHp",
+              "modifyDamageType",
+              "modifyTargetType",
+              "modifyTargetCount",
+              "addEffectToBase",
+              "addUncountereable",
+              "addNonReflectable",
+              "replaceEffects",
+              "replaceSkill",
+              "modifyChakraCost",
+              "substituteChakraCost",
+              "counter",
+              "reflect",
+              "invulnerable",
+              "gain-chakra",
+              "remove-chakra"
+            ]
+          }]
+        }
       ],
       cooldown: 2,
       family: ["physical", "instant", "offensive"]
@@ -33,14 +62,21 @@ export const naruto = {
     {
       id: "kyuubi-chakra",
       name: "Chakra del Kyubi",
-      chakra: { bloodline: 1 },
+      chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "self",
       description: "Naruto gana 1 chakra de Taijutsu y 1 chakra de Ninjutsu. Naruto pierde 5 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
       effects: [
-        { type: "damage", value: 5, damageType: "affliction", targets: "self" },
+        { type: "payLife", value: 5, targets: "self", notKill: true },
         { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
         { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" },
-        { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] }
+        {
+          type: "complex",
+          duration: 1,
+          targets: "self",
+          showStatusEffect: true,
+          effects: [],
+          descriptions: ["Naruto gano 1 chakra de Taijutsu y 1 chakra de Ninjutsu. Oodama Rasengan aturdira 1 turno durante el siguiente turno."]
+        }
       ],
       cooldown: 2,
       family: ["mental", "instant"]

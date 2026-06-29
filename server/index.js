@@ -106,6 +106,18 @@ function skillLogEntry(player, skill, message) {
   return { message, visibleTo: [player.id] };
 }
 
+function statusIsIgnored(effect) {
+  return effect?.ignoredByEffectImmunity === true;
+}
+
+function hasCustomDescriptions(effect) {
+  return Array.isArray(effect?.descriptions) && effect.descriptions.length > 0;
+}
+
+function activeStatusEffects(member) {
+  return (member?.statusEffects || []).filter((effect) => !statusIsIgnored(effect));
+}
+
 function secretStatusOwnerId(room, effect) {
   const originMember = getRoomMember(room, effect.originActorId);
   return originMember ? ownerOfMember(room, originMember)?.id : null;
@@ -114,6 +126,7 @@ function secretStatusOwnerId(room, effect) {
 function publicStatusEffects(room, viewerId, member) {
   return (member.statusEffects || []).flatMap((effect) => {
     if (!effect.isSecret) return [effect];
+    if (viewerId && secretStatusOwnerId(room, effect) === viewerId) return [effect];
     return [];
   });
 }
@@ -200,6 +213,14 @@ function randomNumberValue(value) {
 
 function positiveEffectValue(effect, field = "value") {
   return Math.max(0, randomNumberValue(effect?.[field]));
+}
+
+function payLife(target, value, { notKill = false } = {}) {
+  const amount = Math.max(0, Number(value || 0));
+  const minHp = notKill ? 1 : 0;
+  const before = Math.max(0, Number(target.hp || 0));
+  target.hp = Math.max(minHp, before - amount);
+  return before - target.hp;
 }
 
 function healValueForTarget(effect, target) {
@@ -530,9 +551,9 @@ function mergeStatusTurns(currentTurns, nextTurns) {
 }
 
 function hasStatus(member, type) {
-  return (member.statusEffects || []).some((effect) => {
+  return activeStatusEffects(member).some((effect) => {
     if (effect.type === type && effect.turns > 0) return true;
-    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => childEffect.type === type);
+    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => !statusIsIgnored(childEffect) && childEffect.type === type);
   });
 }
 
@@ -544,11 +565,11 @@ function stunAffectsSkill(effect, skill) {
 }
 
 export function isSkillStunned(member, skill) {
-  return (member.statusEffects || []).some((effect) => {
+  return activeStatusEffects(member).some((effect) => {
     if (effect.type === "stun" && effect.turns > 0) return stunAffectsSkill(effect, skill);
     if (effect.type !== "complex" || effect.turns <= 0) return false;
     return (effect.effects || []).some((childEffect) => (
-      childEffect.type === "stun" && stunAffectsSkill(childEffect, skill)
+      !statusIsIgnored(childEffect) && childEffect.type === "stun" && stunAffectsSkill(childEffect, skill)
     ));
   });
 }
@@ -615,18 +636,18 @@ export function addStatus(member, status) {
       existing.showStatusEffect = status.showStatusEffect;
       existing.isStackable = status.isStackable;
       existing.isSecret = Boolean(status.isSecret);
-      existing.descriptions = modifierDescriptions(existing);
+      existing.descriptions = hasCustomDescriptions(status) ? status.descriptions : modifierDescriptions(existing);
       existing.createdTurn = status.createdTurn;
       existing.originActorId = status.originActorId;
       existing.originCharacterId = status.originCharacterId;
       return;
     }
-    status.descriptions = modifierDescriptions(status);
+    status.descriptions = hasCustomDescriptions(status) ? status.descriptions : modifierDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
   if (status.type === "complex") {
-    status.descriptions = complexDescriptions(status);
+    status.descriptions = hasCustomDescriptions(status) ? status.descriptions : complexDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
@@ -634,6 +655,7 @@ export function addStatus(member, status) {
   if (existing) {
     existing.turns = mergeStatusTurns(existing.turns, status.turns);
     existing.familiesAffected = status.familiesAffected;
+    existing.ignoreEffects = status.ignoreEffects;
     existing.descriptions = status.descriptions;
     existing.createdTurn = status.createdTurn;
     existing.originActorId = status.originActorId;
@@ -682,12 +704,13 @@ function modifierAppliesToSkill(effect, skill, type) {
 }
 
 function activeSkillModifiers(actor, skill, currentTurn, type) {
-  return (actor.statusEffects || [])
+  return activeStatusEffects(actor)
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
     .flatMap((effect) => {
       if (modifierAppliesToSkill(effect, skill, type)) return [effect];
       if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
         return (effect.effects || [])
+          .filter((childEffect) => !statusIsIgnored(childEffect))
           .filter((childEffect) => modifierAppliesToSkill({ ...childEffect, turns: 1 }, skill, type));
       }
       return [];
@@ -722,14 +745,15 @@ export function damageBuffValue(actor, skill, currentTurn) {
     }
     return Number(effect.value || 0);
   };
-  const directBuffs = (actor.statusEffects || [])
+  const directBuffs = activeStatusEffects(actor)
     .filter((effect) => appliesToModifiedSkill(effect, skill))
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
     .reduce((total, effect) => total + effectBuffValue(effect), 0);
-  const complexBuffs = (actor.statusEffects || [])
+  const complexBuffs = activeStatusEffects(actor)
     .filter((effect) => effect.type === "complex" && (effect.turns > 0 || effect.turns === -1))
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
     .flatMap((effect) => effect.effects || [])
+    .filter((effect) => !statusIsIgnored(effect))
     .filter((effect) => appliesToModifiedSkill({ ...effect, turns: 1 }, skill))
     .reduce((total, effect) => total + effectBuffValue(effect), 0);
   return directBuffs + complexBuffs;
@@ -748,7 +772,7 @@ export function isSkillReflectable(actor, skill, currentTurn) {
 
 export function modifiedDamageType(actor, skill, baseDamageType = "basic", currentTurn) {
   let type = ["basic", "normal", "piercing", "affliction"].includes(baseDamageType) ? baseDamageType : "basic";
-  for (const effect of actor.statusEffects || []) {
+  for (const effect of activeStatusEffects(actor)) {
     if (effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn) continue;
     if (appliesToDamageTypeModifiedSkill(effect, skill)) {
       type = effect.damageType;
@@ -756,6 +780,7 @@ export function modifiedDamageType(actor, skill, baseDamageType = "basic", curre
     }
     if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
       for (const childEffect of effect.effects || []) {
+        if (statusIsIgnored(childEffect)) continue;
         if (appliesToDamageTypeModifiedSkill({ ...childEffect, turns: 1 }, skill)) {
           type = childEffect.damageType;
         }
@@ -766,12 +791,13 @@ export function modifiedDamageType(actor, skill, baseDamageType = "basic", curre
 }
 
 export function addedEffectsForSkill(actor, skill, currentTurn) {
-  return (actor.statusEffects || [])
+  return activeStatusEffects(actor)
     .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
     .flatMap((effect) => {
       if (appliesToEffectAddedSkill(effect, skill)) return effect.effects;
       if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
         return (effect.effects || [])
+          .filter((childEffect) => !statusIsIgnored(childEffect))
           .filter((childEffect) => appliesToEffectAddedSkill({ ...childEffect, turns: 1 }, skill))
           .flatMap((childEffect) => childEffect.effects || []);
       }
@@ -801,23 +827,79 @@ function canBeTargetedBy(player, candidate, source = null) {
     || skillIgnoresInvulnerability(source);
 }
 
-function effectAllowedByEffectImmunity(effect) {
-  if (!effect) return false;
-  if (["damage", "heal", "self-heal"].includes(effect.type)) return true;
-  if (effect.type === "complex") return (effect.effects || []).some((childEffect) => effectAllowedByEffectImmunity(childEffect));
-  return false;
+function ignoredEffectTypesForMember(member) {
+  const ignored = new Set();
+  for (const effect of activeStatusEffects(member)) {
+    if (effect.type === "effect-immunity" && effect.turns > 0) {
+      supportedEffectTypes
+        .filter((type) => !["damage", "heal", "self-heal"].includes(type))
+        .forEach((type) => ignored.add(type));
+    }
+    if (effect.type === "ignoreEffects" && effect.turns > 0) {
+      (effect.ignoreEffects || []).forEach((type) => ignored.add(type));
+    }
+    if (effect.type === "complex" && effect.turns > 0) {
+      for (const childEffect of effect.effects || []) {
+        if (statusIsIgnored(childEffect)) continue;
+        if (childEffect.type === "effect-immunity") {
+          supportedEffectTypes
+            .filter((type) => !["damage", "heal", "self-heal"].includes(type))
+            .forEach((type) => ignored.add(type));
+        }
+        if (childEffect.type === "ignoreEffects") {
+          (childEffect.ignoreEffects || []).forEach((type) => ignored.add(type));
+        }
+      }
+    }
+  }
+  return ignored;
 }
 
 function hasEffectImmunity(member) {
-  return (member.statusEffects || []).some((effect) => {
+  return activeStatusEffects(member).some((effect) => {
     if (effect.type === "effect-immunity" && effect.turns > 0) return true;
-    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => childEffect.type === "effect-immunity");
+    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => !statusIsIgnored(childEffect) && childEffect.type === "effect-immunity");
   });
 }
 
+function ignoredEffectDescription(effect) {
+  return `Este efecto fue ignorado y no tendra efecto en este personaje.`;
+}
+
+function markEffectIgnored(effect) {
+  return {
+    ...effect,
+    ignoredByEffectImmunity: true,
+    descriptions: [
+      ...(effect.descriptions || []),
+      ignoredEffectDescription(effect)
+    ]
+  };
+}
+
+function effectForTargetImmunity(effect, target) {
+  const ignoredTypes = ignoredEffectTypesForMember(target);
+  if (!hasEffectImmunity(target) && ignoredTypes.size === 0) return effect;
+  const effectIsIgnored = (candidate) => candidate && ignoredTypes.has(candidate.type);
+  if (effect?.type !== "complex" && !effectIsIgnored(effect) && !hasEffectImmunity(target)) return effect;
+  if (hasEffectImmunity(target) && ["damage", "heal", "self-heal"].includes(effect?.type)) return effect;
+  if (effect.type === "complex") {
+    return {
+      ...effect,
+      effects: (effect.effects || []).map((childEffect) => (
+        (hasEffectImmunity(target) && ["damage", "heal", "self-heal"].includes(childEffect.type)) || !effectIsIgnored(childEffect)
+          ? childEffect
+          : markEffectIgnored(childEffect)
+      ))
+    };
+  }
+  if (!effectIsIgnored(effect) && hasEffectImmunity(target)) return markEffectIgnored(effect);
+  if (!effectIsIgnored(effect)) return effect;
+  return markEffectIgnored(effect);
+}
+
 function effectsAllowedByTargetImmunity(effects, target) {
-  if (!hasEffectImmunity(target)) return effects || [];
-  return (effects || []).filter((effect) => effectAllowedByEffectImmunity(effect));
+  return (effects || []).map((effect) => effectForTargetImmunity(effect, target));
 }
 
 function skillUsesLimit(skill) {
@@ -849,7 +931,6 @@ function updateSkillUsesStatus(actor, skill, actorCharacter, currentTurn) {
 
 export function canEffectAffectTarget(room, sourcePlayer, target, effect) {
   if (!target) return true;
-  if (hasEffectImmunity(target) && !effectAllowedByEffectImmunity(effect)) return false;
   if (ignoresInvulnerability(effect)) return true;
   const targetOwner = ownerOfMember(room, target);
   if (!targetOwner || !sourcePlayer || targetOwner.id === sourcePlayer.id) return true;
@@ -857,10 +938,10 @@ export function canEffectAffectTarget(room, sourcePlayer, target, effect) {
 }
 
 function memberHasStatusEffect(member, effectId) {
-  return (member.statusEffects || []).some((effect) => {
+  return activeStatusEffects(member).some((effect) => {
     if (effect.id === effectId || effect.sourceSkillId === effectId || effect.type === effectId) return true;
     return effect.type === "complex" && (effect.effects || []).some((childEffect) => (
-      childEffect.id === effectId || childEffect.sourceSkillId === effectId || childEffect.type === effectId
+      !statusIsIgnored(childEffect) && (childEffect.id === effectId || childEffect.sourceSkillId === effectId || childEffect.type === effectId)
     ));
   });
 }
@@ -1060,6 +1141,7 @@ function applyComplexStatusEffects(room, player) {
     const memberCharacter = getCharacterById(member.characterId);
     for (const status of member.statusEffects || []) {
       if (status.type !== "complex" || (status.turns <= 0 && status.turns !== -1) || status.createdTurn === room.turn) continue;
+      if (statusIsIgnored(status)) continue;
       if (status.mode === "pauseOnStun" || status.mode === "interruptible") {
         if (isSkillStunned(member, { id: status.sourceSkillId, family: status.interruptFamilies || [] })) {
           status.pausedThisTurn = true;
@@ -1086,7 +1168,8 @@ function applyComplexStatusEffects(room, player) {
         continue;
       }
       for (const effect of status.effects || []) {
-        if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "effect-immunity" || effect.type === "stun") {
+        if (statusIsIgnored(effect)) continue;
+        if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "effect-immunity" || effect.type === "ignoreEffects" || effect.type === "stun") {
           continue;
         }
 
@@ -1104,6 +1187,16 @@ function applyComplexStatusEffects(room, player) {
             totalDamage += applyDamage(target, positiveEffectValue(effect), effect.damageType || "basic");
           }
           if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano continuo.`);
+          continue;
+        }
+
+        if (effect.type === "payLife") {
+          let totalPaid = 0;
+          for (const target of targets) {
+            if (!effectAppliesToTarget(effect, target, member)) continue;
+            totalPaid += payLife(target, positiveEffectValue(effect), { notKill: effect.notKill === true });
+          }
+          if (totalPaid > 0) events.push(`${status.sourceSkillName} pago ${totalPaid} de vida.`);
           continue;
         }
 
@@ -1162,7 +1255,9 @@ function applyComplexStatusEffects(room, player) {
         }
 
         if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
-          const affectedPlayers = affectedPlayersForChakraEffect(room, player, targets, effect);
+          const activeTargets = targets.filter((target) => effectForTargetImmunity(effect, target).ignoredByEffectImmunity !== true);
+          if (activeTargets.length === 0) continue;
+          const affectedPlayers = affectedPlayersForChakraEffect(room, player, activeTargets, effect);
           const changedChakra = emptyChakra();
           for (const affectedPlayer of affectedPlayers) {
             const changed = effect.type === "gain-chakra"
@@ -1321,7 +1416,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
     if (effect.type === "complex") {
       for (const target of targets) {
         const statusEffects = effectsAllowedByTargetImmunity(Array.isArray(effect.effects) ? effect.effects : [], target);
-        if (statusEffects.length === 0) continue;
+        if (statusEffects.length === 0 && effect.showStatusEffect !== true && !hasCustomDescriptions(effect)) continue;
         addStatus(target, {
           id: randomUUID(),
           type: "complex",
@@ -1334,6 +1429,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
           suppressSecretEndNotice: effect.suppressSecretEndNotice,
           showStatusEffect: effect.showStatusEffect,
           isSecret: Boolean(effect.isSecret),
+          descriptions: effect.descriptions,
           effects: snapshotComplexEffects(
             statusEffects,
             sourceMember,
@@ -1369,10 +1465,10 @@ function consumeReactiveStatus(room, member, status, currentTurn) {
 
 function firstCounterForAction(actor, selectedTargets, skill, currentTurn) {
   if (!isSkillCountereable(actor, skill, currentTurn)) return null;
-  const outgoing = (actor.statusEffects || []).find((status) => status.type === "counter" && reactiveStatusApplies(status, skill, "outgoing"));
+  const outgoing = activeStatusEffects(actor).find((status) => status.type === "counter" && reactiveStatusApplies(status, skill, "outgoing"));
   if (outgoing) return { member: actor, status: outgoing };
   for (const target of selectedTargets) {
-    const incoming = (target.statusEffects || []).find((status) => status.type === "counter" && reactiveStatusApplies(status, skill, "incoming"));
+    const incoming = activeStatusEffects(target).find((status) => status.type === "counter" && reactiveStatusApplies(status, skill, "incoming"));
     if (incoming) return { member: target, status: incoming };
   }
   return null;
@@ -1381,7 +1477,7 @@ function firstCounterForAction(actor, selectedTargets, skill, currentTurn) {
 function firstReflectForAction(actor, selectedTargets, skill, currentTurn) {
   if (!isSkillReflectable(actor, skill, currentTurn)) return null;
   for (const target of selectedTargets) {
-    const status = (target.statusEffects || []).find((effect) => effect.type === "reflect" && reactiveStatusApplies(effect, skill, "incoming"));
+    const status = activeStatusEffects(target).find((effect) => effect.type === "reflect" && reactiveStatusApplies(effect, skill, "incoming"));
     if (status) return { member: target, status };
   }
   return null;
@@ -1486,6 +1582,7 @@ export function applyQueuedSkill(room, player, action) {
 
   const events = [];
   let totalDamage = 0;
+  let totalLifePaid = 0;
   let totalInstakill = 0;
   let totalHeal = 0;
   let totalShield = 0;
@@ -1526,7 +1623,7 @@ export function applyQueuedSkill(room, player, action) {
     if (effect.type === "complex") {
       for (const target of targets) {
         const statusEffects = effectsAllowedByTargetImmunity(Array.isArray(effect.effects) ? effect.effects : [], target);
-        if (statusEffects.length === 0) continue;
+        if (statusEffects.length === 0 && effect.showStatusEffect !== true && !hasCustomDescriptions(effect)) continue;
         addStatus(target, {
           id: randomUUID(),
           type: "complex",
@@ -1539,6 +1636,7 @@ export function applyQueuedSkill(room, player, action) {
           suppressSecretEndNotice: effect.suppressSecretEndNotice,
           showStatusEffect: effect.showStatusEffect,
           isSecret: Boolean(skill.isSecret || effect.isSecret || effect.type === "counter" || effect.type === "reflect"),
+          descriptions: effect.descriptions,
           effects: snapshotComplexEffects(
             statusEffects,
             actor,
@@ -1569,6 +1667,14 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
+    if (effect.type === "payLife") {
+      for (const target of targets) {
+        if (!effectAppliesToTarget(effect, target, actor)) continue;
+        totalLifePaid += payLife(target, positiveEffectValue(effect), { notKill: effect.notKill === true });
+      }
+      continue;
+    }
+
     if (effect.type === "instakill") {
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
@@ -1594,23 +1700,25 @@ export function applyQueuedSkill(room, player, action) {
     if (effect.type === "damage-reduction") {
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
+        const appliedEffect = effectForTargetImmunity(effect, target);
         const value = positiveEffectValue(effect);
         addStatus(target, {
           id: randomUUID(),
           type: "damage-reduction",
-          turns: effect.duration,
+          turns: appliedEffect.duration,
           value,
           remainingReduction: value,
-          percent: effect.percent === true,
-          restoresEachTurn: effect.restoresEachTurn !== false,
+          percent: appliedEffect.percent === true,
+          restoresEachTurn: appliedEffect.restoresEachTurn !== false,
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: [statusDescription({ ...effect, remainingReduction: value }, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingReduction: value }, actorCharacter)]
         });
-        totalDamageReduction += value;
+        if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageReduction += value;
       }
       continue;
     }
@@ -1620,29 +1728,41 @@ export function applyQueuedSkill(room, player, action) {
         .filter((member) => effect.excludeSelf === false || member.id !== actor.id)
         .length;
       const damageReductionValue = Math.max(0, aliveAllyCount * Number(effect.damageReductionPerAlly || 0));
-      const shieldValueTotal = Math.min(
+      const maxShieldCap = Math.min(
         Number.isFinite(Number(effect.maxShield)) ? Number(effect.maxShield) : Infinity,
+        Number(effect.maxShieldPerAlly || 0) > 0 ? aliveAllyCount * Number(effect.maxShieldPerAlly || 0) : Infinity
+      );
+      const shieldValueTotal = Math.min(
+        maxShieldCap,
         Math.max(0, aliveAllyCount * Number(effect.shieldPerAlly || 0))
       );
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
+        const appliedEffect = effectForTargetImmunity(effect, target);
         if (damageReductionValue > 0) {
           addStatus(target, {
             id: randomUUID(),
             type: "damage-reduction",
-            turns: effect.duration,
+            turns: appliedEffect.duration,
             value: damageReductionValue,
             remainingReduction: damageReductionValue,
-            percent: effect.percent === true,
-            restoresEachTurn: effect.restoresEachTurn !== false,
+            percent: appliedEffect.percent === true,
+            restoresEachTurn: appliedEffect.restoresEachTurn !== false,
+            dynamicAllyCountStatus: true,
+            damageReductionPerAlly: Number(effect.damageReductionPerAlly || 0),
+            shieldPerAlly: Number(effect.shieldPerAlly || 0),
+            maxShield: effect.maxShield,
+            maxShieldPerAlly: effect.maxShieldPerAlly,
+            excludeSelf: effect.excludeSelf,
+            ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
             sourceSkillId: skill.id,
             sourceSkillName: skill.name,
             sourceActorName: actorCharacter.name,
             ...statusOrigin(actor),
             createdTurn: room.turn,
-            descriptions: [statusDescription({ type: "damage-reduction", value: damageReductionValue, remainingReduction: damageReductionValue }, actorCharacter)]
+            descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ type: "damage-reduction", value: damageReductionValue, remainingReduction: damageReductionValue }, actorCharacter)]
           });
-          totalDamageReduction += damageReductionValue;
+          if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageReduction += damageReductionValue;
         }
         if (shieldValueTotal > 0) {
           const shieldBefore = shieldValue(target);
@@ -1653,15 +1773,16 @@ export function applyQueuedSkill(room, player, action) {
             value: shieldValueTotal,
             remainingShield: shieldValueTotal,
             isStackable: effect.isStackable === true,
+            ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
             sourceSkillId: skill.id,
             sourceSkillName: skill.name,
             sourceActorName: actorCharacter.name,
             ...statusOrigin(actor),
             createdTurn: room.turn,
-            descriptions: [statusDescription({ type: "shield", value: shieldValueTotal, remainingShield: shieldValueTotal }, actorCharacter)]
+            descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ type: "shield", value: shieldValueTotal, remainingShield: shieldValueTotal }, actorCharacter)]
           });
           target.shield = shieldValue(target);
-          totalShield += Math.max(0, target.shield - shieldBefore);
+          if (appliedEffect.ignoredByEffectImmunity !== true) totalShield += Math.max(0, target.shield - shieldBefore);
         }
       }
       continue;
@@ -1669,73 +1790,79 @@ export function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
       for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
         addStatus(target, {
           id: randomUUID(),
-          type: effect.type,
-          turns: effect.duration,
-          value: effect.value,
-          amountPerStep: effect.amountPerStep,
-          hpStep: effect.hpStep,
-          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
-          isStackable: effect.isStackable,
+          type: appliedEffect.type,
+          turns: appliedEffect.duration,
+          value: appliedEffect.value,
+          amountPerStep: appliedEffect.amountPerStep,
+          hpStep: appliedEffect.hpStep,
+          skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
+          isStackable: appliedEffect.isStackable,
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: [statusDescription(effect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
         });
-        totalDamageModifier += Number(effect.value || 0);
+        if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageModifier += Number(appliedEffect.value || 0);
       }
       continue;
     }
 
     if (effect.type === "modifyDamageType") {
       for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
         addStatus(target, {
           id: randomUUID(),
           type: "modifyDamageType",
-          turns: effect.duration,
-          damageType: effect.damageType,
-          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          turns: appliedEffect.duration,
+          damageType: appliedEffect.damageType,
+          skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: [statusDescription(effect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
         });
-        totalDamageTypeModifiers += 1;
+        if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageTypeModifiers += 1;
       }
       continue;
     }
 
     if (["modifyTargetType", "modifyTargetCount", "addEffectToBase", "addUncountereable", "addNonReflectable", "replaceEffects", "counter", "reflect"].includes(effect.type)) {
       for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
         addStatus(target, {
           id: randomUUID(),
-          type: effect.type,
-          turns: effect.duration,
-          targetType: effect.targetType,
-          count: effect.count ?? effect.value,
-          random: effect.random,
-          effects: Array.isArray(effect.effects) ? effect.effects : [],
-          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
-          familiesAffected: effect.familiesAffected,
-          trigger: effect.trigger,
-          charges: effect.charges ?? effect.value ?? 1,
-          reflectTo: effect.reflectTo,
-          showStatusEffect: effect.showStatusEffect ?? (effect.type === "counter" || effect.type === "reflect" ? false : undefined),
-          isSecret: Boolean(skill.isSecret || effect.isSecret || effect.type === "counter" || effect.type === "reflect"),
+          type: appliedEffect.type,
+          turns: appliedEffect.duration,
+          targetType: appliedEffect.targetType,
+          count: appliedEffect.count ?? appliedEffect.value,
+          random: appliedEffect.random,
+          effects: Array.isArray(appliedEffect.effects) ? appliedEffect.effects : [],
+          skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
+          familiesAffected: appliedEffect.familiesAffected,
+          trigger: appliedEffect.trigger,
+          charges: appliedEffect.charges ?? appliedEffect.value ?? 1,
+          reflectTo: appliedEffect.reflectTo,
+          showStatusEffect: appliedEffect.showStatusEffect ?? (appliedEffect.type === "counter" || appliedEffect.type === "reflect" ? false : undefined),
+          isSecret: Boolean(skill.isSecret || appliedEffect.isSecret || appliedEffect.type === "counter" || appliedEffect.type === "reflect"),
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: [statusDescription(effect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
         });
-        if (effect.type === "addEffectToBase" || effect.type === "addUncountereable" || effect.type === "addNonReflectable") totalAddedBaseEffects += 1;
-        if (effect.type === "replaceEffects") totalAddedBaseEffects += 1;
+        if (appliedEffect.ignoredByEffectImmunity !== true && (appliedEffect.type === "addEffectToBase" || appliedEffect.type === "addUncountereable" || appliedEffect.type === "addNonReflectable")) totalAddedBaseEffects += 1;
+        if (appliedEffect.ignoredByEffectImmunity !== true && appliedEffect.type === "replaceEffects") totalAddedBaseEffects += 1;
       }
       continue;
     }
@@ -1770,24 +1897,26 @@ export function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "shield") {
       for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
         const shieldBefore = shieldValue(target);
-        const value = positiveEffectValue(effect);
+        const value = positiveEffectValue(appliedEffect);
         addStatus(target, {
           id: randomUUID(),
           type: "shield",
           turns: null,
           value,
           remainingShield: value,
-          isStackable: effect.isStackable,
+          isStackable: appliedEffect.isStackable,
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: [statusDescription({ ...effect, remainingShield: value }, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingShield: value }, actorCharacter)]
         });
         target.shield = shieldValue(target);
-        totalShield += Math.max(0, target.shield - shieldBefore);
+        if (appliedEffect.ignoredByEffectImmunity !== true) totalShield += Math.max(0, target.shield - shieldBefore);
       }
       continue;
     }
@@ -1795,20 +1924,22 @@ export function applyQueuedSkill(room, player, action) {
     if (effect.type === "stun") {
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
-        const value = positiveEffectValue(effect);
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        const value = positiveEffectValue(appliedEffect);
         addStatus(target, {
           id: randomUUID(),
           type: "stun",
           turns: value,
-          familiesAffected: stunFamiliesAffected(effect),
+          familiesAffected: stunFamiliesAffected(appliedEffect),
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: skill.id,
           sourceSkillName: skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: [statusDescription(effect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
         });
-        totalStun += value;
+        if (appliedEffect.ignoredByEffectImmunity !== true) totalStun += value;
       }
     }
 
@@ -1822,12 +1953,34 @@ export function applyQueuedSkill(room, player, action) {
         currentTurn: room.turn,
         addStatus,
         statusOrigin,
-        positiveEffectValue
+        positiveEffectValue,
+        effectForTargetImmunity
       });
     }
 
+    if (effect.type === "ignoreEffects") {
+      for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        addStatus(target, {
+          id: randomUUID(),
+          type: "ignoreEffects",
+          turns: appliedEffect.duration,
+          ignoreEffects: Array.isArray(appliedEffect.ignoreEffects) ? appliedEffect.ignoreEffects : [],
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
+        });
+      }
+    }
+
     if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
-      const affectedPlayers = affectedPlayersForChakraEffect(room, player, targets, effect);
+      const activeTargets = targets.filter((target) => effectForTargetImmunity(effect, target).ignoredByEffectImmunity !== true);
+      if (activeTargets.length === 0) continue;
+      const affectedPlayers = affectedPlayersForChakraEffect(room, player, activeTargets, effect);
       const amount = positiveEffectValue(effect);
       for (const affectedPlayer of affectedPlayers) {
         const changed = effect.type === "gain-chakra"
@@ -1846,6 +1999,7 @@ export function applyQueuedSkill(room, player, action) {
   }
 
   if (totalDamage > 0) events.push(`${actorCharacter.name} uso ${skill.name} e hizo ${totalDamage} dano.`);
+  if (totalLifePaid > 0) events.push(`${actorCharacter.name} pago ${totalLifePaid} de vida.`);
   if (totalInstakill > 0) events.push(`${actorCharacter.name} elimino ${totalInstakill} objetivo(s).`);
   if (totalHeal > 0) events.push(`${actorCharacter.name} curo ${totalHeal} de vida.`);
   if (totalShield > 0) events.push(`${actorCharacter.name} gano ${totalShield} de escudo.`);

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, Minus, Monitor, Plus, Search, Smartphone, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, LoaderCircle, Minus, Monitor, Plus, Search, Smartphone, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
@@ -315,9 +315,10 @@ function App() {
     frameRef.current = window.requestAnimationFrame(tick);
   }
 
-  function randomTrack(tracks) {
+  function randomTrack(tracks, excludeTrack = "") {
     if (!tracks.length) return "";
-    return tracks[Math.floor(Math.random() * tracks.length)];
+    const availableTracks = tracks.length > 1 ? tracks.filter((track) => track !== excludeTrack) : tracks;
+    return availableTracks[Math.floor(Math.random() * availableTracks.length)];
   }
 
   function battleAudioStateForPlayer(player, rival) {
@@ -327,13 +328,16 @@ function App() {
     return "neutral";
   }
 
-  function bgmTrackForState(state) {
-    if (bgmCurrentStateRef.current === state && bgmCurrentTrackRef.current) {
+  function bgmTrackForState(state, { forceNew = false } = {}) {
+    if (!forceNew && bgmCurrentStateRef.current === state && bgmCurrentTrackRef.current) {
       return bgmCurrentTrackRef.current;
     }
-    if (state === "advantage") return randomTrack(advantageBgmTracks) || bgmBaseTrackRef.current;
-    if (state === "disadvantage") return randomTrack(disadvantageBgmTracks) || bgmBaseTrackRef.current;
-    return bgmBaseTrackRef.current || randomTrack(bgmTracks);
+    const currentTrack = bgmCurrentTrackRef.current;
+    if (state === "advantage") return randomTrack(advantageBgmTracks, currentTrack) || bgmBaseTrackRef.current;
+    if (state === "disadvantage") return randomTrack(disadvantageBgmTracks, currentTrack) || bgmBaseTrackRef.current;
+    const track = forceNew ? randomTrack(bgmTracks, currentTrack) : bgmBaseTrackRef.current || randomTrack(bgmTracks);
+    if (state === "neutral" && track) bgmBaseTrackRef.current = track;
+    return track;
   }
 
   function cancelBgmLoopFrame() {
@@ -343,7 +347,7 @@ function App() {
     }
   }
 
-  function scheduleBgmLoop(audio) {
+  function scheduleBgmLoop(audio, state) {
     cancelBgmLoopFrame();
     let fadedOutForLoop = false;
 
@@ -361,11 +365,13 @@ function App() {
           fadeAudioWithFrame(audio, 0, remainingMs, bgmFadeFrameRef);
         }
         if (remainingMs <= 80) {
+          const nextTrack = bgmTrackForState(state, { forceNew: true });
+          bgmLoopFrameRef.current = 0;
+          audio.pause();
           audio.currentTime = 0;
-          audio.volume = 0;
-          fadedOutForLoop = false;
-          audio.play().catch(() => {});
-          fadeAudioWithFrame(audio, musicVolume * BGM_VOLUME_RATIO, BGM_FADE_MS, bgmFadeFrameRef);
+          if (bgmAudioRef.current === audio) bgmAudioRef.current = null;
+          if (nextTrack) switchBgm(nextTrack, state);
+          return;
         }
       }
 
@@ -392,7 +398,7 @@ function App() {
       audio.play()
         .then(() => {
           fadeAudioWithFrame(audio, musicVolume * BGM_VOLUME_RATIO, BGM_FADE_MS, bgmFadeFrameRef);
-          scheduleBgmLoop(audio);
+          scheduleBgmLoop(audio, state);
         })
         .catch(() => {
           // Browsers can block audio until the user interacts with the page.
@@ -796,6 +802,7 @@ function App() {
       {notice && <div className="notice">{notice}</div>}
       {!assetProgress.done && (
         <div className="asset-preload-bar" aria-label="Descargando assets">
+          <LoaderCircle size={12} aria-hidden="true" />
           <strong>{assetProgress.total ? Math.round((assetProgress.loaded / assetProgress.total) * 100) : 0}%</strong>
           <span style={{ width: `${assetProgress.total ? Math.round((assetProgress.loaded / assetProgress.total) * 100) : 0}%` }} />
         </div>
@@ -960,6 +967,15 @@ function CharacterSearch({ value, onChange, placeholder, disabled = false }) {
   );
 }
 
+function LoadingSpinner({ label = "Cargando vista" }) {
+  return (
+    <div className="loading-spinner" role="status" aria-live="polite">
+      <LoaderCircle size={26} aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 const chakraUsageTypes = [
   ...chakraTypes,
   { id: "neutralChakra", label: "Neutral", className: "neutral" }
@@ -1069,7 +1085,7 @@ function CharactersCatalog({ characters, onBack }) {
         </button>
       </div>
       <CharacterSearch value={search} onChange={setSearch} placeholder="Buscar personaje" />
-      <div className="character-grid">
+      {characters.length === 0 ? <LoadingSpinner label="Cargando personajes" /> : <div className="character-grid">
         {pageCharacters.map((character) => (
           <button
             key={character.id}
@@ -1080,7 +1096,7 @@ function CharactersCatalog({ characters, onBack }) {
           </button>
         ))}
         {pageCharacters.length === 0 && <p className="character-empty">No hay personajes para esa busqueda.</p>}
-      </div>
+      </div>}
       <div className="pagination" aria-label="Paginacion de personajes">
         <button type="button" className="icon-button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
           <ChevronLeft size={18} />
@@ -1186,7 +1202,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
           </button>
         </div>
         <CharacterSearch value={search} onChange={setSearch} placeholder="Buscar personaje" disabled={me?.ready} />
-        <div className="character-grid">
+        {characters.length === 0 ? <LoadingSpinner label="Cargando personajes" /> : <div className="character-grid">
           {pageCharacters.map((character) => (
             <button
               key={character.id}
@@ -1198,7 +1214,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
             </button>
           ))}
           {pageCharacters.length === 0 && <p className="character-empty">No hay personajes para esa busqueda.</p>}
-        </div>
+        </div>}
         <div className="pagination" aria-label="Paginacion de personajes">
           <button type="button" className="icon-button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1 || me?.ready}>
             <ChevronLeft size={18} />
@@ -1287,6 +1303,8 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
   const chakraTotal = totalChakra(me?.chakra);
   const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNeutralChakra);
+  const ownBattleShare = playerHealthShare(me, opponent);
+  const enemyBattleShare = playerHealthShare(opponent, me);
 
   useEffect(() => {
     setPendingSkillId("");
@@ -1373,6 +1391,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           title={me?.name || "Tu equipo"}
           player={me}
           active={isMyTurn}
+          disadvantage={ownBattleShare <= 1 - ADVANTAGE_HEALTH_SHARE}
           actorId={actorId}
           targetId={targetId}
           eligibleTargetIds={eligibleTargetIds}
@@ -1460,6 +1479,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           title={opponent?.name || "Rival"}
           player={opponent}
           active={room.activePlayerId === opponent?.id}
+          disadvantage={enemyBattleShare <= 1 - ADVANTAGE_HEALTH_SHARE}
           targetId={targetId}
           eligibleTargetIds={eligibleTargetIds}
           choosingTarget={Boolean(pendingSkill)}
@@ -1811,12 +1831,48 @@ function QueuePanel({ title, queue, removable, onRemove, onMove }) {
   );
 }
 
-function Team({ title, player, active, actorId, targetId, eligibleTargetIds = new Set(), choosingTarget = false, onInspect, onPick, targetable = false, ownTeam = false }) {
+function damageSeverityClass(damage, maxHp) {
+  const percent = maxHp > 0 ? (damage / maxHp) * 100 : 0;
+  if (percent <= 0) return "";
+  if (percent <= 20) return "damage-minor";
+  if (percent <= 40) return "damage-light";
+  if (percent <= 60) return "damage-major";
+  return "damage-critical";
+}
+
+function Team({ title, player, active, disadvantage = false, actorId, targetId, eligibleTargetIds = new Set(), choosingTarget = false, onInspect, onPick, targetable = false, ownTeam = false }) {
+  const previousHpRef = useRef(new Map());
+  const [damageAnimations, setDamageAnimations] = useState({});
+
+  useEffect(() => {
+    const nextHp = new Map();
+    const nextAnimations = {};
+    for (const member of player?.team || []) {
+      const previousHp = previousHpRef.current.get(member.id);
+      nextHp.set(member.id, member.hp);
+      if (previousHp === undefined || member.hp >= previousHp) continue;
+      const severity = damageSeverityClass(previousHp - member.hp, member.character.maxHp);
+      if (severity) nextAnimations[member.id] = { severity, token: `${member.hp}-${Date.now()}` };
+    }
+    previousHpRef.current = nextHp;
+    if (Object.keys(nextAnimations).length === 0) return;
+    setDamageAnimations((current) => ({ ...current, ...nextAnimations }));
+    const timeout = window.setTimeout(() => {
+      setDamageAnimations((current) => {
+        const remaining = { ...current };
+        for (const memberId of Object.keys(nextAnimations)) delete remaining[memberId];
+        return remaining;
+      });
+    }, 720);
+    return () => window.clearTimeout(timeout);
+  }, [player?.team]);
+
   return (
-    <div className={`team ${player?.side || ""} ${active ? "active" : ""}`}>
+    <div className={`team ${player?.side || ""} ${active ? "active" : ""} ${disadvantage ? "disadvantage" : ""}`}>
       <h2>{title}</h2>
       <div className="fighters">
         {player?.team.map((member) => {
+          const damageAnimation = damageAnimations[member.id];
           const eligible = choosingTarget && eligibleTargetIds.has(member.id);
           const invulnerable = targetable && hasStatus(member, "invulnerable");
           const untargetable = invulnerable && !eligible;
@@ -1825,8 +1881,9 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
           const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");
           return (
             <div
-              className={`fighter ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
+              className={`fighter ${damageAnimation ? `damage-shake ${damageAnimation.severity}` : ""} ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
               key={member.id}
+              data-damage-token={damageAnimation?.token}
               onClick={() => {
                 onInspect?.(member);
                 if (selectable) onPick?.(member, ownTeam);

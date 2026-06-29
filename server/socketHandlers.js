@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { characters } from "../shared/characters.js";
+import { GAME_VERSION } from "../shared/config.js";
 import { createBotPlayer, scheduleBotIfNeeded } from "./bot.js";
 import { emptyChakra } from "./chakra.js";
 import {
@@ -81,7 +82,7 @@ export function registerSocketHandlers(io, {
         queue: [],
         team: []
       };
-      const bot = createBotPlayer(code);
+      const bot = createBotPlayer(code, { name: `Sote Bot V${GAME_VERSION}` });
       const room = {
         code,
         mode: "bot",

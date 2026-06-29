@@ -57,12 +57,12 @@ export const gaara = {
     {
       id: "sand-storm",
       name: "Tormenta de arena",
-      chakra: { neutralChakra: 1 },
+      chakra: { neutralChakra: 2 },
       targetType: "enemies",
       description: "Gaara invoca una tormenta de arena que inflige 20 puntos de daño a todos los enemigos.",
       effects: [{ type: "damage", value: 20, targets: "enemies" }],
       isExtraSkill: true,
-      family:["chakra","instant"]
+      family:["chakra","instant"],
     }
 
   ]

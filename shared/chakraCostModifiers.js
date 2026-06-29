@@ -31,9 +31,12 @@ export function applyChakraCostModifiers(baseCost = {}, modifiers = []) {
 
 export function modifiedSkillChakraCost(actor, skill) {
   const modifiers = (actor?.statusEffects || [])
+    .filter((effect) => effect.ignoredByEffectImmunity !== true)
     .flatMap((effect) => {
       if (effect.type === "complex" && effect.turns > 0) {
-        return (effect.effects || []).filter((childEffect) => appliesToCostModifiedSkill({ ...childEffect, turns: 1 }, skill));
+        return (effect.effects || [])
+          .filter((childEffect) => childEffect.ignoredByEffectImmunity !== true)
+          .filter((childEffect) => appliesToCostModifiedSkill({ ...childEffect, turns: 1 }, skill));
       }
       return appliesToCostModifiedSkill(effect, skill) ? [effect] : [];
     });

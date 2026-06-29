@@ -74,6 +74,7 @@ export function statusEffectMeta(effect) {
   if (effect.type === "shield") return "Escudo";
   if (effect.type === "skill-uses") return "Usos restantes";
   if (effect.turns === -1) return "Permanente";
+  if (effect.turns === 1) return "Termina este turno";
   if (effect.type === "complex") return `Turnos restantes: ${effect.turns}`;
   if (effect.type === "damage-reduction") return `Turnos restantes: ${effect.turns}`;
   return `Turnos restantes: ${effect.turns}`;
@@ -100,7 +101,9 @@ export function effectDescription(effect) {
   if (effect.type === "allyCountStatus") {
     const shield = Number(effect.shieldPerAlly || 0);
     const reduction = Number(effect.damageReductionPerAlly || 0);
-    const maxShield = Number.isFinite(Number(effect.maxShield)) ? `, max ${effect.maxShield} escudo` : "";
+    const maxShield = Number(effect.maxShieldPerAlly || 0) > 0
+      ? `, max ${effect.maxShieldPerAlly} escudo por aliado`
+      : (Number.isFinite(Number(effect.maxShield)) ? `, max ${effect.maxShield} escudo` : "");
     return `Por aliado vivo: ${reduction} reduccion de dano, ${shield} escudo${maxShield}`;
   }
   if (effect.type === "modifyDamage") {
@@ -133,6 +136,7 @@ export function effectDescription(effect) {
     return `Limita objetivos: ${effect.count ?? effect.value}${effect.random === false ? "" : " al azar"}${duration}${scope}`;
   }
   if (effect.type === "addEffectToBase") {
+    if (Array.isArray(effect.descriptions) && effect.descriptions.length > 0) return effect.descriptions.join(" ");
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const duration = durationDescription(effect.duration);
     const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
@@ -172,8 +176,10 @@ export function effectDescription(effect) {
     const scope = affectedFamilies.length ? ` (${skillFamiliesLabel(affectedFamilies)})` : "";
     return `Aturde: ${effect.value} turno(s)${scope}`;
   }
+  if (effect.type === "payLife") return `Paga vida: ${effect.value}${effect.notKill ? " (no puede matar)" : ""}`;
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion";
+  if (effect.type === "ignoreEffects") return `Ignora efectos: ${(effect.ignoreEffects || []).join(", ") || "ninguno"}`;
   if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;

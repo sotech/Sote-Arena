@@ -85,9 +85,9 @@ export const sasuke = {
       isExtraSkill: true,
       uncountereable: true,
       nonReflectable: true,
-      description: "Sasuke lanza llamas negras dirigidas a un objetivo. El objetivo recibe 20 dano de afliccion por 3 turnos. No puede ser contrarrestado ni reflejado e ignora invulnerabilidad.",
+      description: "Sasuke lanza llamas negras dirigidas a un objetivo. El objetivo recibe 15 dano de afliccion por 2 turnos. No puede ser contrarrestado ni reflejado e ignora invulnerabilidad.",
       effects: [
-        { type: "complex", duration: 3, targets: "target", effects: [{ type: "damage", value: 20, damageType: "affliction", targets: "self", ignoreInvulnerable: true }] }
+        { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, damageType: "affliction", targets: "self", ignoreInvulnerable: true }] }
       ],
       family: ["chakra", "instant", "offensive"]
     }

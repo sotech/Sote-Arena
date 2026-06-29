@@ -19,6 +19,7 @@ export const aizen = {
           isSecret: true,
           activationDelayTurns: 1,
           suppressSecretEndNotice: true,
+          descriptions: ["Este personaje fue marcado por Masacre paso flash y recibira 35 de dano perforante."],
           effects: [{ type: "damage", value: 35, targets: "self", damageType: "piercing", ignoreInvulnerable: true }]
         }
       ],
@@ -61,7 +62,17 @@ export const aizen = {
       targetType: "enemy",
       description: "Aizen aturde a un objetivo por 2 turnos. Por 2 turnos, el objetivo recibe 25 de dano. Esta habilidad puede ser cancelada si Aizen es aturdido.",
       effects: [
-        { type: "complex", duration: 2, targets: "self", mode: "cancelable", interruptFamilies: ["chakra", "instant"], statusLinkId: "hado-90-black-coffin", showStatusEffect: true, effects: [] },
+        {
+          type: "complex",
+          duration: 2,
+          targets: "self",
+          mode: "cancelable",
+          interruptFamilies: ["chakra", "instant"],
+          statusLinkId: "hado-90-black-coffin",
+          showStatusEffect: true,
+          descriptions: ["Hado 90: Cofre negro puede ser cancelado si Aizen es aturdido."],
+          effects: []
+        },
         {
           type: "complex",
           duration: 2,

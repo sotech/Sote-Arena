@@ -33,8 +33,11 @@ export function isQueuedActor(player, actorId) {
 
 export function hasStatus(member, type) {
   return (member?.statusEffects || []).some((effect) => {
+    if (effect.ignoredByEffectImmunity === true) return false;
     if (effect.type === type && effect.turns > 0) return true;
-    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => childEffect.type === type);
+    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => (
+      childEffect.ignoredByEffectImmunity !== true && childEffect.type === type
+    ));
   });
 }
 
@@ -47,10 +50,11 @@ function stunAffectsSkill(effect, skill) {
 
 export function isSkillStunned(member, skill) {
   return (member?.statusEffects || []).some((effect) => {
+    if (effect.ignoredByEffectImmunity === true) return false;
     if (effect.type === "stun" && effect.turns > 0) return stunAffectsSkill(effect, skill);
     if (effect.type !== "complex" || effect.turns <= 0) return false;
     return (effect.effects || []).some((childEffect) => (
-      childEffect.type === "stun" && stunAffectsSkill(childEffect, skill)
+      childEffect.ignoredByEffectImmunity !== true && childEffect.type === "stun" && stunAffectsSkill(childEffect, skill)
     ));
   });
 }

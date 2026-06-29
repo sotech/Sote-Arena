@@ -33,9 +33,9 @@ export const mai = {
       name: "Lamidas",
       chakra: { neutralChakra: 2 },
       targetType: "otherAlly",
-      description: "Mai lame a un aliado que no sea ella misma. Durante 2 turnos, ese aliado recupera 10 de salud. Esta habilidad puede ser interrumpida.",
+      description: "Mai lame a un aliado que no sea ella misma. Durante 2 turnos, ese aliado recupera 15 de salud. Esta habilidad puede ser interrumpida.",
       effects: [
-        { type: "heal", value: 10, targets: "target" },
+        { type: "heal", value: 15, targets: "target" },
         { type: "complex", duration: 1, targets: "target", mode: "interruptible", effects: [{ type: "heal", value: 10, targets: "self" }] }
       ],
       cooldown: 3,
@@ -48,9 +48,9 @@ export const mai = {
       trigger: "battleStart",
       chakra: {},
       targetType: "self",
-      description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 10 de reduccion de dano y 10 de escudo. El escudo no puede superar 40.",
+      description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 10 de reduccion de dano y 10 de escudo cada turno. El escudo no puede superar 10 por aliado vivo.",
       effects: [
-        { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 10, shieldPerAlly: 10, maxShield: 40 }
+        { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 10, shieldPerAlly: 10, maxShieldPerAlly: 10, maxShield: 20 }
       ],
       family: ["mental", "instant"]
     }

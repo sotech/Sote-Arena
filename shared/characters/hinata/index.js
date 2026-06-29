@@ -13,7 +13,7 @@ export const hinata = {
       effects: [
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
       ],
-      cooldown: 1,
+      cooldown: 2,
       family: ["physical", "instant", "offensive"]
     },
     {
@@ -35,12 +35,14 @@ export const hinata = {
               type: "addEffectToBase",
               targets: "self",
               skillIds: ["gentle-fist"],
+              descriptions: ["Puno suave ahora remueve 1 chakra."],
               effects: [{ type: "complex", duration: 2, targets: "target", effects: [{ type: "remove-chakra", value: 1, targets: "self" }] }]
             },
             {
               type: "addEffectToBase",
               targets: "self",
               skillIds: ["chakra-seal"],
+              descriptions: ["Sello de chakra otorga 15 de escudo no acumulable a los aliados."],
               effects: [{ type: "shield", value: 15, targets: "allies", isStackable: false }]
             },
             { type: "modifyDamage", value: 5, targets: "self", skillIds: ["chakra-seal"] },

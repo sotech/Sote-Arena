@@ -19,9 +19,11 @@ function skillReplacementApplies(effect, baseSkill) {
 
 export function replacementEffectsForSkill(member, baseSkill) {
   return (member?.statusEffects || []).flatMap((effect, index) => {
+    if (effect.ignoredByEffectImmunity === true) return [];
     if (skillReplacementApplies(effect, baseSkill)) return [effect];
     if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
       return (effect.effects || [])
+        .filter((childEffect) => childEffect.ignoredByEffectImmunity !== true)
         .map((childEffect) => ({ ...childEffect, turns: childEffect.duration === -1 ? -1 : 1, createdTurn: effect.createdTurn, statusIndex: index }))
         .filter((childEffect) => skillReplacementApplies(childEffect, baseSkill));
     }
@@ -38,9 +40,11 @@ function targetTypeModifierApplies(effect, skill) {
 
 function targetTypeModifiersForSkill(member, skill) {
   return (member?.statusEffects || []).flatMap((effect, index) => {
+    if (effect.ignoredByEffectImmunity === true) return [];
     if (targetTypeModifierApplies(effect, skill)) return [{ ...effect, statusIndex: index }];
     if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
       return (effect.effects || [])
+        .filter((childEffect) => childEffect.ignoredByEffectImmunity !== true)
         .map((childEffect) => ({ ...childEffect, turns: childEffect.duration === -1 ? -1 : 1, createdTurn: effect.createdTurn, statusIndex: index }))
         .filter((childEffect) => targetTypeModifierApplies(childEffect, skill));
     }
