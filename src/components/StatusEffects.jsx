@@ -97,44 +97,60 @@ export function StatusEffects({ member, effects }) {
     );
   }
 
+  function badgeValue(group) {
+    if (group.effects.some((effect) => effect.type === "skill-uses")) {
+      return statusEffectGroupValue(group);
+    }
+    if (group.effects.some((effect) => effect.type === "shield" || effect.type === "modifyDamage")) {
+      return statusEffectGroupValue(group);
+    }
+    if (group.effects.some((effect) => effect.type === "complex" && (effect.effects || []).some((child) => child.type === "modifyDamage"))) {
+      return statusEffectGroupValue(group);
+    }
+    return null;
+  }
+
   if (!effects.length) return <span className="status-row" aria-label="Sin efectos" />;
 
   return (
     <span className="status-row" ref={rowRef}>
-      {groups.map((group) => (
-        <span
-          className={`status-icon ${group.className} ${openEffectId === group.id ? "open" : ""}`}
-          key={group.id}
-          tabIndex={0}
-          onMouseEnter={(event) => {
-            if (!isDesktopTooltip()) return;
-            setHoverEffectId(group.id);
-            positionDesktopTooltip(event.currentTarget);
-          }}
-          onMouseLeave={() => {
-            setHoverEffectId("");
-          }}
-          onFocus={(event) => {
-            if (!isDesktopTooltip()) return;
-            setHoverEffectId(group.id);
-            positionDesktopTooltip(event.currentTarget);
-          }}
-          onBlur={() => {
-            setHoverEffectId("");
-          }}
-          onClick={(event) => {
-            event.stopPropagation();
-            positionDesktopTooltip(event.currentTarget);
-            setOpenEffectId((current) => (current === group.id ? "" : group.id));
-          }}
-        >
-          <img src={skillImage(group.sourceSkillId)} alt={group.sourceSkillName} />
-          <b>{statusEffectGroupValue(group)}</b>
-          <span className="status-tooltip inline-status-tooltip" role="tooltip">
-            {tooltipContent(group)}
+      {groups.map((group) => {
+        const value = badgeValue(group);
+        return (
+          <span
+            className={`status-icon ${group.className} ${openEffectId === group.id ? "open" : ""}`}
+            key={group.id}
+            tabIndex={0}
+            onMouseEnter={(event) => {
+              if (!isDesktopTooltip()) return;
+              setHoverEffectId(group.id);
+              positionDesktopTooltip(event.currentTarget);
+            }}
+            onMouseLeave={() => {
+              setHoverEffectId("");
+            }}
+            onFocus={(event) => {
+              if (!isDesktopTooltip()) return;
+              setHoverEffectId(group.id);
+              positionDesktopTooltip(event.currentTarget);
+            }}
+            onBlur={() => {
+              setHoverEffectId("");
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              positionDesktopTooltip(event.currentTarget);
+              setOpenEffectId((current) => (current === group.id ? "" : group.id));
+            }}
+          >
+            <img src={skillImage(group.sourceSkillId)} alt={group.sourceSkillName} />
+            {value !== null && <b>{value}</b>}
+            <span className="status-tooltip inline-status-tooltip" role="tooltip">
+              {tooltipContent(group)}
+            </span>
           </span>
-        </span>
-      ))}
+        );
+      })}
       {activeGroup && tooltipPosition && createPortal(
         <span
           className={`status-tooltip status-tooltip-portal ${tooltipPosition.placement}`}

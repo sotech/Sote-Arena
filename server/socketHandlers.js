@@ -101,6 +101,32 @@ export function registerSocketHandlers(io, {
       broadcast(room);
     });
 
+    socket.on("room:createBotVsBot", (_payload, callback) => {
+      const code = createRoomCode(rooms);
+      const bot1 = createBotPlayer(code, { id: `bot-1-${code}`, name: "Bot 1", side: "red" });
+      const bot2 = createBotPlayer(code, { id: `bot-2-${code}`, name: "Bot 2", side: "blue" });
+      const room = {
+        code,
+        mode: "bot-vs-bot",
+        phase: "lobby",
+        players: [bot1, bot2],
+        viewers: [{ socketId: socket.id, playerId: bot1.id }],
+        activePlayerId: null,
+        winnerId: null,
+        finishReason: null,
+        turn: 0,
+        chat: [],
+        log: ["Partida Bot vs Bot creada."]
+      };
+      rooms.set(code, room);
+      socketRooms.set(socket.id, code);
+      socket.join(code);
+      maybeStart(room);
+      scheduleBotIfNeeded(room, botEngine());
+      callback?.({ ok: true, room: publicRoom(room, bot1.id), playerId: bot1.id });
+      broadcast(room);
+    });
+
     socket.on("room:join", ({ code, name }, callback) => {
       const playerName = cleanPlayerName(name);
       if (!playerName) {
@@ -237,6 +263,20 @@ export function registerSocketHandlers(io, {
       broadcast(room);
     });
 
+    socket.on("bot:togglePause", (_payload, callback) => {
+      const code = socketRooms.get(socket.id);
+      const room = rooms.get(code);
+      if (!room || room.mode !== "bot-vs-bot") {
+        callback?.({ ok: false, error: "No hay una partida Bot vs Bot para pausar." });
+        return;
+      }
+      room.botPaused = !room.botPaused;
+      room.botTurnInProgress = false;
+      if (!room.botPaused) scheduleBotIfNeeded(room, botEngine());
+      callback?.({ ok: true, paused: room.botPaused });
+      broadcast(room);
+    });
+
     socket.on("battle:exchangeChakra", ({ receivedType, spent }, callback) => {
       const code = socketRooms.get(socket.id);
       const room = rooms.get(code);
@@ -316,6 +356,10 @@ export function registerSocketHandlers(io, {
         callback?.({ ok: false, error: "No estas en una sala." });
         return;
       }
+      if (room.mode !== "pvp") {
+        callback?.({ ok: false, error: "El chat esta deshabilitado en este modo." });
+        return;
+      }
 
       const player = findPlayer(room, socket.id);
       if (!player) {
@@ -338,6 +382,8 @@ export function registerSocketHandlers(io, {
       const code = socketRooms.get(socket.id);
       const room = rooms.get(code);
       if (!room) return;
+
+      room.viewers = (room.viewers || []).filter((viewer) => viewer.socketId !== socket.id);
 
       const player = findPlayer(room, socket.id);
       if (player) {

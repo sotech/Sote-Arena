@@ -16,7 +16,7 @@ export const gaara = {
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
       ],
       cooldown: 1,
-      family:["physical","instant"]
+      family:["physical","instant","offensive"]
     },
     {
       id: "sand-shield",
@@ -29,7 +29,7 @@ export const gaara = {
         { type: "complex", duration: 2, targets: "self", effects: [{ type: "modifyChakraCost", chakra: { neutralChakra: -1 }, targets: "self", skillIds: ["sand-coffin"] }] }
       ],
       cooldown: 2,
-      family:["chakra","instant"]
+      family:["chakra","instant","offensive"]
     },
     {
       id: "sand-armor",

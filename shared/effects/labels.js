@@ -2,6 +2,8 @@ const skillFamilyLabels = {
   physical: "fisicas",
   chakra: "chakra",
   mental: "mental",
+  channeled: "canalizadas",
+  offensive: "ofensivas",
   instant: "instantaneas"
 };
 
@@ -9,6 +11,8 @@ const skillClassLabels = {
   physical: "fisica",
   chakra: "chakra",
   mental: "mental",
+  channeled: "canalizada",
+  offensive: "ofensiva",
   instant: "instantanea"
 };
 

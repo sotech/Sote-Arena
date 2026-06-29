@@ -55,11 +55,25 @@ export function isSkillStunned(member, skill) {
   });
 }
 
+function effectIgnoresInvulnerability(effect) {
+  if (!effect) return false;
+  if (effect.ignoreInvulnerable === true || effect.ignoreInvulnerability === true) return true;
+  if (effect.type === "complex") return (effect.effects || []).some((childEffect) => effectIgnoresInvulnerability(childEffect));
+  return false;
+}
+
+export function skillIgnoresInvulnerability(skill) {
+  return (skill?.effects || []).some((effect) => effectIgnoresInvulnerability(effect));
+}
+
 export function eligibleTargetsForSkill(skill, me, opponent, actor) {
   if (!skill || !actor || actor.hp <= 0) return [];
 
   const allies = (me?.team || []).filter((member) => member.hp > 0);
-  const enemies = (opponent?.team || []).filter((member) => member.hp > 0 && !hasStatus(member, "invulnerable"));
+  const canTargetInvulnerableEnemies = skillIgnoresInvulnerability(skill);
+  const enemies = (opponent?.team || []).filter((member) => (
+    member.hp > 0 && (canTargetInvulnerableEnemies || !hasStatus(member, "invulnerable"))
+  ));
 
   if (skill.targetType === "self") return actor.hp > 0 ? [actor] : [];
   if (skill.targetType === "ally" || skill.targetType === "allies") return allies;

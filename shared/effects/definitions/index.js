@@ -6,6 +6,7 @@ import { complexEffect } from "./complex.js";
 import { counterEffect } from "./counter.js";
 import { damageEffect } from "./damage.js";
 import { damageReductionEffect } from "./damageReduction.js";
+import { effectImmunityEffect } from "./effectImmunity.js";
 import { gainChakraEffect } from "./gainChakra.js";
 import { healEffect } from "./heal.js";
 import { instakillEffect } from "./instakill.js";
@@ -32,6 +33,7 @@ export const effectTypes = {
   "self-heal": selfHealEffect,
   shield: shieldEffect,
   "damage-reduction": damageReductionEffect,
+  "effect-immunity": effectImmunityEffect,
   allyCountStatus: allyCountStatusEffect,
   modifyDamage: modifyDamageEffect,
   modifyDamageByMissingHp: modifyDamageByMissingHpEffect,

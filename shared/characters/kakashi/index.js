@@ -14,7 +14,7 @@ export const kakashi = {
         { type: "damage", value: 50, damageType: "piercing", targets: "target" },
         { type: "instakill", targets: "target", when: { type: "hasStatusEffect", effectId: "ninken-trap" } }
       ],
-      family:["chakra","instant"],
+      family:["chakra","instant","offensive"],
       cooldown: 1
     },
     {
@@ -41,7 +41,7 @@ export const kakashi = {
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 2, targets: "self" }] }
       ],
       cooldown: 1,
-      family:["physical","instant"]
+      family:["physical","instant","offensive"]
     },
     {
       id: "substitution-jutsu",

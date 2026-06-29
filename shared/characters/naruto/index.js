@@ -5,44 +5,45 @@ export const naruto = {
   maxHp: 100,
   skills: [
     {
-      id: "rasengan",
-      name: "Rasengan",
+      id: "oodama-rasengan",
+      name: "Oodama Rasengan",
       chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
-      description: "Preparando su tecnica insignia, Naruto inflige 35 de dano a un enemigo y lo aturde 1 turno.",
+      description: "Naruto inflige 40 de dano a un enemigo. Ignora invulnerabilidad. Durante el siguiente turno despues de usar Chakra del Kyubi, esta habilidad aturde 1 turno.",
       effects: [
-        { type: "damage", value: 35, targets: "target"},
-        { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
+        { type: "damage", value: 40, targets: "target", ignoreInvulnerable: true },
+        { type: "stun", value: 1, targets: "target", require: { scope: "self", type: "hasStatusEffect", effectId: "kyuubi-chakra" } }
       ],
       cooldown: 1,
-      family:["chakra","instant"]
+      family: ["chakra", "instant", "offensive"]
     },
     {
-      id: "shadow-clones",
-      name: "Clones de sombra",
+      id: "multi-shadow-clones",
+      name: "Multi clones de sombra",
       chakra: { neutralChakra: 2 },
       targetType: "enemies",
-      description: "Una multitud de clones de sombra atacan a los enemigos y les inflige 15 de dano a todos los enemigos. Naruto obtiene 15 puntos de defensa destructible. No se puede acumularse consigo mismo.",
+      description: "Naruto inflige 20 de dano a todos los enemigos. Por 1 turno ignora todos los efectos que no sean dano o sanacion.",
       effects: [
-        { type: "damage", value: 15, targets: "target" },
-        { type: "shield", value: 15, targets: "self", isStackable: false }
-      ],
-      cooldown: 1,
-      family:["physical","instant"]
-    },
-    {
-      id: "uzumaki-resolve",
-      name: "Voluntad Uzumaki",
-      chakra: { bloodline: 2 },
-      targetType: "self",
-      description: "Naruto recurre al zorro para obtener poder, recupera 15 de vida y gana 1 chakra de Taijutsu y 1 chakra de Ninjutsu.",
-      effects: [
-        { type: "self-heal", value: 15, targets: "self" },
-        { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
-        { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" }
+        { type: "damage", value: 20, targets: "target" },
+        { type: "complex", duration: 1, targets: "self", effects: [{ type: "effect-immunity", targets: "self" }] }
       ],
       cooldown: 2,
-      family:["mental","instant"]
+      family: ["physical", "instant", "offensive"]
+    },
+    {
+      id: "kyuubi-chakra",
+      name: "Chakra del Kyubi",
+      chakra: { bloodline: 1 },
+      targetType: "self",
+      description: "Naruto gana 1 chakra de Taijutsu y 1 chakra de Ninjutsu. Naruto pierde 5 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
+      effects: [
+        { type: "damage", value: 5, damageType: "affliction", targets: "self" },
+        { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
+        { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" },
+        { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] }
+      ],
+      cooldown: 2,
+      family: ["mental", "instant"]
     },
     {
       id: "substitution-jutsu",
@@ -52,7 +53,7 @@ export const naruto = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family:["physical","instant"]
+      family: ["physical", "instant"]
     }
   ]
 };

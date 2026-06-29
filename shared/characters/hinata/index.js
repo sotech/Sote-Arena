@@ -14,7 +14,7 @@ export const hinata = {
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
       ],
       cooldown: 1,
-      family: ["physical", "instant"]
+      family: ["physical", "instant", "offensive"]
     },
     {
       id: "byakugan-guard",
@@ -49,7 +49,7 @@ export const hinata = {
         }
       ],
       cooldown: 4,
-      family: ["chakra", "instant"]
+      family: ["chakra", "instant", "offensive"]
     },
     {
       id: "chakra-seal",

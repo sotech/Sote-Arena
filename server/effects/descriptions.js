@@ -3,9 +3,9 @@ import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
 import { skillFamiliesLabel, stunFamiliesAffected } from "../../shared/effects.js";
 
 export function statusDescription(effect, actorCharacter) {
-  if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo destruible.`;
+  if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo.`;
   if (effect.type === "instakill") return `${actorCharacter.name} ha ejecutado a este personaje.`;
-  if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value} de reduccion de dano.`;
+  if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value}${effect.percent ? "%" : ""} de reduccion de dano.`;
   if (effect.type === "allyCountStatus") return `${actorCharacter.name} ha ganado proteccion por sus aliados vivos.`;
   if (effect.type === "modifyDamage") return `${actorCharacter.name} ha modificado el dano de este personaje en ${effect.value}.`;
   if (effect.type === "modifyDamageByMissingHp") return `${actorCharacter.name} ha modificado el dano de este personaje segun su vida faltante.`;
@@ -23,15 +23,16 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "complex") return `${actorCharacter.name} ha aplicado un efecto complejo.`;
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
   if (effect.type === "invulnerable") return `${actorCharacter.name} ha vuelto invulnerable a este personaje.`;
+  if (effect.type === "effect-immunity") return `${actorCharacter.name} ignora efectos que no sean dano o sanacion.`;
   return `${actorCharacter.name} ha aplicado ${effect.type} a este personaje.`;
 }
 
 export function shieldDescriptions(effect) {
-  return [`Este personaje tiene ${effect.remainingShield || 0} de escudo destruible.`];
+  return [`Este personaje tiene ${effect.remainingShield || 0} de escudo.`];
 }
 
 export function damageReductionDescriptions(effect) {
-  return [`${effect.sourceActorName || "Un personaje"} ha obtenido ${effect.value} de reduccion de dano.`];
+  return [`${effect.sourceActorName || "Un personaje"} ha obtenido ${effect.value}${effect.percent ? "%" : ""} de reduccion de dano.`];
 }
 
 export function damageTypeLabel(type = "basic") {
@@ -115,8 +116,8 @@ export function simpleEffectDescription(effect) {
   if (effect.type === "damage") return `Inflige ${effect.value} de ${damageTypeLabel(effect.damageType)}.`;
   if (effect.type === "instakill") return "Mata instantaneamente.";
   if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
-  if (effect.type === "shield") return `Otorga ${effect.value} de escudo destruible.`;
-  if (effect.type === "damage-reduction") return `Otorga ${effect.value} de reduccion de dano.`;
+  if (effect.type === "shield") return `Otorga ${effect.value} de escudo.`;
+  if (effect.type === "damage-reduction") return `Otorga ${effect.value}${effect.percent ? "%" : ""} de reduccion de dano.`;
   if (effect.type === "allyCountStatus") {
     const shield = Number(effect.shieldPerAlly || 0);
     const reduction = Number(effect.damageReductionPerAlly || 0);
@@ -160,6 +161,7 @@ export function simpleEffectDescription(effect) {
     return `${effect.type === "substituteChakraCost" ? "Sustituye" : "Modifica"} coste de chakra${scope}${summary ? ` (${summary})` : ""}.`;
   }
   if (effect.type === "invulnerable") return "Otorga invulnerabilidad.";
+  if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion.";
   if (effect.type === "stun") {
     const affectedFamilies = stunFamiliesAffected(effect);
     const scope = affectedFamilies.length ? ` a las habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";

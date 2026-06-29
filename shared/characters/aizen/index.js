@@ -23,7 +23,7 @@ export const aizen = {
         }
       ],
       cooldown: 1,
-      family: ["physical", "instant"]
+      family: ["physical", "instant", "offensive"]
     },
     {
       id: "kyouka-suijetsu-scatter",
@@ -31,7 +31,7 @@ export const aizen = {
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 30 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta y canalizada.",
+      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 30 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
       effects: [
         { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] },
         {
@@ -76,7 +76,7 @@ export const aizen = {
         }
       ],
       cooldown: 3,
-      family: ["chakra", "instant"]
+      family: ["chakra", "instant", "offensive"]
     },
     {
       id: "false-corpse",

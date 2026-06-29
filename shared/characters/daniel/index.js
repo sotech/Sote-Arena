@@ -13,7 +13,7 @@ export const daniel = {
       effects: [
         { type: "damage", value: 30, targets: "target" }
       ],
-      family: ["physical","instant"]
+      family: ["physical","instant","offensive"]
     },
     {
       id: "cats-blessing",
@@ -45,7 +45,7 @@ export const daniel = {
         { type: "shield", value: 15, targets: "allies", isStackable: false }
       ],
       cooldown: 1,
-      family:["physical","instant"]
+      family:["physical","instant","offensive"]
     },
     {
       id: "nine-lives",

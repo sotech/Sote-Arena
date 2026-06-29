@@ -32,6 +32,8 @@ export function groupStatusEffects(effects = []) {
 }
 
 export function statusEffectGroupValue(group) {
+  const usesEffect = group.effects.find((effect) => effect.type === "skill-uses");
+  if (usesEffect) return usesEffect.remainingUses ?? usesEffect.value;
   const damageModifier = groupStatusDamageModifierValue(group);
   if (damageModifier !== null) return damageModifier > 0 ? `+${damageModifier}` : String(damageModifier);
   if (group.effects.some((effect) => effect.turns === -1)) return "∞";
@@ -69,7 +71,8 @@ export function statusEffectValue(effect) {
 }
 
 export function statusEffectMeta(effect) {
-  if (effect.type === "shield") return "Escudo destruible";
+  if (effect.type === "shield") return "Escudo";
+  if (effect.type === "skill-uses") return "Usos restantes";
   if (effect.turns === -1) return "Permanente";
   if (effect.type === "complex") return `Turnos restantes: ${effect.turns}`;
   if (effect.type === "damage-reduction") return `Turnos restantes: ${effect.turns}`;
@@ -92,8 +95,8 @@ export function effectDescription(effect) {
   if (effect.type === "instakill") return "Muerte instantanea";
   if (effect.type === "heal") return `Cura: ${effect.value}`;
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
-  if (effect.type === "shield") return `Escudo destruible: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
-  if (effect.type === "damage-reduction") return `Reduccion de dano: ${effect.value} por ${effect.duration} turno(s)`;
+  if (effect.type === "shield") return `Escudo: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
+  if (effect.type === "damage-reduction") return `Reduccion de dano: ${effect.value}${effect.percent ? "%" : ""} por ${effect.duration} turno(s)`;
   if (effect.type === "allyCountStatus") {
     const shield = Number(effect.shieldPerAlly || 0);
     const reduction = Number(effect.damageReductionPerAlly || 0);
@@ -170,6 +173,7 @@ export function effectDescription(effect) {
     return `Aturde: ${effect.value} turno(s)${scope}`;
   }
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
+  if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion";
   if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;

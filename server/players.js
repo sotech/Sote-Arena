@@ -1,6 +1,26 @@
 import { randomUUID } from "node:crypto";
 import { getCharacterById } from "../shared/characters.js";
 
+function skillUsesLimit(skill) {
+  return Math.max(0, Number(skill?.uses ?? skill?.maxUses ?? 0));
+}
+
+function skillUsesStatus(character, skill, remainingUses) {
+  return {
+    id: `uses-${skill.id}`,
+    type: "skill-uses",
+    turns: -1,
+    value: remainingUses,
+    remainingUses,
+    showStatusEffect: true,
+    sourceSkillId: skill.id,
+    sourceSkillName: skill.name,
+    sourceActorName: character.name,
+    createdTurn: 0,
+    descriptions: [`${skill.name} puede usarse ${remainingUses} veces mas.`]
+  };
+}
+
 export function cloneCooldowns(cooldowns) {
   return { ...(cooldowns || {}) };
 }
@@ -33,13 +53,18 @@ export function ownerOfMember(room, member) {
 export function createTeam(characterIds) {
   return characterIds.map((characterId) => {
     const character = getCharacterById(characterId);
+    const usesStatuses = (character.skills || [])
+      .map((skill) => ({ skill, limit: skillUsesLimit(skill) }))
+      .filter(({ limit }) => limit > 0)
+      .map(({ skill, limit }) => skillUsesStatus(character, skill, limit));
     return {
       id: `${characterId}-${randomUUID()}`,
       characterId,
       hp: character.maxHp,
       shield: 0,
       skillCooldowns: {},
-      statusEffects: []
+      skillUses: {},
+      statusEffects: usesStatuses
     };
   });
 }

@@ -18,7 +18,7 @@ export const kankuro = {
           bonusWhen: [{ bonus: 10, require: { type: "hasStatusEffect", effectId: "stun" } }]
         }
       ],
-      family:["physical","instant"]
+      family:["physical","instant","offensive"]
     },
     {
       id: "iron-puppet-barrage",
@@ -30,7 +30,7 @@ export const kankuro = {
         { type: "complex", duration: 4, targets: "enemies", effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }] }
       ],
       cooldown: 3,
-      family:["physical","instant"]
+      family:["physical","instant","offensive"]
     },
     {
       id: "puppet-preparation",
@@ -58,8 +58,8 @@ export const kankuro = {
       chakra: { neutralChakra: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Coloca una trampa de marionetas en un objetivo. Durante el siguiente turno, la primera habilidad usada por ese objetivo sera countereada.",
-      effects: [{ type: "counter", duration: 1, targets: "target", trigger: "outgoing", charges: 1 }],
+      description: "Coloca una trampa de marionetas en un objetivo. Durante el siguiente turno, la primera habilidad ofensiva usada por ese objetivo sera countereada.",
+      effects: [{ type: "counter", duration: 1, targets: "target", trigger: "outgoing", charges: 1, familiesAffected: ["offensive"] }],
       cooldown: 4,
       family:["physical","instant"]
     }

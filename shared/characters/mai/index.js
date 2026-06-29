@@ -14,7 +14,7 @@ export const mai = {
         { type: "damage", value: 5, damageType: "piercing", targets: "target" },
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
       ],
-      family: ["physical", "instant"]
+      family: ["physical", "instant", "offensive"]
     },
     {
       id: "prrr",
@@ -35,7 +35,8 @@ export const mai = {
       targetType: "otherAlly",
       description: "Mai lame a un aliado que no sea ella misma. Durante 2 turnos, ese aliado recupera 10 de salud. Esta habilidad puede ser interrumpida.",
       effects: [
-        { type: "complex", duration: 2, targets: "target", mode: "interruptible", effects: [{ type: "heal", value: 10, targets: "self" }] }
+        { type: "heal", value: 10, targets: "target" },
+        { type: "complex", duration: 1, targets: "target", mode: "interruptible", effects: [{ type: "heal", value: 10, targets: "self" }] }
       ],
       cooldown: 3,
       family: ["physical", "instant"]

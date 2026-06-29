@@ -15,7 +15,7 @@ export const kakuzu = {
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] },
         { type: "replaceSkill", baseSkillId: "fuuton-pressure-damage", skillId: "katon-inferno-fire", targets: "self", duration: -1 }
       ],
-      family: ["chakra", "instant"]
+      family: ["chakra", "instant", "offensive"]
     },
     {
       id: "raiton-false-lightning",
@@ -27,7 +27,7 @@ export const kakuzu = {
         { type: "damage", value: 30, damageType: "piercing", targets: "target" },
         { type: "replaceSkill", baseSkillId: "raiton-false-lightning", skillId: "suiton-suijenki", targets: "self", duration: -1, showStatusEffect: false }
       ],
-      family: ["chakra", "instant"]
+      family: ["chakra", "instant", "offensive"]
     },
     {
       id: "heart-steal",
@@ -40,7 +40,7 @@ export const kakuzu = {
         { type: "instakill", targets: "target" },
         { type: "heal", value: 50, targets: "self" }
       ],
-      family: ["physical", "instant"],
+      family: ["physical", "instant", "offensive"],
       cooldown: 4
     },
     {
@@ -63,7 +63,7 @@ export const kakuzu = {
         { type: "damage", value: 15, damageType: "affliction", targets: "target" },
         { type: "replaceSkill", baseSkillId: "fuuton-pressure-damage", skillId: "fuuton-pressure-damage", targets: "self", duration: -1 }
       ],
-      family: ["chakra", "instant"],
+      family: ["chakra", "instant", "offensive"],
       isExtraSkill: true,
       hideUntilReplaced: true
     },

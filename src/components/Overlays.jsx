@@ -1,6 +1,17 @@
 import { Swords, X } from "lucide-react";
 
-export function OptionsModal({ sfxVolume, musicVolume, canSurrender = false, onSfxVolumeChange, onMusicVolumeChange, onSurrender, onClose }) {
+export function OptionsModal({
+  sfxVolume,
+  musicVolume,
+  canSurrender = false,
+  primaryActionLabel = "",
+  onPrimaryAction,
+  onSfxVolumeChange,
+  onMusicVolumeChange,
+  onSurrender,
+  onClose
+}) {
+  const showPrimaryAction = Boolean(primaryActionLabel && onPrimaryAction);
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="options-title">
       <div className="options-modal">
@@ -33,6 +44,11 @@ export function OptionsModal({ sfxVolume, musicVolume, canSurrender = false, onS
         {canSurrender && (
           <button type="button" className="surrender-button" onClick={onSurrender}>
             Rendirse
+          </button>
+        )}
+        {showPrimaryAction && (
+          <button type="button" className="surrender-button" onClick={onPrimaryAction}>
+            {primaryActionLabel}
           </button>
         )}
       </div>

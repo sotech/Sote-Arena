@@ -1,8 +1,6 @@
 import React from "react";
 import { ChevronLeft } from "lucide-react";
-import patchNotesHtml from "../../patch-notes.html?raw";
-
-const PATCH_NOTES_BODY = patchNotesHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] || patchNotesHtml;
+import { PatchNotesContent } from "./PatchNotesContent.jsx";
 
 export function PatchNotesView({ onBack }) {
   return (
@@ -17,7 +15,9 @@ export function PatchNotesView({ onBack }) {
           Volver
         </button>
       </div>
-      <div className="patch-notes-content" dangerouslySetInnerHTML={{ __html: PATCH_NOTES_BODY }} />
+      <div className="patch-notes-content">
+        <PatchNotesContent />
+      </div>
     </section>
   );
 }

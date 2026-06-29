@@ -18,6 +18,7 @@ import { targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
 import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter } from "../shared/skillReplacements.js";
+import { GAME_VERSION } from "../shared/config.js";
 import "./styles.css";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
@@ -32,7 +33,7 @@ const RESULT_AUDIO_FADE_MS = 1000;
 const BGM_FADE_MS = 1000;
 const BGM_VOLUME_RATIO = 0.5;
 const ADVANTAGE_HEALTH_SHARE = 0.68;
-const GAME_VERSION = "1.2.0";
+const PATCH_NOTES_SEEN_KEY = `sote-arena-patch-notes-seen-${GAME_VERSION}`;
 const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
 const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
@@ -53,6 +54,7 @@ function App() {
   const [sfxVolume, setSfxVolume] = useState(0.5);
   const [musicVolume, setMusicVolume] = useState(0.5);
   const [mobilePreview, setMobilePreview] = useState(false);
+  const [patchNotesPopupOpen, setPatchNotesPopupOpen] = useState(false);
   const turnAudioRef = useRef(null);
   const messageAudioRef = useRef(null);
   const resultAudioRef = useRef(null);
@@ -83,6 +85,12 @@ function App() {
       socket.off("characters", setCharacters);
       socket.off("room:update", setRoom);
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.localStorage.getItem(PATCH_NOTES_SEEN_KEY) === "true") return;
+    setPatchNotesPopupOpen(true);
   }, []);
 
   useEffect(() => {
@@ -599,6 +607,17 @@ function App() {
     setRoom(response.room);
   }
 
+  async function createBotVsBotRoom() {
+    setError("");
+    const response = await callSocket("room:createBotVsBot", {});
+    if (!response.ok) {
+      setError(response.error);
+      return;
+    }
+    setPlayerId(response.playerId);
+    setRoom(response.room);
+  }
+
   async function joinRoom() {
     setError("");
     const playerName = name.trim();
@@ -694,6 +713,12 @@ function App() {
     return true;
   }
 
+  async function toggleBotPause() {
+    setError("");
+    const response = await callSocket("bot:togglePause", {});
+    if (!response.ok) setError(response.error);
+  }
+
   function copyRoomCode() {
     if (room?.mode === "bot") return;
     navigator.clipboard?.writeText(room.code);
@@ -771,6 +796,7 @@ function App() {
       {notice && <div className="notice">{notice}</div>}
       {!assetProgress.done && (
         <div className="asset-preload-bar" aria-label="Descargando assets">
+          <strong>{assetProgress.total ? Math.round((assetProgress.loaded / assetProgress.total) * 100) : 0}%</strong>
           <span style={{ width: `${assetProgress.total ? Math.round((assetProgress.loaded / assetProgress.total) * 100) : 0}%` }} />
         </div>
       )}
@@ -782,6 +808,7 @@ function App() {
             setHomeView("play");
           }}
           onPlayBot={createBotRoom}
+          onPlayBotVsBot={createBotVsBotRoom}
           onCharacters={() => {
             setError("");
             setHomeView("characters");
@@ -855,6 +882,7 @@ function App() {
           onConfirm={confirmTeam}
           onUnconfirm={unconfirmTeam}
           onSendChat={sendChatMessage}
+          onToggleBotPause={toggleBotPause}
         />
       )}
 
@@ -876,6 +904,7 @@ function App() {
           onExchangeChakra={exchangeChakra}
           onUndoChakraExchange={undoChakraExchange}
           onSendChat={sendChatMessage}
+          onToggleBotPause={toggleBotPause}
         />
       )}
 
@@ -885,10 +914,20 @@ function App() {
           sfxVolume={sfxVolume}
           musicVolume={musicVolume}
           canSurrender={room?.phase === "battle" && !me?.isBot}
+          primaryActionLabel={room?.mode === "bot-vs-bot" ? "Salir de modo ia vs ia" : ""}
+          onPrimaryAction={room?.mode === "bot-vs-bot" ? returnHome : undefined}
           onSfxVolumeChange={setSfxVolume}
           onMusicVolumeChange={setMusicVolume}
           onSurrender={surrender}
           onClose={() => setOptionsOpen(false)}
+        />
+      )}
+      {patchNotesPopupOpen && (
+        <PatchNotesPopup
+          onClose={() => {
+            window.localStorage.setItem(PATCH_NOTES_SEEN_KEY, "true");
+            setPatchNotesPopupOpen(false);
+          }}
         />
       )}
     </main>
@@ -949,6 +988,33 @@ function CharacterChakraUsage({ character }) {
           <b>{type.percent}%</b>
         </span>
       ))}
+    </div>
+  );
+}
+
+function TeamChakraUsage({ characters }) {
+  if (characters.length === 0) return null;
+  const totals = chakraUsageTypes.reduce((usage, type) => ({ ...usage, [type.id]: 0 }), {});
+  for (const character of characters) {
+    for (const skill of baseSkillsForCharacter(character)) {
+      for (const type of chakraUsageTypes) {
+        totals[type.id] += Math.max(0, Number(skill.chakra?.[type.id] || 0));
+      }
+    }
+  }
+  const totalChakraCost = Object.values(totals).reduce((total, amount) => total + amount, 0);
+  return (
+    <div className="character-chakra-usage team-chakra-usage" aria-label="Chakra usado por el equipo elegido">
+      {chakraUsageTypes.map((type) => {
+        const total = totals[type.id];
+        const percent = totalChakraCost > 0 ? Math.round((total / totalChakraCost) * 100) : 0;
+        return (
+          <span className="character-chakra-usage-item team-chakra-usage-item" key={type.id} aria-label={`${type.label}: ${percent}%`}>
+            <ChakraIcon type={type.id} />
+            <small>{percent}%</small>
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -1027,6 +1093,7 @@ function CharactersCatalog({ characters, onBack }) {
       {inspectedCharacter && (
         <footer className="character-skill-footer">
           <h3 className="inspected-character-name">{inspectedCharacter.name}</h3>
+          <p className="inspected-character-health">Vida: {inspectedCharacter.maxHp}</p>
           <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
             {inspectedSkills.map((skill) => (
               <button
@@ -1110,6 +1177,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
                   ))}
                 </div>
               )}
+              <TeamChakraUsage characters={selectedCharacters} />
             </div>
           </div>
           <button disabled={!me?.ready && selected.length !== 3} onClick={me?.ready ? onUnconfirm : onConfirm}>
@@ -1143,6 +1211,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
         {inspectedCharacter && (
           <footer className="character-skill-footer">
             <h3 className="inspected-character-name">{inspectedCharacter.name}</h3>
+            <p className="inspected-character-health">Vida: {inspectedCharacter.maxHp}</p>
             <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
               {inspectedSkills.map((skill) => (
                 <button
@@ -1162,7 +1231,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
           </footer>
         )}
       </div>
-      <aside className={`side-stack ${room.mode === "bot" ? "single-panel" : ""}`}>
+      <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>
         <section className="panel status side-main">
           <p className="eyebrow">{room.mode === "bot" ? "Partida vs IA" : `Sala ${room.code}`}</p>
           <h2>Jugadores</h2>
@@ -1178,13 +1247,13 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
             ))}
           </div>
         </section>
-        {room.mode !== "bot" && <ChatPanel messages={room.chat || []} onSend={onSendChat} />}
+        {room.mode === "pvp" && <ChatPanel messages={room.chat || []} onSend={onSendChat} />}
       </aside>
     </section>
   );
 }
 
-function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor, onActor, onTarget, onSkill, onEndTurn, onRemoveQueuedSkill, onMoveQueuedSkill, onExchangeChakra, onUndoChakraExchange, onSendChat }) {
+function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor, onActor, onTarget, onSkill, onEndTurn, onRemoveQueuedSkill, onMoveQueuedSkill, onExchangeChakra, onUndoChakraExchange, onSendChat, onToggleBotPause }) {
   const winner = room.players.find((player) => player.id === room.winnerId);
   const [inspectedSkillId, setInspectedSkillId] = useState("");
   const [inspectedMemberId, setInspectedMemberId] = useState("");
@@ -1200,6 +1269,10 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const selectedActorDisplaySkills = actionSkillsForMember(selectedActor, selectedActor?.character);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
   const pendingSkill = selectedActorSkills.find((skill) => skill.id === pendingSkillId);
+  const activePlayer = room.players.find((player) => player.id === room.activePlayerId);
+  const turnLabel = room.mode === "bot-vs-bot"
+    ? `Turno de ${activePlayer?.name || "bot"}`
+    : (isMyTurn ? "Tu turno" : "Turno rival");
   const pendingEligibleTargets = pendingSkill
     ? eligibleTargetsForSkill(pendingSkill, me, opponent, selectedActor)
       .filter((member) => meetsSkillRequirements(pendingSkill, me, opponent, selectedActor, [member]))
@@ -1311,14 +1384,20 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
         <div className="turn-panel card-combate" id="card-combate">
           <header className="turn-panel-header">
             <p className="eyebrow">Turno {room.turn}</p>
+            {room.mode === "bot-vs-bot" && (
+              <button type="button" className="icon-button bot-pause-button" onClick={onToggleBotPause} title={room.botPaused ? "Reanudar bots" : "Pausar bots"}>
+                {room.botPaused ? <Zap size={16} /> : <Minus size={16} />}
+              </button>
+            )}
             {room.phase === "finished" ? (
               <h2>Gano {winner?.name}</h2>
             ) : (
               <h2 className={isMyTurn ? "turn-title active-turn-title" : "turn-title"}>
-                <span>{isMyTurn ? "Tu turno" : "Turno rival"}</span>
+                <span>{turnLabel}</span>
               </h2>
             )}
           </header>
+          {room.mode === "bot" && room.botMessage && <p className="bot-speech">{room.botMessage}</p>}
           <div className="turn-chakra-column">
             <div className="chakra">
               <Zap size={18} />
@@ -1389,7 +1468,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           targetable
         />
       </div>
-      <aside className={`side-stack ${room.mode === "bot" ? "single-panel" : ""}`}>
+      <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>
         <CollapsiblePanel title="Registro" className="combat-log side-main">
           <div className="log">
             {room.log.map((item, index) => (
@@ -1397,7 +1476,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
             ))}
           </div>
         </CollapsiblePanel>
-        {room.mode !== "bot" && <ChatPanel messages={room.chat || []} onSend={onSendChat} collapsible />}
+        {room.mode === "pvp" && <ChatPanel messages={room.chat || []} onSend={onSendChat} collapsible />}
       </aside>
       <BattleSkillFooter member={inspectedMember} skill={inspectedSkill} onSkill={setInspectedSkillId} />
       {chakraExchangeOpen && (
@@ -1606,6 +1685,16 @@ function EndTurnConfirmModal({ onClose, onConfirm }) {
   );
 }
 
+function PatchNotesPopup({ onClose }) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="patch-notes-popup-title">
+      <div className="patch-notes-modal">
+        <PatchNotesView onBack={onClose} />
+      </div>
+    </div>
+  );
+}
+
 function BattleSkillFooter({ member, skill, onSkill }) {
   if (!member) return null;
   const skills = allSkillsForCharacter(member.character);
@@ -1728,8 +1817,9 @@ function Team({ title, player, active, actorId, targetId, eligibleTargetIds = ne
       <h2>{title}</h2>
       <div className="fighters">
         {player?.team.map((member) => {
-          const untargetable = targetable && hasStatus(member, "invulnerable");
           const eligible = choosingTarget && eligibleTargetIds.has(member.id);
+          const invulnerable = targetable && hasStatus(member, "invulnerable");
+          const untargetable = invulnerable && !eligible;
           const selectable = member.hp > 0 && (eligible || (!choosingTarget && ownTeam));
           const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.character.id);
           const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");

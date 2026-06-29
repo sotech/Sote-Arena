@@ -29,7 +29,7 @@ function absorbDamageReduction(member, damage) {
   let remainingDamage = damage;
   for (const effect of member.statusEffects || []) {
     if (remainingDamage <= 0) continue;
-    if (effect.type === "damage-reduction") {
+    if (effect.type === "damage-reduction" && effect.percent !== true) {
       const blocked = Math.min(effect.remainingReduction || 0, remainingDamage);
       effect.remainingReduction = (effect.remainingReduction || 0) - blocked;
       effect.descriptions = damageReductionDescriptions(effect);
@@ -39,7 +39,7 @@ function absorbDamageReduction(member, damage) {
     if (effect.type === "complex" && effect.turns > 0) {
       effect.remainingReductions = effect.remainingReductions || {};
       for (const [index, childEffect] of (effect.effects || []).entries()) {
-        if (childEffect.type !== "damage-reduction" || remainingDamage <= 0) continue;
+        if (childEffect.type !== "damage-reduction" || childEffect.percent === true || remainingDamage <= 0) continue;
         const currentReduction = effect.remainingReductions[index] ?? childEffect.value;
         const blocked = Math.min(currentReduction || 0, remainingDamage);
         effect.remainingReductions[index] = Math.max(0, currentReduction - blocked);
@@ -49,6 +49,21 @@ function absorbDamageReduction(member, damage) {
     }
   }
   return damage - remainingDamage;
+}
+
+function percentDamageReductionValue(member) {
+  return (member.statusEffects || []).reduce((total, effect) => {
+    if (effect.type === "damage-reduction" && effect.percent === true) {
+      return Math.min(100, total + Math.max(0, Number(effect.value || 0)));
+    }
+    if (effect.type === "complex" && effect.turns > 0) {
+      const complexTotal = (effect.effects || [])
+        .filter((childEffect) => childEffect.type === "damage-reduction" && childEffect.percent === true)
+        .reduce((sum, childEffect) => sum + Math.max(0, Number(childEffect.value || 0)), 0);
+      return Math.min(100, total + complexTotal);
+    }
+    return total;
+  }, 0);
 }
 
 export function restoreDamageReduction(player) {
@@ -79,7 +94,10 @@ export function restoreDamageReduction(player) {
 
 export function applyDamage(target, value, damageType = "basic") {
   const type = damageType === "normal" ? "basic" : (["basic", "piercing", "affliction"].includes(damageType) ? damageType : "basic");
-  let remainingDamage = value;
+  const percentReduction = percentDamageReductionValue(target);
+  let remainingDamage = percentReduction > 0
+    ? Math.ceil(Math.max(0, value) * ((100 - percentReduction) / 100))
+    : value;
   if (type === "basic") {
     remainingDamage -= absorbDamageReduction(target, remainingDamage);
   }

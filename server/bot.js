@@ -1,9 +1,7 @@
 import { characters, getCharacterById } from "../shared/characters.js";
+import { BOT_TURN_DELAY_MS, BOT_VS_BOT_TURN_DELAY_MS } from "../shared/config.js";
 import { CHAKRA_TYPES, emptyChakra, queuedNeutralChakraCost } from "./chakra.js";
 import { createTeam, findPlayer, opponentOf } from "./players.js";
-
-const BOT_NAME = "Sote IA";
-const BOT_TURN_DELAY_MS = 2000;
 
 function weightedRandomItem(items) {
   const totalWeight = items.reduce((total, item) => total + Math.max(1, item.priority || 1), 0);
@@ -22,11 +20,11 @@ function randomTeamIds() {
     .map((character) => character.id);
 }
 
-export function createBotPlayer(roomCode) {
+export function createBotPlayer(roomCode, { id = `bot-${roomCode}`, name = "Bot 2", side = "blue" } = {}) {
   return {
-    id: `bot-${roomCode}`,
-    name: BOT_NAME,
-    side: "blue",
+    id,
+    name,
+    side,
     isBot: true,
     connected: true,
     ready: true,
@@ -129,12 +127,24 @@ function botActionPriority(room, bot, actor, skill, targetId, engine) {
   }
 
   if (description.includes("damage-")) priority += 8;
+  if (description.includes("stun-") && targetHasInterruptibleStatus(room, targetId, engine)) {
+    priority += 70;
+  }
   if (effectiveHealing > 0) {
     priority = Math.max(priority, 1 + Math.floor(effectiveHealing / 4));
     if (effectiveHealing >= 20) priority += 8;
     if (effectiveHealing >= 40) priority += 8;
   }
   return priority;
+}
+
+function targetHasInterruptibleStatus(room, targetId, engine) {
+  const target = engine.getRoomMember(room, targetId);
+  return (target?.statusEffects || []).some((effect) => (
+    effect.type === "complex"
+    && (effect.turns > 0 || effect.turns === -1)
+    && ["pauseOnStun", "interruptible", "cancelOnStun", "cancelable"].includes(effect.mode)
+  ));
 }
 
 function botSkillOptions(room, bot, engine) {
@@ -190,7 +200,7 @@ function playBotTurn(room, engine) {
 
 export function scheduleBotIfNeeded(room, engine) {
   const activePlayer = findPlayer(room, room.activePlayerId);
-  if (room?.phase !== "battle" || !activePlayer?.isBot || room.botTurnInProgress) return;
+  if (room?.phase !== "battle" || !activePlayer?.isBot || room.botTurnInProgress || room.botPaused) return;
 
   room.botTurnInProgress = true;
   playBotTurn(room, engine);
@@ -200,7 +210,7 @@ export function scheduleBotIfNeeded(room, engine) {
     const currentRoom = engine.rooms.get(room.code);
     const bot = currentRoom ? findPlayer(currentRoom, currentRoom.activePlayerId) : null;
     if (!currentRoom) return;
-    if (currentRoom.phase !== "battle" || !bot?.isBot) {
+    if (currentRoom.phase !== "battle" || !bot?.isBot || currentRoom.botPaused) {
       currentRoom.botTurnInProgress = false;
       return;
     }
@@ -210,5 +220,5 @@ export function scheduleBotIfNeeded(room, engine) {
     currentRoom.botTurnInProgress = false;
     engine.broadcast(currentRoom);
     scheduleBotIfNeeded(currentRoom, engine);
-  }, BOT_TURN_DELAY_MS);
+  }, room.mode === "bot-vs-bot" ? BOT_VS_BOT_TURN_DELAY_MS : BOT_TURN_DELAY_MS);
 }

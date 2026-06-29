@@ -5,59 +5,91 @@ export const sasuke = {
   maxHp: 100,
   skills: [
     {
-      id: "chidori",
-      name: "Chidori",
-      chakra: { ninjutsu: 1, bloodline: 1 },
+      id: "kusanagi-sword",
+      name: "Espada de Kusanagi",
+      chakra: { taijutsu: 1 },
       targetType: "enemy",
-      nonReflectable: true,
-      description: "Sasuke usa su version de Chidori, inflingiendo 35 de dano perforante a un enemigo. Solo puede usarse con Sharingan activo. Si el objetivo tiene 50 o menos de vida, esta habilidad hace 15 mas de dano. Esta habilidad no puede ser reflejada.",
-      requires: [{ type: "hasStatusEffect", effectId: "sharingan", message: "Chidori requiere Sharingan activo." }],
+      description: "Sasuke inflige 15 de dano perforante a un enemigo por 2 turnos. Esta habilidad puede ser interrumpida. Durante este tiempo cambia a Agarre serpiente.",
       effects: [
-        { type: "damage", value: 35, damageType: "piercing", targets: "target", bonusWhen: [{ bonus: 15, require: { type: "hasMaxHp", hp: 50 } }] }
+        { type: "complex", duration: 2, targets: "target", mode: "interruptible", effects: [{ type: "damage", value: 15, damageType: "piercing", targets: "self" }] },
+        { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "chidori", skillId: "snake-grab" }
       ],
-      family:["chakra","instant"]
+      cooldown: 3,
+      family: ["physical", "channeled", "offensive"]
     },
     {
-      id: "sharingan",
-      name: "Sharingan",
-      chakra: { bloodline: 1 },
+      id: "kirin",
+      name: "Kirin",
+      chakra: { ninjutsu: 2 },
+      targetType: "enemy",
+      uncountereable: true,
+      nonReflectable: true,
+      description: "Sasuke libera una descarga electrica sobre el enemigo. El enemigo recibe 45 dano. No puede ser contrarrestada ni reflejada. Si algun enemigo esta afectado por Espada de Kusanagi, ese enemigo tambien recibira 10 de afliccion que ignora invulnerabilidad, contrarrestar o reflejo.",
+      effects: [
+        { type: "damage", value: 45, targets: "target" },
+        { type: "damage", value: 10, damageType: "affliction", targets: "enemies", ignoreInvulnerable: true, require: { type: "hasStatusEffect", effectId: "kusanagi-sword" } }
+      ],
+      cooldown: 1,
+      family: ["chakra", "instant", "offensive"]
+    },
+    {
+      id: "mangekyou-sharingan",
+      name: "Mangekyou Sharingan",
+      chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "self",
-      description: "Sasuke activa su Sharingan, ganando 20 de reduccion de dano por 3 turnos y permitiendo usar Chidori.",
+      description: "Durante 3 turnos Sasuke gana 50% reduccion de dano. Durante este tiempo esta habilidad es reemplazada por Amaterasu.",
       effects: [
         {
           type: "complex",
           duration: 3,
           targets: "self",
           effects: [
-            { type: "damage-reduction", value: 20, targets: "self" },
+            { type: "damage-reduction", value: 50, percent: true, targets: "self" },
+            { type: "replaceSkill", baseSkillId: "mangekyou-sharingan", skillId: "amaterasu", targets: "self" }
           ]
         }
       ],
       cooldown: 4,
-      family:["mental","instant"]
+      family: ["mental", "instant"]
     },
     {
-      id: "curse-mark-leech",
-      name: "Marca maldita",
-      chakra: { bloodline: 1 },
+      id: "snake-grab",
+      name: "Agarre serpiente",
+      chakra: {taijutsu: 1},
       targetType: "enemy",
-      description: "Inflige 20 de dano afliccion a un enemigo y cura 20 de vida al lanzador.",
+      hideUntilReplaced: true,
+      isExtraSkill: true,
+      description: "Sasuke lanza serpientes de sus brazos atrapando al enemigo. Un enemigo recibe 10 de dano y queda aturdido 1 turno.",
       effects: [
-        { type: "damage", value: 20, damageType: "affliction", targets: "target" },
-        { type: "self-heal", value: 20, targets: "self" }
+        { type: "damage", value: 10, targets: "target" },
+        { type: "stun", value: 1, targets: "target" }
       ],
-      cooldown: 1,
-      family:["chakra","instant"]
+      family: ["physical", "instant", "offensive"]
     },
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
       chakra: { neutralChakra: 1 },
       targetType: "self",
-      description: "Vuelve invulnerable al lanzador durante 1 turno.",
+      description: "Sasuke se vuelve invulnerable 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family:["physical","instant"]
+      family: ["physical", "instant"]
+    },
+    {
+      id: "amaterasu",
+      name: "Amaterasu",
+      chakra: {ninjutsu: 1, neutralChakra: 1},
+      targetType: "enemy",
+      hideUntilReplaced: true,
+      isExtraSkill: true,
+      uncountereable: true,
+      nonReflectable: true,
+      description: "Sasuke lanza llamas negras dirigidas a un objetivo. El objetivo recibe 20 dano de afliccion por 3 turnos. No puede ser contrarrestado ni reflejado e ignora invulnerabilidad.",
+      effects: [
+        { type: "complex", duration: 3, targets: "target", effects: [{ type: "damage", value: 20, damageType: "affliction", targets: "self", ignoreInvulnerable: true }] }
+      ],
+      family: ["chakra", "instant", "offensive"]
     }
   ]
 };

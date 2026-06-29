@@ -9,12 +9,11 @@ export const cacho = {
       name: "Lariat de Cacho",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      uncountereable: true,
-      description: "Cacho utiliza un Lariat sobre el enemigo inflige 20 de dano a un enemigo. Esta habilidad no puede ser contrarrestada.",
+      description: "Cacho utiliza un Lariat sobre el enemigo e inflige 20 de dano a un enemigo.",
       effects: [
         { type: "damage", value: 20, targets: "target" }
         ],
-      family:["physical","instant"],
+      family:["physical","instant","offensive"],
       cooldown: 1
     },
     {
@@ -29,7 +28,7 @@ export const cacho = {
         { type: "damage", value: 10, damageType: "affliction", targets: "self" }
         ],
       cooldown: 3,
-      family:["chakra","instant"]
+      family:["chakra","instant","offensive"]
     },
     {
       id: "cigarrette-care",

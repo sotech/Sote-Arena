@@ -1,7 +1,7 @@
 import React from "react";
 import { FileText, Shield, Swords, Users, Zap } from "lucide-react";
 
-export function MainMenu({ onPlay, onPlayBot, onCharacters, onPatchNotes, onOptions }) {
+export function MainMenu({ onPlay, onPlayBot, onPlayBotVsBot, onCharacters, onPatchNotes, onOptions }) {
   return (
     <section className="panel main-menu">
       <button type="button" onClick={onPlay}>
@@ -11,6 +11,10 @@ export function MainMenu({ onPlay, onPlayBot, onCharacters, onPatchNotes, onOpti
       <button type="button" onClick={onPlayBot}>
         <Zap size={20} />
         Jugar vs IA
+      </button>
+      <button type="button" onClick={onPlayBotVsBot}>
+        <Swords size={20} />
+        Bot vs Bot
       </button>
       <button type="button" className="secondary" onClick={onCharacters}>
         <Users size={20} />

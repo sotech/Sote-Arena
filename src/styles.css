@@ -215,8 +215,88 @@ h2 {
   border: 1px solid #e5ebf2;
   border-radius: 8px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   padding: 18px;
+}
+
+.patch-notes-modal {
+  max-height: min(760px, calc(100dvh - 36px));
+  max-width: 760px;
+  overflow: auto;
+  width: min(100%, 760px);
+}
+
+.patch-notes-modal .patch-notes-view {
+  margin: 0;
+  max-width: none;
+}
+
+patch-notes-patch,
+character-patch {
+  background: #fff;
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+patch-notes-patch {
+  box-shadow: inset 4px 0 0 #17202a;
+}
+
+character-patch {
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+
+character-patch img {
+  border-radius: 8px;
+  grid-row: span 2;
+  height: 40px;
+  object-fit: cover;
+  width: 40px;
+}
+
+character-patch strong {
+  color: #17202a;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+character-patch ul {
+  grid-column: 2;
+}
+
+.patch-tag {
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  margin-right: 6px;
+  padding: 5px 7px;
+  text-transform: uppercase;
+}
+
+.patch-tag.buff {
+  background: #15803d;
+}
+
+.patch-tag.nerf {
+  background: #b42318;
+}
+
+.patch-tag.new {
+  background: #17202a;
+}
+
+.patch-tag.fix {
+  background: #6aa8ef;
+}
+
+.patch-tag.bot {
+  background: #e91805;
 }
 
 .patch-notes-content subheader {
@@ -278,7 +358,7 @@ label {
 
 .asset-preload-bar {
   background: rgba(23, 32, 42, 0.14);
-  height: 4px;
+  height: 14px;
   left: 0;
   overflow: hidden;
   position: fixed;
@@ -292,6 +372,17 @@ label {
   display: block;
   height: 100%;
   transition: width 180ms ease;
+}
+
+.asset-preload-bar strong {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  inset: 0;
+  line-height: 14px;
+  position: absolute;
+  text-align: center;
+  z-index: 1;
 }
 
 .modal-backdrop {
@@ -745,6 +836,13 @@ label {
   text-align: center;
 }
 
+.inspected-character-health {
+  color: #657483;
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+}
+
 .lobby-skill-strip {
   display: flex;
   flex-wrap: wrap;
@@ -786,6 +884,22 @@ label {
   font-size: 13px;
   font-weight: 900;
   line-height: 1;
+}
+
+.character-chakra-usage-item small {
+  color: #657483;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.team-chakra-usage-item {
+  gap: 5px;
+}
+
+.team-chakra-usage {
+  flex-basis: 100%;
+  justify-content: flex-start;
 }
 
 .square-img {
@@ -1931,13 +2045,32 @@ main.mobile-preview .skill-footer-meta {
 }
 
 .turn-panel-header {
-  display: grid;
+  align-items: center;
+  display: flex;
   gap: 4px;
+  justify-content: space-between;
 }
 
 .turn-panel-header p,
 .turn-panel-header h2 {
   margin: 0;
+}
+
+.bot-pause-button {
+  background: #17202a;
+  min-height: 30px;
+  width: 30px;
+}
+
+.bot-speech {
+  background: #fff7cc;
+  border: 1px solid #facc15;
+  border-radius: 8px;
+  color: #713f12;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.25;
+  padding: 8px 10px;
 }
 
 .turn-chakra-column {
@@ -2210,6 +2343,7 @@ main.mobile-preview .skill-footer-meta {
 
 .skill-footer-meta span {
   color: #657483;
+  font-size: 12px;
   font-weight: 800;
   min-width: 0;
 }
@@ -2226,6 +2360,7 @@ main.mobile-preview .skill-footer-meta {
 }
 
 .skill-footer-families {
+  font-size: 12px;
   margin: 0;
 }
 
