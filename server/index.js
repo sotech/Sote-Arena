@@ -114,6 +114,14 @@ function hasCustomDescriptions(effect) {
   return Array.isArray(effect?.descriptions) && effect.descriptions.length > 0;
 }
 
+function tooltipDescriptionForEffect(effect) {
+  return effect?.tooltipDescription
+    ?? effect?.tooltipDescripcion
+    ?? effect?.tooltipHtml
+    ?? effect?.["tooltip descripcion"]
+    ?? null;
+}
+
 function activeStatusEffects(member) {
   return (member?.statusEffects || []).filter((effect) => !statusIsIgnored(effect));
 }
@@ -575,6 +583,8 @@ export function isSkillStunned(member, skill) {
 }
 
 export function addStatus(member, status) {
+  const tooltipDescription = tooltipDescriptionForEffect(status);
+  if (tooltipDescription) status.tooltipDescription = tooltipDescription;
   if (status.type === "replaceSkill" && status.turns === -1 && status.showStatusEffect === undefined) {
     status.showStatusEffect = false;
   }
@@ -1245,7 +1255,8 @@ function applyComplexStatusEffects(room, player) {
               originActorId: status.originActorId,
               originCharacterId: status.originCharacterId,
               createdTurn: room.turn,
-              descriptions: [statusDescription({ ...effect, remainingShield: value }, memberCharacter)]
+              descriptions: [statusDescription({ ...effect, remainingShield: value }, memberCharacter)],
+              tooltipDescription: tooltipDescriptionForEffect(effect)
             });
             target.shield = shieldValue(target);
             totalShield += Math.max(0, target.shield - shieldBefore);
@@ -1379,7 +1390,8 @@ function addTriggeredEffectNotice(member, status, effect, currentTurn) {
     sourceSkillName: status.sourceSkillName || "Efecto disparado",
     sourceActorName: status.sourceActorName,
     createdTurn: currentTurn,
-    descriptions: [effect.statusNoticeDescription]
+    descriptions: [effect.statusNoticeDescription],
+    tooltipDescription: tooltipDescriptionForEffect(effect)
   });
 }
 
@@ -1430,6 +1442,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
           showStatusEffect: effect.showStatusEffect,
           isSecret: Boolean(effect.isSecret),
           descriptions: effect.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(effect),
           effects: snapshotComplexEffects(
             statusEffects,
             sourceMember,
@@ -1637,6 +1650,7 @@ export function applyQueuedSkill(room, player, action) {
           showStatusEffect: effect.showStatusEffect,
           isSecret: Boolean(skill.isSecret || effect.isSecret || effect.type === "counter" || effect.type === "reflect"),
           descriptions: effect.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(effect),
           effects: snapshotComplexEffects(
             statusEffects,
             actor,
@@ -1716,7 +1730,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingReduction: value }, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingReduction: value }, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageReduction += value;
       }
@@ -1760,7 +1775,8 @@ export function applyQueuedSkill(room, player, action) {
             sourceActorName: actorCharacter.name,
             ...statusOrigin(actor),
             createdTurn: room.turn,
-            descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ type: "damage-reduction", value: damageReductionValue, remainingReduction: damageReductionValue }, actorCharacter)]
+            descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ type: "damage-reduction", value: damageReductionValue, remainingReduction: damageReductionValue }, actorCharacter)],
+            tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
           });
           if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageReduction += damageReductionValue;
         }
@@ -1779,7 +1795,8 @@ export function applyQueuedSkill(room, player, action) {
             sourceActorName: actorCharacter.name,
             ...statusOrigin(actor),
             createdTurn: room.turn,
-            descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ type: "shield", value: shieldValueTotal, remainingShield: shieldValueTotal }, actorCharacter)]
+            descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ type: "shield", value: shieldValueTotal, remainingShield: shieldValueTotal }, actorCharacter)],
+            tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
           });
           target.shield = shieldValue(target);
           if (appliedEffect.ignoredByEffectImmunity !== true) totalShield += Math.max(0, target.shield - shieldBefore);
@@ -1806,7 +1823,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageModifier += Number(appliedEffect.value || 0);
       }
@@ -1828,7 +1846,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageTypeModifiers += 1;
       }
@@ -1859,7 +1878,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true && (appliedEffect.type === "addEffectToBase" || appliedEffect.type === "addUncountereable" || appliedEffect.type === "addNonReflectable")) totalAddedBaseEffects += 1;
         if (appliedEffect.ignoredByEffectImmunity !== true && appliedEffect.type === "replaceEffects") totalAddedBaseEffects += 1;
@@ -1913,7 +1933,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingShield: value }, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingShield: value }, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         target.shield = shieldValue(target);
         if (appliedEffect.ignoredByEffectImmunity !== true) totalShield += Math.max(0, target.shield - shieldBefore);
@@ -1937,7 +1958,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalStun += value;
       }
@@ -1972,7 +1994,8 @@ export function applyQueuedSkill(room, player, action) {
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]
+          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)],
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
       }
     }

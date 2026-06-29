@@ -187,16 +187,20 @@ export function restoreDamageReduction(player) {
 
 export function applyDamage(target, value, damageType = "basic") {
   const type = damageType === "normal" ? "basic" : (["basic", "piercing", "affliction"].includes(damageType) ? damageType : "basic");
-  const percentReduction = type === "basic" ? percentDamageReductionValue(target) : 0;
-  let remainingDamage = percentReduction > 0
-    ? Math.ceil(Math.max(0, value) * ((100 - percentReduction) / 100))
-    : value;
-  if (type === "basic") {
-    remainingDamage -= absorbDamageReduction(target, remainingDamage);
-  }
+  let remainingDamage = Math.max(0, value);
+
   if (type === "basic" || type === "piercing") {
     remainingDamage -= absorbShield(target, remainingDamage);
   }
+
+  if (type === "basic") {
+    const percentReduction = percentDamageReductionValue(target);
+    if (percentReduction > 0) {
+      remainingDamage = Math.ceil(Math.max(0, remainingDamage) * ((100 - percentReduction) / 100));
+    }
+    remainingDamage -= absorbDamageReduction(target, remainingDamage);
+  }
+
   const dealt = Math.max(0, remainingDamage);
   target.hp = Math.max(0, target.hp - dealt);
   return dealt;

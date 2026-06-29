@@ -77,7 +77,27 @@ export function StatusEffects({ member, effects }) {
     return [`${skillName} aumenta su dano en ${bonus}`];
   }
 
+  function tooltipHtml(effect) {
+    return effect?.tooltipDescription
+      ?? effect?.tooltipDescripcion
+      ?? effect?.tooltipHtml
+      ?? effect?.["tooltip descripcion"]
+      ?? "";
+  }
+
+  function tooltipItems(group) {
+    return group.effects.flatMap((effect) => {
+      const descriptions = [
+        ...(effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]),
+        ...dynamicStatusDescriptions(effect)
+      ].map((description) => ({ type: "text", value: description }));
+      const html = tooltipHtml(effect);
+      return html ? [...descriptions, { type: "html", value: html }] : descriptions;
+    });
+  }
+
   function tooltipContent(group) {
+    const items = tooltipItems(group);
     return (
       <>
         <span className="status-tooltip-title">
@@ -85,11 +105,10 @@ export function StatusEffects({ member, effects }) {
           <strong>{group.sourceSkillName}</strong>
         </span>
         <ul>
-          {group.effects.flatMap((effect) => [
-            ...(effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]),
-            ...dynamicStatusDescriptions(effect)
-          ]).map((description, index) => (
-            <li key={`${description}-${index}`}>{description}</li>
+          {items.map((item, index) => (
+            item.type === "html"
+              ? <li key={`html-${index}`} dangerouslySetInnerHTML={{ __html: item.value }} />
+              : <li key={`${item.value}-${index}`}>{item.value}</li>
           ))}
         </ul>
         <small>{statusEffectGroupMeta(group)}</small>
@@ -98,13 +117,7 @@ export function StatusEffects({ member, effects }) {
   }
 
   function badgeValue(group) {
-    if (group.effects.some((effect) => effect.type === "skill-uses")) {
-      return statusEffectGroupValue(group);
-    }
-    if (group.effects.some((effect) => effect.type === "shield" || effect.type === "modifyDamage")) {
-      return statusEffectGroupValue(group);
-    }
-    if (group.effects.some((effect) => effect.type === "complex" && (effect.effects || []).some((child) => child.type === "modifyDamage"))) {
+    if (group.effects.some((effect) => effect.type === "shield")) {
       return statusEffectGroupValue(group);
     }
     return null;

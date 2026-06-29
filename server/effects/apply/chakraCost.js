@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { statusDescription } from "../descriptions.js";
 
+function tooltipDescriptionForEffect(effect) {
+  return effect?.tooltipDescription
+    ?? effect?.tooltipDescripcion
+    ?? effect?.tooltipHtml
+    ?? effect?.["tooltip descripcion"]
+    ?? null;
+}
+
 export function applyChakraCostModifierEffect({ targets, effect, skill, actor, actorCharacter, currentTurn, addStatus, statusOrigin }) {
   for (const target of targets) {
     addStatus(target, {
@@ -14,7 +22,8 @@ export function applyChakraCostModifierEffect({ targets, effect, skill, actor, a
       sourceActorName: actorCharacter.name,
       ...statusOrigin(actor),
       createdTurn: currentTurn,
-      descriptions: [statusDescription(effect, actorCharacter)]
+      descriptions: [statusDescription(effect, actorCharacter)],
+      tooltipDescription: tooltipDescriptionForEffect(effect)
     });
   }
 
