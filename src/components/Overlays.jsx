@@ -22,16 +22,6 @@ export function OptionsModal({
           </button>
         </header>
         <label>
-          SFX {Math.round(sfxVolume * 100)}%
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(sfxVolume * 100)}
-            onChange={(event) => onSfxVolumeChange(Number(event.target.value) / 100)}
-          />
-        </label>
-        <label>
           Musica {Math.round(musicVolume * 100)}%
           <input
             type="range"
@@ -41,6 +31,16 @@ export function OptionsModal({
             onChange={(event) => onMusicVolumeChange(Number(event.target.value) / 100)}
           />
         </label>
+        <label>
+          SFX {Math.round(sfxVolume * 100)}%
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={Math.round(sfxVolume * 100)}
+            onChange={(event) => onSfxVolumeChange(Number(event.target.value) / 100)}
+          />
+        </label>        
         {canSurrender && (
           <button type="button" className="surrender-button" onClick={onSurrender}>
             Rendirse
