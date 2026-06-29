@@ -23,7 +23,7 @@ export const aizen = {
           effects: [{ type: "damage", value: 35, targets: "self", damageType: "piercing", ignoreInvulnerable: true }]
         }
       ],
-      cooldown: 1,
+      cooldown: 2,
       family: ["physical", "instant", "offensive"]
     },
     {

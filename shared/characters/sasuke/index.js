@@ -64,7 +64,8 @@ export const sasuke = {
         { type: "damage", value: 10, targets: "target" },
         { type: "stun", value: 1, targets: "target" }
       ],
-      family: ["physical", "instant", "offensive"]
+      family: ["physical", "instant", "offensive"],
+      cooldown: 1
     },
     {
       id: "substitution-jutsu",

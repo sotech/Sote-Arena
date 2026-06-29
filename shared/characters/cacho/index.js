@@ -14,14 +14,13 @@ export const cacho = {
         { type: "damage", value: 20, targets: "target" }
         ],
       family:["physical","instant","offensive"],
-      cooldown: 1
     },
     {
       id: "smoke-hazard",
       name: "Humo peligroso",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 10 de daño de afliccion aturdiendo sus habilidades fisicas por 1 turno. Ademas cacho recibe 10 puntos de daño de afliccion.",
+      description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 15 de daño de afliccion aturdiendo sus habilidades fisicas por 1 turno. Ademas cacho recibe 10 puntos de daño de afliccion.",
       effects: [
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self", familiesAffected: ["physical"] }] },
         { type: "damage", value: 10, damageType: "affliction", targets: "target" },
@@ -35,9 +34,9 @@ export const cacho = {
       name: "Cuidados de cigarrillo",
       chakra: { neutralChakra: 2 },
       targetType: "self",
-      description: "Cacho fuma unos puchos. Cacho se restaura 15 de vida y gana 15 de reduccion de dano durante 2 turnos.",
+      description: "Cacho fuma unos puchos. Cacho se restaura 20 de vida y gana 15 de reduccion de dano durante 2 turnos.",
       effects: [
-        { type: "heal", value: 15, targets: "target" },
+        { type: "heal", value: 20, targets: "target" },
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage-reduction", value: 15, targets: "self" }] }
       ],
       cooldown: 3,

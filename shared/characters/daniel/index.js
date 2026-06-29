@@ -21,12 +21,12 @@ export const daniel = {
       chakra: { genjutsu: 1, taijutsu: 1 },
       targetType: "self",
       description: `Daniel-san invoca a su gata para que lo proteja. 
-          Durante 2 turnos, Patada de sombra ataca a todos los objetivos. Daniel-san obtiene 15 puntos de reduccion de daño durante este tiempo.`,
+          Durante 2 turnos, Patada de sombra ataca a todos los objetivos. Daniel-san obtiene 20 puntos de reduccion de daño durante este tiempo.`,
       effects: [
         { 
           type: "complex", duration: 2, targets: "self", effects: 
           [
-            { type: "damage-reduction", value: 15, targets: "self" },
+            { type: "damage-reduction", value: 20, targets: "self" },
             { type: "modifyTargetType", targetType: "enemies", targets: "self", skillIds: ["shadow-kick"] }
           ] 
       },

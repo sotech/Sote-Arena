@@ -54,6 +54,28 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+    <PatchNotesPatch patch="1.2.3">
+      <CharacterPatch id="aizen">
+        <Nerf>Masacre paso flash ahora tiene cooldown de 2.</Nerf>
+      </CharacterPatch>
+      <CharacterPatch id="cacho">
+        <Buff>Lariat de Cacho ahora no tiene cooldown.</Buff>
+        <Buff>Humo peligro de Cacho ahora hace 5 mas de daño de afliccion.</Buff>
+        <Buff>Cuidados de cigarrillo ahora cura 5 puntos mas de salud.</Buff>
+      </CharacterPatch>
+      <CharacterPatch id="daniel">
+        <Buff>Bendicion de gato otorga 5 mas de reduccion de daño.</Buff>
+      </CharacterPatch>
+      <CharacterPatch id="sasuke">
+        <Nerf>Agarre serpiente tiene cooldown de 1.</Nerf>
+      </CharacterPatch>
+      <CharacterPatch id="kankuro">
+        <Nerf>Rafaga de marionetas de hierro ahora hace 10 de daño por 2 turnos.</Nerf>
+      </CharacterPatch>
+      <CharacterPatch id="mai">
+        <Buff>Arañazo de gato ahora hace 10 de daño base</Buff>
+      </CharacterPatch>
+    </PatchNotesPatch>
     <PatchNotesPatch patch="1.2.2">
       <CharacterPatch id="hinata">
         <Nerf> Puño suave ahora tiene un cooldown de 2 turnos</Nerf>

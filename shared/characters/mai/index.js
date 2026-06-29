@@ -9,9 +9,9 @@ export const mai = {
       name: "Aranazo de gato",
       chakra: { neutralChakra: 1 },
       targetType: "enemy",
-      description: "Mai arana a un enemigo, infligiendo 5 de dano perforante. Cada uso aumenta permanentemente el dano de esta habilidad en 5.",
+      description: "Mai arana a un enemigo, infligiendo 10 de dano perforante. Cada uso aumenta permanentemente el dano de esta habilidad en 5.",
       effects: [
-        { type: "damage", value: 5, damageType: "piercing", targets: "target" },
+        { type: "damage", value: 10, damageType: "piercing", targets: "target" },
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
       ],
       family: ["physical", "instant", "offensive"]

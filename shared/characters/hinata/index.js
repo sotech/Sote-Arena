@@ -9,7 +9,7 @@ export const hinata = {
       name: "Puño suave",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Golpeando puntos de chakra fijos, Hinata inflige 15 de dano a un enemigo durante 2 turnos.",
+      description: "Golpeando puntos de chakra fijos, Hinata inflige 15 de dano a un enemigo durante 2 turnos. Durante Guardia Byakugan, esta habilidad tambien remueve 1 chakra cada turno por 2 turnos.",
       effects: [
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
       ],
@@ -58,7 +58,7 @@ export const hinata = {
       name: "Sello de chakra",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Golpeando nodos especificos del oponente, Hinata inflige 15 de dano a todos los enemigos.",
+      description: "Golpeando nodos especificos del oponente, Hinata inflige 15 de dano a todos los enemigos. Durante Guardia Byakugan, esta habilidad otorga 15 de escudo a los aliados",
       effects: [
         { type: "damage", value: 15, targets: "target" }
       ],
