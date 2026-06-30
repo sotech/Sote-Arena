@@ -41,8 +41,8 @@ export const dio = {
       chakra: { bloodline: 1 },
       targetType: "anyCharacter",
       description: `Dio absorbe la sangre de cualquiera que lo rodee. 
-      Si el objetivo es enemigo, hace 10 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 dano adicional durante 2 turnos. 
-      Si es aliado, hace 20 de daño de afliccion, Dio recupera 30 de vida y MUDA MUDA MUDA inflige 15 dano adicional durante 2 turnos. 
+      Si el objetivo es enemigo, hace 15 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 dano adicional durante 2 turnos. 
+      Si es aliado, hace 15 de daño de afliccion, Dio recupera 25 de vida y MUDA MUDA MUDA inflige 15 dano adicional durante 2 turnos. 
       .`,
       requires: [{ scope: "target", type: "characterId", operator: "ne", value: "dio", message: "Transferencia de Sangre no puede usarse sobre Dio." }],
       effects: [{
@@ -53,7 +53,7 @@ export const dio = {
           {
             relation: "enemy",
             effects: [
-              { type: "damage", value: 10, damageType: "affliction", targets: "target" },
+              { type: "damage", value: 15, damageType: "affliction", targets: "target" },
               { type: "self-heal", value: 15, targets: "self" },
               { type: "modifyDamage", value: 10, duration: 2, targets: "self", skillIds: ["muda-muda-muda"] }
             ]
@@ -61,8 +61,8 @@ export const dio = {
           {
             relation: "ally",
             effects: [
-              { type: "damage", value: 20, damageType: "affliction", targets: "target" },
-              { type: "self-heal", value: 30, targets: "self" },
+              { type: "damage", value: 15, damageType: "affliction", targets: "target" },
+              { type: "self-heal", value: 25, targets: "self" },
               { type: "modifyDamage", value: 15, duration: 2, targets: "self", skillIds: ["muda-muda-muda"] }
             ]
           }
@@ -76,13 +76,13 @@ export const dio = {
       name: "Stand: The World",
       chakra: { bloodline: 2 },
       targetType: "self",
-      description: "Dio invoca The World durante 3 turnos, obtiene 30% de reduccion de dano, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
+      description: "Dio invoca The World durante 3 turnos, obtiene 35% de reduccion de dano, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
       effects: [
-        { type: "damage-reduction", value: 30, percent: true, duration: 2, targets: "self" },
-        { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "muda-muda-muda", skillId: "abdomen-pierce" },
-        { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "stand-the-world", skillId: "the-world" }
+        { type: "damage-reduction", value: 35, percent: true, duration: 3, targets: "self" },
+        { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "muda-muda-muda", skillId: "abdomen-pierce" },
+        { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-the-world", skillId: "the-world" }
       ],
-      cooldown: 3,
+      cooldown: 4,
       family: ["strategic", "instant"]
     },
     {
@@ -113,8 +113,8 @@ export const dio = {
       name: "The World",
       chakra: { bloodline: 2 },
       targetType: "allPlayers",
-      description: "Dio detiene el tiempo. Todos excepto Dio quedan aturdidos durante 2 turnos.",
-      effects: [{ type: "stun", value: 2, targets: ["allies", "enemies"] }],
+      description: "Dio detiene el tiempo. Todos excepto Dio quedan aturdidos durante 1 turnos.",
+      effects: [{ type: "stun", value: 1, targets: ["allies", "enemies"] }],
       uncountereable: true,
       nonReflectable: true,
       isExtraSkill: true,
@@ -125,10 +125,10 @@ export const dio = {
     {
       id: "abdomen-pierce",
       name: "Perfora Abdomen",
-      chakra: { taijutsu: 1, neutralChakra: 1 },
+      chakra: { taijutsu: 1},
       targetType: "enemy",
-      description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 40 de dano. No puede ser contrarrestada ni reflejada.",
-      effects: [{ type: "damage", value: 40, targets: "target" }],
+      description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 50 de dano. No puede ser contrarrestada ni reflejada.",
+      effects: [{ type: "damage", value: 50, targets: "target" }],
       uncountereable: true,
       nonReflectable: true,
       isExtraSkill: true,

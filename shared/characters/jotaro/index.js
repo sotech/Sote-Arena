@@ -10,7 +10,7 @@ export const jotaro = {
       name: "ORA ORA ORA",
       chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "Star Platinum golpea a un enemigo. Rompe escudos e inflige 10 de dano durante 3 turnos. Con Star Platinum activo inflige 10 adicional por turno y no puede ser contrarrestada. Puede ser interrumpida.",
+      description: "Star Platinum golpea a un enemigo. Rompe escudos e inflige 15 de dano durante 3 turnos. Con Star Platinum activo inflige 10 adicional por turno y no puede ser contrarrestada. Puede ser interrumpida.",
       effects: [
         {
           type: "complex",
@@ -31,7 +31,7 @@ export const jotaro = {
           statusLinkId: "ora-ora-ora",
           effects: [
             { type: "breakShield", value: 1, targets: "self" },
-            { type: "damage", value: 10, targets: "self" }
+            { type: "damage", value: 15, targets: "self" }
           ]
         }
       ],
@@ -43,10 +43,10 @@ export const jotaro = {
       name: "Star Finger",
       chakra: { bloodline: 1 },
       targetType: "enemy",
-      description: "Star Platinum atraviesa defensas. Inflige 20 de dano perforante e ignora invulnerabilidad. Con Star Platinum activo inflige 10 adicional y no puede ser contrarrestada.",
+      description: "Star Platinum atraviesa defensas. Inflige 25 de dano perforante e ignora invulnerabilidad. Con Star Platinum activo inflige 10 adicional y no puede ser contrarrestada.",
       effects: [
         { type: "breakShield", value: 1, targets: "target", ignoreInvulnerable: true },
-        { type: "damage", value: 20, damageType: "piercing", targets: "target", ignoreInvulnerable: true }
+        { type: "damage", value: 25, damageType: "piercing", targets: "target", ignoreInvulnerable: true }
       ],
       cooldown: 1,
       family: ["physical", "offensive", "instant"]

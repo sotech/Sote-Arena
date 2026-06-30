@@ -724,7 +724,7 @@ function App() {
     setBalanceTestResult(null);
     setBalanceTestLoading(true);
     setHomeView("balance-test");
-    const response = await callSocket("test:runBalance", { fightCount: 500 });
+    const response = await callSocket("test:runBalance", { fightCount: 1000 });
     setBalanceTestLoading(false);
     if (!response.ok) {
       setError(response.error);
@@ -1188,7 +1188,7 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
                 aria-label="Resetear orden por mayor winrate"
               >
                 <RotateCcw size={16} />
-                Reset
+                Limpiar
               </button>
             </div>
           </header>

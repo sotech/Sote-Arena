@@ -47,6 +47,10 @@ export function Fix({ children }) {
   return <TaggedPatchItem type="fix" label="Fix">{children}</TaggedPatchItem>;
 }
 
+export function Balance({ children }) {
+  return <TaggedPatchItem type="balance" label="Balance">{children}</TaggedPatchItem>;
+}
+
 export function Bot({ children }) {
   return <TaggedPatchItem type="bot" label="Bot">{children}</TaggedPatchItem>;
 }
@@ -72,6 +76,37 @@ export function PatchNotesContent() {
         </CharacterPatch>
         <CharacterPatch id="nagi">
           <New>Agregado Nagi</New>
+        </CharacterPatch>
+        <CharacterPatch id="aizen">
+          <Nerf>Masacre paso flash reducido a 30 de daño perforante.</Nerf>
+          <Nerf>Dispersate, Kyouka Suijetsu reducido a 25 de daño.</Nerf>
+          <Nerf>Hado 90: Cofre negro reducido a 20 de daño por turno y su cooldown aumentado 1 turno.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="cacho">
+          <Nerf>Cuidados de cigarrillo cura 5 puntos menos.</Nerf>
+          <Nerf>Ira de Cacho ahora aumenta 5 de daño cada 20 de vida faltante.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="daniel">
+          <Nerf>Patada de sombra ahora hace 5 menos de daño.</Nerf>
+          <Nerf>Nueve vidas cura 10 puntos menos.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="kakashi">
+          <Nerf>Raikiri ahora hace 10 puntos menos de daño.</Nerf>
+          <Nerf>Sharingan de Kakashi tiene 1 turno mas de cooldown.</Nerf>
+          <Nerf>Trampa Ninken ya no hace daño y su cooldown aumenta a 3 turnos.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="kankuro">
+          <Nerf>Emboscada de marionetas hace 5 menos de daño.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="mai">
+          <Nerf>Prrr reducido a 2 turnos y cooldown aumentado a 5 turnos.</Nerf>
+          <Nerf>Lamidas cooldown aumentado a 4 turnos.</Nerf>
+          <Nerf>Aranazo de gato tiene un daño base de 5.</Nerf>
+          <Nerf>Proteccion de aliado otorga 5 de escudo y 5 de reduccion de daño por aliado vivo.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="sakura">
+          <Nerf>Sello de Fuerza de 100 cura 5 de vida menos.</Nerf>
+          <Nerf>Sello de Fuerza de 100 da 10% menos de reduccion de daño.</Nerf>
         </CharacterPatch>
       </PatchNotesPatch>
 

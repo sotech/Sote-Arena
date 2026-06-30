@@ -10,7 +10,7 @@ export const sephiroth = {
       name: "Masamune",
       chakra: { bloodline: 1 },
       targetType: "enemy",
-      description: "Sephiroth atraviesa al enemigo con la Masamune. Inflige 10 de dano perforante durante 2 turnos. Puede ser interrumpida.",
+      description: "Sephiroth atraviesa al enemigo con la Masamune. Inflige 15 de dano perforante durante 2 turnos. Puede ser interrumpida.",
       effects: [
         {
           type: "complex",
@@ -29,7 +29,7 @@ export const sephiroth = {
           cancelIfOriginStunned: true,
           interruptFamilies: ["physical", "channeled", "offensive"],
           statusLinkId: "masamune",
-          effects: [{ type: "damage", value: 10, damageType: "piercing", targets: "self" }]
+          effects: [{ type: "damage", value: 15, damageType: "piercing", targets: "self" }]
         }
       ],
       cooldown: 3,

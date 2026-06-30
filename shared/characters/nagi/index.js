@@ -7,24 +7,24 @@ export const nagi = {
   skills: [
     {
       id: "volley-shot",
-      name: "Volley Shot",
+      name: "Remate de volea",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 30 de dano y obtiene Flow, aumentando Five-Stage Volley en 15.",
+      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 30 de dano y obtiene Flow, aumentando Remate de Cinco Etapas en 20.",
       effects: [
         { type: "damage", value: 30, targets: "target" },
         {
           type: "modifyDamage",
-          value: 15,
+          value: 20,
           duration: -1,
           targets: "self",
           skillIds: ["five-stage-volley"],
           isStackable: true,
           stackCount: 1,
           statusSourceSkillId: "flow-stacks",
-          statusSourceSkillName: "Acumulaciones de Flow",
+          statusSourceSkillName: "Acumulaciones de La Zona",
           statusIconSkillId: "flow",
-          descriptions: ["Five-Stage Volley gana 15 de dano por cada Acumulacion de Flow."]
+          descriptions: ["Remate de Cinco Etapas gana 20 de dano por cada acumulacion de La Zona."]
         }
       ],
       cooldown: 0,
@@ -32,10 +32,10 @@ export const nagi = {
     },
     {
       id: "flow",
-      name: "Flow",
+      name: "La Zona",
       chakra: { neutralChakra: 1 },
       targetType: "self",
-      description: "Otorga 1 acumulacion de Flow. Cada acumulacion aumenta Five-Stage Volley en 15 de dano. Maximo recomendado: 3 acumulaciones.",
+      description: "Otorga 1 acumulacion de La Zona. Cada acumulacion aumenta Five-Stage Volley en 15 de dano. Maximo: 3 acumulaciones.",
       effects: [{
         type: "modifyDamage",
         value: 15,
@@ -45,21 +45,21 @@ export const nagi = {
         isStackable: true,
         stackCount: 1,
         statusSourceSkillId: "flow-stacks",
-        statusSourceSkillName: "Acumulaciones de Flow",
+        statusSourceSkillName: "Acumulaciones de La Zona",
         statusIconSkillId: "flow",
-        descriptions: ["Five-Stage Volley gana 15 de dano por cada Acumulacion de Flow."]
+        descriptions: ["Remate de Cinco Etapas gana 15 de dano por cada acumulacion de La Zona."]
       }],
       cooldown: 1,
       family: ["instant"]
     },
     {
       id: "five-stage-volley",
-      name: "Five-Stage Volley",
+      name: "Remate de Cinco Etapas",
       chakra: { taijutsu: 2 },
       targetType: "enemy",
-      description: "Nagi ejecuta un remate imposible. Inflige 20 de dano mas el bono de Flow y elimina 1 grupo de Acumulaciones de Flow. Ignora Counter, Reflect e Invulnerabilidad.",
+      description: "Nagi ejecuta un remate imposible. Inflige 25 de dano mas el bono de La Zona y elimina 1 grupo de acumulaciones de La Zona. No puede ser contrarestada, reflejada e ignora invulnerabilidad.",
       effects: [
-        { type: "damage", value: 20, targets: "target", ignoreInvulnerable: true },
+        { type: "damage", value: 25, targets: "target", ignoreInvulnerable: true },
         { type: "removeStatus", value: 1, targets: "self", statusSourceSkillIds: ["flow-stacks"], statusTypes: ["modifyDamage"] }
       ],
       uncountereable: true,
@@ -72,13 +72,12 @@ export const nagi = {
       name: "Lazy Genius",
       chakra: { genjutsu: 1 },
       targetType: "self",
-      description: "Nagi obtiene 75% de reduccion de dano durante 1 turno. Hasta su siguiente turno, Volley Shot cuesta 1 recurso fisico menos.",
+      description: "Nagi obtiene 75% de reduccion de dano durante 3 turnos. Por este tiempo, Remate de volea cuesta 1 recurso fisico menos.",
       effects: [
-        { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
-        { type: "damage-reduction", value: 75, percent: true, duration: 1, targets: "self" },
-        { type: "modifyChakraCost", chakra: { taijutsu: -1 }, duration: 1, targets: "self", skillIds: ["volley-shot"] }
+        { type: "damage-reduction", value: 75, percent: true, duration: 3, targets: "self" },
+        { type: "modifyChakraCost", chakra: { taijutsu: -1 }, duration: 3, targets: "self", skillIds: ["volley-shot"] }
       ],
-      cooldown: 4,
+      cooldown: 3,
       family: ["defensive", "instant"]
     }
   ]

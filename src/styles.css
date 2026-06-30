@@ -389,6 +389,10 @@ character-patch ul {
   background: #15803d;
 }
 
+.patch-tag.balance{
+  background: #0ee65d;
+}
+
 .patch-tag.nerf {
   background: #b42318;
 }

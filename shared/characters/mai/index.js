@@ -9,9 +9,9 @@ export const mai = {
       name: "Aranazo de gato",
       chakra: { neutralChakra: 1 },
       targetType: "enemy",
-      description: "Mai arana a un enemigo, infligiendo 10 de dano perforante. Cada uso aumenta permanentemente el dano de esta habilidad en 5.",
+      description: "Mai arana a un enemigo, infligiendo 5 de dano perforante. Cada uso aumenta permanentemente el dano de esta habilidad en 5.",
       effects: [
-        { type: "damage", value: 10, damageType: "piercing", targets: "target" },
+        { type: "damage", value: 5, damageType: "piercing", targets: "target" },
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
       ],
       family: ["physical", "instant", "offensive"]
@@ -21,11 +21,11 @@ export const mai = {
       name: "Prrr",
       chakra: { neutralChakra: 2 },
       targetType: "ally",
-      description: "Mai mejora el estado de animo de un aliado. Durante 4 turnos, sus habilidades cuestan 1 chakra neutral menos.",
+      description: "Mai mejora el estado de animo de un aliado. Durante 2 turnos, sus habilidades cuestan 1 recurso neutral menos.",
       effects: [
-        { type: "modifyChakraCost", chakra: { neutralChakra: -1 }, duration: 4, targets: "target" }
+        { type: "modifyChakraCost", chakra: { neutralChakra: -1 }, duration: 2, targets: "target" }
       ],
-      cooldown: 5,
+      cooldown: 4,
       family: ["mental", "instant"]
     },
     {
@@ -38,7 +38,7 @@ export const mai = {
         { type: "heal", value: 15, targets: "target" },
         { type: "complex", duration: 1, targets: "target", mode: "interruptible", effects: [{ type: "heal", value: 10, targets: "self" }] }
       ],
-      cooldown: 3,
+      cooldown: 4,
       family: ["physical", "instant"]
     },
     {
@@ -48,9 +48,9 @@ export const mai = {
       trigger: "battleStart",
       chakra: {},
       targetType: "self",
-      description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 10 de reduccion de dano y 10 de escudo cada turno. El escudo no puede superar 10 por aliado vivo.",
+      description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 5 de reduccion de dano y 5 de escudo cada turno. El escudo no puede superar 5 por aliado vivo.",
       effects: [
-        { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 10, shieldPerAlly: 10, maxShieldPerAlly: 10, maxShield: 20 }
+        { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 5, shieldPerAlly: 5, maxShieldPerAlly: 5, maxShield: 20 }
       ],
       family: ["mental", "instant"]
     }

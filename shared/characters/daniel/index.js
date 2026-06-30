@@ -9,9 +9,9 @@ export const daniel = {
       name: "Patada de sombra",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Daniel-san usa su patada de sombra para infligir 30 puntos de daño a un enemigo.",
+      description: "Daniel-san usa su patada de sombra para infligir 25 puntos de daño a un enemigo.",
       effects: [
-        { type: "damage", value: 30, targets: "target" }
+        { type: "damage", value: 25, targets: "target" }
       ],
       family: ["physical","instant","offensive"]
     },
@@ -52,9 +52,9 @@ export const daniel = {
       name: "Nueve vidas",
       chakra: { neutralChakra: 3 },
       targetType: "self",
-      description: "Usando la energia vital de su gata, Daniel recupera 50 puntos de vida y se vuelve invulnerable 1 turno.",
+      description: "Usando la energia vital de su gata, Daniel recupera 40 puntos de vida y se vuelve invulnerable 1 turno.",
       effects: [
-        { type: "heal", value: 50, targets: "self" },
+        { type: "heal", value: 40, targets: "self" },
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
       family:["chakra","instant"]

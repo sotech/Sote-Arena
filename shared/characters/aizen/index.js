@@ -9,7 +9,7 @@ export const aizen = {
       name: "Masacre paso flash",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Aizen marca a un enemigo. Durante 1 turno Aizen sera invulnerable. En el siguiente turno ese enemigo recibira 35 de dano perforante que ignora invulnerabilidad.",
+      description: "Aizen marca a un enemigo. Durante 1 turno Aizen sera invulnerable. En el siguiente turno ese enemigo recibira 30 de dano perforante que ignora invulnerabilidad.",
       effects: [
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
         {
@@ -19,8 +19,8 @@ export const aizen = {
           isSecret: true,
           activationDelayTurns: 1,
           suppressSecretEndNotice: true,
-          descriptions: ["Este personaje fue marcado por Masacre paso flash y recibira 35 de dano perforante."],
-          effects: [{ type: "damage", value: 35, targets: "self", damageType: "piercing", ignoreInvulnerable: true }]
+          descriptions: ["Este personaje fue marcado por Masacre paso flash y recibira 30 de dano perforante."],
+          effects: [{ type: "damage", value: 30, targets: "self", damageType: "piercing", ignoreInvulnerable: true }]
         }
       ],
       cooldown: 2,
@@ -32,7 +32,7 @@ export const aizen = {
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 30 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
+      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 25 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
       effects: [
         { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] },
         {
@@ -43,7 +43,7 @@ export const aizen = {
           charges: 1,
           effects: [{
             type: "damage",
-            value: 30,
+            value: 25,
             targets: "enemies",
             damageType: "piercing",
             ignoreInvulnerable: true,
@@ -60,7 +60,7 @@ export const aizen = {
       name: "Hado 90: Cofre negro",
       chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Aizen aturde a un objetivo por 2 turnos. Por 2 turnos, el objetivo recibe 25 de dano. Esta habilidad puede ser cancelada si Aizen es aturdido.",
+      description: "Aizen aturde a un objetivo por 2 turnos. Por 2 turnos, el objetivo recibe 20 de dano. Esta habilidad puede ser cancelada si Aizen es aturdido.",
       effects: [
         {
           type: "complex",
@@ -82,11 +82,11 @@ export const aizen = {
           statusLinkId: "hado-90-black-coffin",
           effects: [
             { type: "stun", value: 2, targets: "self" },
-            { type: "damage", value: 25, targets: "self" }
+            { type: "damage", value: 20, targets: "self" }
           ]
         }
       ],
-      cooldown: 3,
+      cooldown: 4,
       family: ["chakra", "instant", "offensive"]
     },
     {

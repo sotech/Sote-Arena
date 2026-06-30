@@ -32,11 +32,11 @@ export const sakura = {
       name: "Sello de Fuerza de 100",
       chakra: { bloodline: 1 },
       targetType: "self",
-      description: "Sakura recupera 20 puntos de salud. Durante 2 turnos, Puno de chakra hace 15 mas de dano y Sakura recibe 50% reduccion de dano. Esta habilidad puede usarse solo 3 veces.",
+      description: "Sakura recupera 15 puntos de salud. Durante 2 turnos, Puno de chakra hace 15 mas de dano y Sakura recibe 40% reduccion de dano. Esta habilidad puede usarse solo 3 veces.",
       effects: [
         {
           type: "heal",
-          value: 20,
+          value: 15,
           targets: "self"
         },
         {
@@ -45,7 +45,7 @@ export const sakura = {
           targets: "self",
           effects: [
             { type: "modifyDamage", value: 15, targets: "self", skillIds: ["chakra-punch"] },
-            { type: "damage-reduction", value: 50, percent: true, targets: "self" }
+            { type: "damage-reduction", value: 40, percent: true, targets: "self" }
           ]
         }
       ],

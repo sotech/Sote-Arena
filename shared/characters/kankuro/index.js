@@ -9,11 +9,11 @@ export const kankuro = {
       name: "Emboscada de marionetas",
       chakra: { neutralChakra: 2 },
       targetType: "enemy",
-      description: "Usando sus marionetas para la ofensiva, Kankuro inflige 30 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
+      description: "Usando sus marionetas para la ofensiva, Kankuro inflige 25 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
       effects: [
         {
           type: "damage",
-          value: 30,
+          value: 25,
           targets: "target",
           bonusWhen: [{ bonus: 10, require: { type: "hasStatusEffect", effectId: "stun" } }]
         }
