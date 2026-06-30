@@ -61,6 +61,7 @@ export function shieldValue(member) {
 
 function absorbShield(member, damage) {
   let remainingDamage = damage;
+  const brokenLinkIds = new Set();
   for (const effect of member.statusEffects || []) {
     if (effect.type !== "shield" || remainingDamage <= 0) continue;
     if (effect.ignoredByEffectImmunity === true) continue;
@@ -68,9 +69,13 @@ function absorbShield(member, damage) {
     effect.remainingShield = (effect.remainingShield || 0) - blocked;
     effect.value = effect.remainingShield;
     effect.descriptions = shieldDescriptions(effect);
+    if ((effect.remainingShield || 0) <= 0 && effect.statusLinkId) brokenLinkIds.add(effect.statusLinkId);
     remainingDamage -= blocked;
   }
-  member.statusEffects = (member.statusEffects || []).filter((effect) => effect.type !== "shield" || effect.ignoredByEffectImmunity === true || (effect.remainingShield || 0) > 0);
+  member.statusEffects = (member.statusEffects || []).filter((effect) => {
+    if (brokenLinkIds.has(effect.statusLinkId)) return false;
+    return effect.type !== "shield" || effect.ignoredByEffectImmunity === true || (effect.remainingShield || 0) > 0;
+  });
   member.shield = shieldValue(member);
   return damage - remainingDamage;
 }

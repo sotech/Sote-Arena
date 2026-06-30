@@ -19,6 +19,7 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "payLife") return `${actorCharacter.name} pago ${effect.value} de vida.`;
   if (effect.type === "instakill") return `${actorCharacter.name} ha ejecutado a este personaje.`;
   if (effect.type === "breakShield") return `${actorCharacter.name} destruyo los escudos de este personaje.`;
+  if (effect.type === "shieldDamage") return `${actorCharacter.name} dano el escudo de este personaje.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value}${effect.percent ? "%" : ""} de reduccion de dano.`;
   if (effect.type === "allyCountStatus") return `${actorCharacter.name} ha ganado proteccion por sus aliados vivos.`;
   if (effect.type === "modifyDamage") {
@@ -40,7 +41,11 @@ export function statusDescription(effect, actorCharacter) {
   if (chakraCostModifierTypes.includes(effect.type)) return `${actorCharacter.name} ha modificado el coste de chakra de este personaje.`;
   if (effect.type === "complex") return `${actorCharacter.name} ha aplicado un efecto complejo.`;
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
-  if (effect.type === "invulnerable") return `${actorCharacter.name} ha vuelto invulnerable a este personaje.`;
+  if (effect.type === "invulnerable") {
+    const affectedFamilies = Array.isArray(effect.familiesAffected) ? effect.familiesAffected : [];
+    const scope = affectedFamilies.length ? ` contra habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";
+    return `${actorCharacter.name} ha vuelto invulnerable a este personaje${scope}.`;
+  }
   if (effect.type === "effect-immunity") return `${actorCharacter.name} ignora efectos que no sean dano o sanacion.`;
   if (effect.type === "stunImmunity") return `${actorCharacter.name} es inmune a aturdimientos especificos.`;
   if (effect.type === "ignoreEffects") return `${actorCharacter.name} ignora algunos efectos aplicados.`;
@@ -142,6 +147,7 @@ export function simpleEffectDescription(effect) {
   if (effect.type === "damage") return `Inflige ${effect.value} de ${damageTypeLabel(effect.damageType)}.`;
   if (effect.type === "payLife") return `Paga ${effect.value} de vida${effect.notKill ? " sin poder morir" : ""}.`;
   if (effect.type === "breakShield") return "Destruye todo el escudo.";
+  if (effect.type === "shieldDamage") return `Inflige ${effect.value} de dano solo al escudo.`;
   if (effect.type === "instakill") return "Mata instantaneamente.";
   if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
   if (effect.type === "shield") return `Otorga ${effect.value} de escudo.`;
@@ -195,13 +201,20 @@ export function simpleEffectDescription(effect) {
     const summary = chakraCostModifierSummary(effect.chakra, { asReplacement: effect.type === "substituteChakraCost" });
     return `${effect.type === "substituteChakraCost" ? "Sustituye" : "Modifica"} coste de chakra${scope}${summary ? ` (${summary})` : ""}.`;
   }
-  if (effect.type === "invulnerable") return "Otorga invulnerabilidad.";
+  if (effect.type === "invulnerable") {
+    const affectedFamilies = Array.isArray(effect.familiesAffected) ? effect.familiesAffected : [];
+    const scope = affectedFamilies.length ? ` contra habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";
+    return `Otorga invulnerabilidad${scope}.`;
+  }
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion.";
   if (effect.type === "stunImmunity") return "Otorga inmunidad a aturdimientos especificos.";
   if (effect.type === "ignoreEffects") return "Ignora efectos indicados aunque sus estados se apliquen.";
   if (effect.type === "removeStatus") return "Elimina estados especificos.";
   if (effect.type === "conditionalEffects") return "Aplica efectos condicionales.";
   if (effect.type === "onEnemyDeath") return "Se activa cuando muere un enemigo.";
+  if (effect.type === "triggerSkills") return "Se activa cuando se cumple una condicion.";
+  if (effect.type === "applyEffectsOntriggerEvent") return "Se activa cuando ocurre un evento.";
+  if (effect.type === "changeAvatarImage") return "Cambia la imagen del personaje.";
   if (effect.type === "stun") {
     const affectedFamilies = stunFamiliesAffected(effect);
     const scope = affectedFamilies.length ? ` a las habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";

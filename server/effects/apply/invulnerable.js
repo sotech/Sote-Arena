@@ -19,6 +19,7 @@ export function applyInvulnerableEffect({ targets, effect, skill, actor, actorCh
       id: randomUUID(),
       type: "invulnerable",
       turns: value,
+      familiesAffected: Array.isArray(appliedEffect.familiesAffected) ? appliedEffect.familiesAffected : [],
       ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
       sourceSkillId: skill.id,
       sourceSkillName: skill.name,

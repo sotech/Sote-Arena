@@ -41,7 +41,11 @@ export const joseph = {
         duration: 1,
         targets: "target",
         trigger: "outgoing",
+        familiesAffected: ["offensive"],
         charges: 1,
+        showStatusEffect: true,
+        descriptions: ["Tu siguiente frase es... fue usada en este personaje."],
+        counteredNoticeTemplate: "Tu siguiente frase es: {skillName}",
         effects: [
           { type: "modifyDamage", isStackable: true ,value: 10, duration: -1, targets: "origin", skillIds: ["clacker-volley"], statusNoticeDescription: "Tu siguiente frase es: habilidad contrarrestada" }
         ]

@@ -126,6 +126,7 @@ export function effectDescription(effect) {
   }
   if (effect.type === "instakill") return "Muerte instantanea";
   if (effect.type === "breakShield") return "Rompe escudo";
+  if (effect.type === "shieldDamage") return `Dano a escudo: ${effect.value}`;
   if (effect.type === "heal") return `Cura: ${effect.value}`;
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
@@ -214,13 +215,20 @@ export function effectDescription(effect) {
     return `Aturde: ${effect.value} turno(s)${scope}`;
   }
   if (effect.type === "payLife") return `Paga vida: ${effect.value}${effect.notKill ? " (no puede matar)" : ""}`;
-  if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
+  if (effect.type === "invulnerable") {
+    const affectedFamilies = Array.isArray(effect.familiesAffected) ? effect.familiesAffected : [];
+    const scope = affectedFamilies.length ? ` (${skillFamiliesLabel(affectedFamilies)})` : "";
+    return `Invulnerable: ${effect.value} turno(s)${scope}`;
+  }
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion";
   if (effect.type === "stunImmunity") return "Inmune a aturdimientos especificos";
   if (effect.type === "ignoreEffects") return `Ignora efectos: ${(effect.ignoreEffects || []).join(", ") || "ninguno"}`;
   if (effect.type === "removeStatus") return "Elimina estados especificos";
   if (effect.type === "conditionalEffects") return "Efectos condicionales";
   if (effect.type === "onEnemyDeath") return "Se activa al derrotar enemigos";
+  if (effect.type === "triggerSkills") return "Se activa al cumplir una condicion";
+  if (effect.type === "applyEffectsOntriggerEvent") return "Se activa al ocurrir un evento";
+  if (effect.type === "changeAvatarImage") return "Cambia la imagen del personaje";
   if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "gain-chakra") return `Gana recurso: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;

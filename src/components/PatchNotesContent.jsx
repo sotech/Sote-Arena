@@ -58,9 +58,22 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="1.4.0">
+        <CharacterPatch id="ichigo">
+          <New>Agregado Kurosaki Ichigo.</New>
+        </CharacterPatch>
+        <CharacterPatch id="naruto">
+          <New>Posesion Kurama. Cuando Naruto llegue a un 30% de vida o menos, esta pasiva se activara y Naruto ganará 50% reducción de daño permanentemente.</New>
+        </CharacterPatch>
+        <ul>          
+          <Fix>Habilidades sin usos quedan deshabilitadas en la UI</Fix>
+          <Fix>Las habilidades colocadas sobre enemigos ahora muetran un tooltip secreto para el jugador</Fix>          
+          <li>Agregado nuevo sonido para cuando un personaje muere.</li>
+        </ul>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.3.2">
         <CharacterPatch id="joseph">
-          <Nerf>Aumentado el cooldown de Tu siguiente frase es... en 1</Nerf>
+          <Nerf>Aumentado el cooldown de Tu siguiente frase es... en 1.</Nerf>
         </CharacterPatch>
         <ul>
           <New>Agregado seleccion de equipo al azar en modo vs IA</New>

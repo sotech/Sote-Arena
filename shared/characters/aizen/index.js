@@ -44,6 +44,7 @@ export const aizen = {
           duration: 1,
           targets: "target",
           trigger: "outgoing",
+          familiesAffected: ["offensive"],
           charges: 1,
           effects: [{
             type: "damage",

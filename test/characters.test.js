@@ -5,8 +5,9 @@ import { naruto } from "../shared/characters/naruto/index.js";
 import { effectTypes, skillClassesLabel, supportedEffectTypes } from "../shared/effects.js";
 import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, exchangeChakra, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn, undoChakraExchange } from "../server/index.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
+import { createTeam } from "../server/players.js";
 import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter, inspectableSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
-import { eligibleTargetsForSkill, meetsSkillRequirements, playerHealthShare } from "../src/game/battleRules.js";
+import { eligibleTargetsForSkill, isSkillOutOfUses, meetsSkillRequirements, playerHealthShare, skillUsesRemaining } from "../src/game/battleRules.js";
 import { effectDescription, groupStatusEffects, statusEffectGroupValue } from "../src/game/labels.js";
 
 const chakraTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
@@ -31,6 +32,41 @@ test("hideSkillInInspect hides skills only from inspection lists", () => {
 
   assert.deepEqual(allSkillsForCharacter(character).map((skill) => skill.id), ["visible-skill", "hidden-skill"]);
   assert.deepEqual(inspectableSkillsForCharacter(character).map((skill) => skill.id), ["visible-skill"]);
+});
+
+test("hideSkillUses hides only the remaining uses tooltip", () => {
+  const sakura = getCharacterById("sakura");
+  const strengthSeal = sakura.skills.find((skill) => skill.id === "strength-seal-100");
+  const previousHideSkillUses = strengthSeal.hideSkillUses;
+
+  try {
+    strengthSeal.hideSkillUses = true;
+    const [sakuraMember] = createTeam(["sakura"]);
+    const enemyMember = { id: "enemy", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+    const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [sakuraMember] };
+    const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [enemyMember] };
+    const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+    assert.equal(sakuraMember.statusEffects.some((effect) => effect.type === "skill-uses" && effect.sourceSkillId === "strength-seal-100"), false);
+
+    applyQueuedSkill(room, player, {
+      actorId: sakuraMember.id,
+      targetId: sakuraMember.id,
+      skillId: "strength-seal-100",
+      actorName: "Sakura Haruno",
+      targetName: "Sakura Haruno",
+      skillName: "Sello de Fuerza de 100"
+    });
+
+    assert.equal(sakuraMember.skillUses["strength-seal-100"], 1);
+    assert.equal(sakuraMember.statusEffects.some((effect) => effect.type === "skill-uses" && effect.sourceSkillId === "strength-seal-100"), false);
+  } finally {
+    if (previousHideSkillUses === undefined) {
+      delete strengthSeal.hideSkillUses;
+    } else {
+      strengthSeal.hideSkillUses = previousHideSkillUses;
+    }
+  }
 });
 
 test("skill families have class labels for descriptions", () => {
@@ -71,6 +107,15 @@ test("player health share uses current HP and ignores shields", () => {
 
   assert.equal(playerHealthShare(player, opponent), 2 / 3);
   assert.equal(playerHealthShare({ team: [{ hp: 0 }] }, { team: [{ hp: 0 }] }), 0.5);
+});
+
+test("skill use limits disable exhausted skills in UI rules", () => {
+  const skill = { id: "limited", uses: 2 };
+  assert.equal(skillUsesRemaining({ skillUses: {} }, skill), 2);
+  assert.equal(isSkillOutOfUses({ skillUses: { limited: 1 } }, skill), false);
+  assert.equal(skillUsesRemaining({ skillUses: { limited: 2 } }, skill), 0);
+  assert.equal(isSkillOutOfUses({ skillUses: { limited: 2 } }, skill), true);
+  assert.equal(isSkillOutOfUses({ skillUses: { limited: 999 } }, { id: "limited" }), true);
 });
 
 test("chakra exchange can be retried after undoing it", () => {
@@ -139,7 +184,8 @@ test("skill effects use the documented effect system", () => {
   assert.deepEqual(Object.keys(effectTypes), supportedEffectTypes);
   for (const character of characters) {
     for (const skill of character.skills) {
-      for (const effect of skill.effects.flatMap((item) => [item, ...(item.effects || [])])) {
+      for (const parentEffect of skill.effects) {
+        for (const effect of [parentEffect, ...(parentEffect.effects || [])]) {
         assert.ok(supportedEffectTypes.includes(effect.type));
         if (effect.type === "complex") {
           assert.ok(effect.duration > 0);
@@ -151,6 +197,9 @@ test("skill effects use the documented effect system", () => {
         } else if (effect.type === "modifyDamageByMissingHp") {
           assert.notEqual(Number(effect.amountPerStep ?? effect.value ?? 0), 0);
           assert.ok(Number(effect.hpStep || 0) > 0);
+        } else if (effect.type === "modifyDamageMultiplier") {
+          assert.ok(Number(effect.multiplier ?? effect.value ?? 0) > 0);
+          assert.ok(effect.duration > 0 || effect.duration === -1);
         } else if (effect.type === "modifyDamageType") {
           assert.ok(["basic", "normal", "piercing", "affliction"].includes(effect.damageType));
         } else if (effect.type === "modifyTargetType") {
@@ -162,7 +211,7 @@ test("skill effects use the documented effect system", () => {
         } else if (effect.type === "addUncountereable" || effect.type === "addNonReflectable") {
           assert.ok(effect.duration > 0 || effect.duration === -1);
         } else if (effect.type === "replaceSkill") {
-          assert.ok(effect.duration > 0 || effect.duration === -1);
+          assert.ok(effect.duration > 0 || effect.duration === -1 || effect.duration === "lastUntilShieldBroken" || (effect.duration === undefined && parentEffect !== effect && parentEffect.duration > 0));
           assert.ok(effect.skillId);
           if (effect.showStatusEffect !== undefined) assert.equal(typeof effect.showStatusEffect, "boolean");
         } else if (effect.type === "allyCountStatus") {
@@ -171,16 +220,35 @@ test("skill effects use the documented effect system", () => {
           assert.ok(effect.duration > 0 || effect.duration === -1);
         } else if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
           assert.ok(effect.chakra && Object.values(effect.chakra).some((value) => Number(value || 0) !== 0));
+        } else if (effect.type === "triggerSkills") {
+          assert.ok(effect.duration > 0 || effect.duration === -1);
+          assert.ok(effect.condition);
+          assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
+        } else if (effect.type === "applyEffectsOntriggerEvent") {
+          assert.ok(effect.duration > 0 || effect.duration === -1);
+          assert.ok(effect.triggerEvent);
+          assert.ok(effect.condition);
+          assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
+        } else if (effect.type === "onEnemyDeath") {
+          assert.ok(effect.duration > 0 || effect.duration === -1);
+          assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
+        } else if (effect.type === "changeAvatarImage") {
+          assert.ok(effect.duration > 0 || effect.duration === -1 || effect.duration === "lastUntilShieldBroken");
+          assert.ok(effect.avatarImage || effect.avatarImageId || effect.avatar || effect.image || effect.characterImage);
         } else {
           assert.ok(effect.value > 0);
         }
         assert.ok(effect.targets);
         if (effect.type === "damage") assert.ok(!effect.damageType || ["basic", "normal", "piercing", "affliction"].includes(effect.damageType));
-        if (effect.type === "shield") assert.equal(typeof effect.isStackable, "boolean");
+        if (effect.type === "shield") {
+          assert.equal(typeof effect.isStackable, "boolean");
+          if (effect.duration !== undefined) assert.ok(effect.duration > 0 || effect.duration === -1 || effect.duration === "lastUntilShieldBroken");
+        }
         if (effect.type === "damage-reduction" && skill.effects.includes(effect)) assert.ok(effect.duration > 0);
         if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
           assert.ok(!effect.chakraType || chakraTypes.includes(effect.chakraType));
         }
+      }
       }
     }
   }
@@ -465,6 +533,7 @@ test("Aizen skills match the requested effects", () => {
   assert.deepEqual(kyouka.chakra, { bloodline: 1, neutralChakra: 1 });
   assert.equal(kyouka.isSecret, true);
   assert.equal(kyouka.effects[1].type, "counter");
+  assert.deepEqual(kyouka.effects[1].familiesAffected, ["offensive"]);
   assert.deepEqual(kyouka.effects[1].effects, [{
     type: "damage",
     value: 30,
@@ -861,6 +930,273 @@ test("stun can affect specific skill families", () => {
   assert.equal(effectDescription({ type: "stun", value: 1, targets: "target", familiesAffected: ["physical", "instant"] }), "Aturde: 1 turno(s) (fisicas, instantaneas)");
 });
 
+test("offensive-only counters ignore strategic skills", () => {
+  const joseph = getCharacterById("joseph");
+  const yourNextLine = joseph.skills.find((skill) => skill.id === "your-next-line");
+  assert.deepEqual(yourNextLine.effects[0].familiesAffected, ["offensive"]);
+
+  const aizenMember = { id: "aizen", characterId: "aizen", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const enemy = { id: "enemy", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [aizenMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [enemy] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "aizen",
+    targetId: "enemy",
+    skillId: "kyouka-suijetsu-scatter",
+    actorName: "Aizen Sosuke",
+    targetName: "Naruto Uzumaki",
+    skillName: "Dispersate, Kyouka Suijetsu"
+  });
+
+  room.turn = 2;
+  const message = applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "enemy",
+    skillId: "substitution-jutsu",
+    actorName: "Naruto Uzumaki",
+    targetName: "Naruto Uzumaki",
+    skillName: "Jutsu de sustitucion"
+  });
+
+  assert.doesNotMatch(message, /cancelada por un counter/);
+  assert.equal(enemy.statusEffects.some((effect) => effect.type === "counter"), true);
+  assert.equal(enemy.statusEffects.some((effect) => effect.type === "countered"), false);
+});
+
+test("secret pending tooltips are visible only to the owner", () => {
+  const josephMember = { id: "joseph", characterId: "joseph", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const enemyMember = { id: "enemy", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", side: "red", chakra: {}, queue: [], team: [josephMember] };
+  const opponent = { id: "p2", name: "P2", side: "blue", chakra: {}, queue: [], team: [enemyMember] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    actorId: "joseph",
+    targetId: "enemy",
+    skillId: "your-next-line",
+    actorName: "Joseph Joestar",
+    targetName: "Naruto Uzumaki",
+    skillName: "Tu siguiente frase es..."
+  });
+
+  const ownerTargetEffects = publicRoom(room, "p1").players[1].team[0].statusEffects;
+  assert.ok(ownerTargetEffects.some((effect) => (
+    effect.type === "counter"
+    && effect.showStatusEffect === true
+    && effect.isSecret === true
+    && effect.descriptions.includes("Tu siguiente frase es... fue usada en este personaje.")
+  )));
+  assert.equal(publicRoom(room, "p2").players[1].team[0].statusEffects.some((effect) => effect.type === "counter"), false);
+
+  applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "joseph",
+    skillId: "oodama-rasengan",
+    actorName: "Naruto Uzumaki",
+    targetName: "Joseph Joestar",
+    skillName: "Oodama Rasengan"
+  });
+
+  assert.ok(enemyMember.statusEffects.some((effect) => (
+    effect.type === "countered"
+    && effect.descriptions.includes("Tu siguiente frase es: Oodama Rasengan")
+  )));
+});
+
+test("Naruto Kurama possession triggers at low health", () => {
+  const naruto = getCharacterById("naruto");
+  const possession = naruto.skills.find((skill) => skill.id === "kurama-possession");
+  assert.equal(possession.passive, true);
+  assert.equal(possession.hideSkillInInspect, true);
+  assert.equal(possession.effects[0].type, "triggerSkills");
+
+  const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const enemyMember = { id: "enemy", characterId: "sakura", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", side: "red", chakra: {}, queue: [], team: [narutoMember] };
+  const opponent = { id: "p2", name: "P2", side: "blue", chakra: {}, queue: [], team: [enemyMember] };
+  const room = { phase: "battle", activePlayerId: "p2", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    id: "passive",
+    passive: true,
+    actorId: "naruto",
+    targetId: "naruto",
+    skillId: "kurama-possession",
+    actorName: "Naruto Uzumaki",
+    targetName: "Naruto Uzumaki",
+    skillName: "Posesion Kurama"
+  });
+
+  assert.equal(narutoMember.statusEffects.some((effect) => effect.type === "triggerSkills"), true);
+
+  applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "naruto",
+    skillId: "chakra-punch",
+    actorName: "Sakura Haruno",
+    targetName: "Naruto Uzumaki",
+    skillName: "Puno de chakra"
+  });
+
+  assert.equal(narutoMember.hp, 75);
+  assert.equal(narutoMember.statusEffects.some((effect) => effect.type === "triggerSkills"), true);
+
+  applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "naruto",
+    skillId: "chakra-punch",
+    actorName: "Sakura Haruno",
+    targetName: "Naruto Uzumaki",
+    skillName: "Puno de chakra"
+  });
+  applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "naruto",
+    skillId: "chakra-punch",
+    actorName: "Sakura Haruno",
+    targetName: "Naruto Uzumaki",
+    skillName: "Puno de chakra"
+  });
+
+  assert.equal(narutoMember.hp, 25);
+  assert.equal(narutoMember.statusEffects.some((effect) => effect.type === "triggerSkills"), false);
+  assert.ok(narutoMember.statusEffects.some((effect) => (
+    effect.type === "damage-reduction"
+    && effect.percent === true
+    && effect.value === 50
+    && effect.turns === -1
+  )));
+  assert.ok(narutoMember.statusEffects.some((effect) => (
+    effect.type === "changeAvatarImage"
+    && effect.avatarImage === "naruto-kurama"
+    && effect.turns === -1
+  )));
+  assert.equal(publicRoom(room, "p1").players[0].team[0].avatarImageId, "naruto-kurama");
+});
+
+test("Ichigo Hollow possession replaces skills until its shield breaks", () => {
+  const ichigo = getCharacterById("ichigo");
+  const possession = ichigo.skills.find((skill) => skill.id === "hollow-possession");
+  assert.equal(possession.isSecret, true);
+  assert.equal(possession.requires, undefined);
+  assert.equal(possession.effects[0].type, "applyEffectsOntriggerEvent");
+  assert.equal(possession.effects[0].triggerEvent, "reachHp");
+
+  const ichigoMember = { id: "ichigo", characterId: "ichigo", hp: 70, statusEffects: [], skillCooldowns: {}, skillUses: {} };
+  const enemyMember = { id: "enemy", characterId: "sakura", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", side: "red", chakra: {}, queue: [], team: [ichigoMember] };
+  const opponent = { id: "p2", name: "P2", side: "blue", chakra: {}, queue: [], team: [enemyMember] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  assert.deepEqual(activeSkillsForMember(ichigoMember, ichigo).map((skill) => skill.id), [
+    "combo-zangetsu",
+    "getsuga-tensho",
+    "hollow-possession",
+    "bankai-block"
+  ]);
+
+  applyQueuedSkill(room, player, {
+    actorId: "ichigo",
+    targetId: "ichigo",
+    skillId: "hollow-possession",
+    actorName: "Kurosaki Ichigo",
+    targetName: "Kurosaki Ichigo",
+    skillName: "Posesion Hueco"
+  });
+
+  assert.equal(ichigoMember.shield || 0, 0);
+  assert.equal(ichigoMember.statusEffects.some((effect) => effect.type === "applyEffectsOntriggerEvent"), true);
+  assert.ok(publicRoom(room, "p1").players[0].team[0].statusEffects.some((effect) => (
+    effect.type === "applyEffectsOntriggerEvent"
+    && effect.showStatusEffect === true
+    && effect.isSecret === true
+    && effect.descriptions.includes("Posesion Hueco espera a ser activada.")
+  )));
+  assert.equal(publicRoom(room, "p2").players[0].team[0].statusEffects.some((effect) => effect.type === "applyEffectsOntriggerEvent"), false);
+  assert.deepEqual(activeSkillsForMember(ichigoMember, ichigo).map((skill) => skill.id), [
+    "combo-zangetsu",
+    "getsuga-tensho",
+    "hollow-possession",
+    "bankai-block"
+  ]);
+
+  applyQueuedSkill(room, opponent, {
+    actorId: "enemy",
+    targetId: "ichigo",
+    skillId: "chakra-punch",
+    actorName: "Sakura Haruno",
+    targetName: "Kurosaki Ichigo",
+    skillName: "Puno de chakra"
+  });
+
+  assert.equal(ichigoMember.hp, 45);
+  assert.equal(ichigoMember.shield, 70);
+  assert.equal(ichigoMember.skillUses["hollow-possession"], 999);
+  assert.equal(ichigoMember.statusEffects.some((effect) => effect.type === "applyEffectsOntriggerEvent"), false);
+  assert.ok(ichigoMember.statusEffects.some((effect) => (
+    effect.type === "changeAvatarImage"
+    && effect.avatarImage === "ichigo-hollow"
+    && effect.turns === -1
+    && effect.statusLinkId === "hollow-possession-effect"
+  )));
+  assert.equal(publicRoom(room, "p1").players[0].team[0].avatarImageId, "ichigo-hollow");
+  assert.deepEqual(activeSkillsForMember(ichigoMember, ichigo).map((skill) => skill.id), [
+    "black-vortex",
+    "black-getsuga-tensho",
+    "hollow-possession",
+    "bankai-block"
+  ]);
+
+  for (let index = 0; index < 3; index += 1) {
+    applyQueuedSkill(room, opponent, {
+      actorId: "enemy",
+      targetId: "ichigo",
+      skillId: "chakra-punch",
+      actorName: "Sakura Haruno",
+      targetName: "Kurosaki Ichigo",
+      skillName: "Puno de chakra"
+    });
+  }
+
+  assert.equal(ichigoMember.shield, 0);
+  assert.equal(ichigoMember.statusEffects.some((effect) => effect.statusLinkId === "hollow-possession-effect"), false);
+  assert.equal(ichigoMember.skillUses["hollow-possession"], 999);
+  assert.equal(publicRoom(room, "p1").players[0].team[0].avatarImageId, "ichigo");
+  assert.deepEqual(activeSkillsForMember(ichigoMember, ichigo).map((skill) => skill.id), [
+    "combo-zangetsu",
+    "getsuga-tensho",
+    "hollow-possession",
+    "bankai-block"
+  ]);
+});
+
+test("Ichigo family invulnerability blocks only matching skill families", () => {
+  const sourcePlayer = { id: "p1", team: [] };
+  const target = {
+    id: "ichigo",
+    hp: 100,
+    statusEffects: [{
+      id: "physical-invulnerable",
+      type: "invulnerable",
+      turns: 1,
+      familiesAffected: ["physical"]
+    }]
+  };
+  const targetPlayer = { id: "p2", team: [target] };
+  const room = { players: [sourcePlayer, targetPlayer] };
+
+  assert.equal(
+    canEffectAffectTarget(room, sourcePlayer, target, { type: "damage" }, { id: "combo", family: ["physical", "offensive", "instant"] }),
+    false
+  );
+  assert.equal(
+    canEffectAffectTarget(room, sourcePlayer, target, { type: "damage" }, { id: "mind", family: ["mental", "offensive", "instant"] }),
+    true
+  );
+});
+
 test("Cacho smoke hazard only stuns physical skills", () => {
   const cacho = getCharacterById("cacho");
   const smokeHazard = cacho.skills.find((skill) => skill.id === "smoke-hazard");
@@ -956,6 +1292,61 @@ test("continuous damage triggers when the affected player turn starts", () => {
   assert.equal(room.activePlayerId, "p2");
   assert.equal(narutoMember.hp, 90);
   assert.ok(room.log.some((entry) => String(entry).includes("Rafaga de marionetas de hierro hizo 10 dano continuo.")));
+});
+
+test("Jotaro ORA ORA ORA deals extra shield-only damage without overflow", () => {
+  const jotaroMember = { id: "jotaro", characterId: "jotaro", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const ichigoMember = { id: "ichigo", characterId: "ichigo", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [jotaroMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [ichigoMember] };
+  const room = { players: [player, opponent], activePlayerId: "p1", phase: "battle", turn: 1, log: [] };
+
+  addStatus(ichigoMember, {
+    id: "linked-shield",
+    type: "shield",
+    turns: -1,
+    value: 5,
+    remainingShield: 5,
+    isStackable: false,
+    statusLinkId: "hollow-possession-effect",
+    sourceSkillId: "hollow-possession-effect",
+    sourceSkillName: "Posesion Hueco - Efecto",
+    sourceActorName: "Kurosaki Ichigo",
+    originActorId: "ichigo",
+    originCharacterId: "ichigo",
+    createdTurn: 1
+  });
+  addStatus(ichigoMember, {
+    id: "linked-avatar",
+    type: "changeAvatarImage",
+    turns: -1,
+    avatarImage: "ichigo-hollow",
+    statusLinkId: "hollow-possession-effect",
+    sourceSkillId: "hollow-possession-effect",
+    sourceSkillName: "Posesion Hueco - Efecto",
+    sourceActorName: "Kurosaki Ichigo",
+    originActorId: "ichigo",
+    originCharacterId: "ichigo",
+    createdTurn: 1,
+    showStatusEffect: false
+  });
+
+  applyQueuedSkill(room, player, {
+    actorId: "jotaro",
+    targetId: "ichigo",
+    skillId: "ora-ora-ora",
+    actorName: "Jotaro Kujo",
+    targetName: "Kurosaki Ichigo",
+    skillName: "ORA ORA ORA"
+  });
+
+  resolveTurn(room, "p1");
+
+  assert.equal(ichigoMember.hp, 85);
+  assert.equal(ichigoMember.shield, 0);
+  assert.equal(ichigoMember.statusEffects.some((effect) => effect.statusLinkId === "hollow-possession-effect"), false);
+  assert.equal(publicRoom(room, "p1").players[1].team[0].avatarImageId, "ichigo");
+  assert.ok(room.log.some((entry) => String(entry).includes("ORA ORA ORA hizo 5 de dano a escudos.")));
 });
 
 test("complex stun can affect specific skill families", () => {
@@ -1210,9 +1601,9 @@ test("Kankuro Puppet Substitution is a secret outgoing counter trap", () => {
 test("Puppet Substitution counters the target next skill and shows both notices", () => {
   const kankuroMember = { id: "kankuro", characterId: "kankuro", hp: 100, statusEffects: [], skillCooldowns: {} };
   const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
-  const player = { id: "p1", name: "P1", team: [kankuroMember] };
-  const opponent = { id: "p2", name: "P2", team: [narutoMember] };
-  const room = { players: [player, opponent], turn: 1 };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [kankuroMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [narutoMember] };
+  const room = { players: [player, opponent], turn: 1, log: [] };
 
   const trapLog = applyQueuedSkill(room, player, {
     actorId: "kankuro",
@@ -1226,21 +1617,24 @@ test("Puppet Substitution counters the target next skill and shows both notices"
   assert.deepEqual(trapLog.visibleTo, ["p1"]);
   assert.equal(narutoMember.statusEffects.length, 1);
   assert.equal(narutoMember.statusEffects[0].type, "counter");
-  assert.equal(narutoMember.statusEffects[0].showStatusEffect, false);
+  assert.equal(narutoMember.statusEffects[0].showStatusEffect, true);
   assert.equal(narutoMember.statusEffects[0].isSecret, true);
+  assert.ok(narutoMember.statusEffects[0].descriptions.includes("Jutsu de sustitucion de marionetas fue usada en este personaje."));
+  assert.equal(publicRoom(room, "p1").players[1].team[0].statusEffects.some((effect) => effect.type === "counter"), true);
+  assert.equal(publicRoom(room, "p2").players[1].team[0].statusEffects.some((effect) => effect.type === "counter"), false);
 
   const counteredLog = applyQueuedSkill(room, opponent, {
     actorId: "naruto",
     targetId: "kankuro",
-    skillId: "rasengan",
+    skillId: "oodama-rasengan",
     actorName: "Naruto Uzumaki",
     targetName: "Kankuro",
-    skillName: "Rasengan"
+    skillName: "Oodama Rasengan"
   });
 
-  assert.equal(counteredLog, "Naruto Uzumaki uso Rasengan, pero fue cancelada por un counter.");
+  assert.equal(counteredLog, "Naruto Uzumaki uso Oodama Rasengan, pero fue cancelada por un counter.");
   assert.equal(kankuroMember.hp, 100);
-  assert.equal(narutoMember.skillCooldowns.rasengan, 1);
+  assert.equal(narutoMember.skillCooldowns["oodama-rasengan"], 1);
   assert.equal(narutoMember.statusEffects.some((effect) => effect.type === "counter"), false);
   assert.ok(narutoMember.statusEffects.some((effect) => (
     effect.type === "countered"

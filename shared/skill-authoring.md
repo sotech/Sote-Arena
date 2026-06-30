@@ -49,6 +49,7 @@ export const ejemplo = {
 - `isExtraSkill: true`: no cuenta como habilidad base y solo aparece por reemplazo u otra logica.
 - `hideUntilReplaced: true`: oculta la habilidad hasta que sea la habilidad activa.
 - `hideSkillInInspect: true`: oculta la habilidad en la UI de inspeccion del personaje. No cambia si la habilidad existe, si se puede usar, si cuenta como base o si puede aparecer por reemplazo.
+- `hideSkillUses: true`: para habilidades con `uses`/`maxUses`, oculta el estado visual de usos restantes en la UI. No cambia el limite real de usos.
 
 ## Objetivos
 

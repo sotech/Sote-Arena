@@ -5,6 +5,10 @@ function skillUsesLimit(skill) {
   return Math.max(0, Number(skill?.uses ?? skill?.maxUses ?? 0));
 }
 
+function shouldShowSkillUses(skill) {
+  return skill?.hideSkillUses !== true;
+}
+
 function skillUsesStatus(character, skill, remainingUses) {
   return {
     id: `uses-${skill.id}`,
@@ -55,7 +59,7 @@ export function createTeam(characterIds) {
     const character = getCharacterById(characterId);
     const usesStatuses = (character.skills || [])
       .map((skill) => ({ skill, limit: skillUsesLimit(skill) }))
-      .filter(({ limit }) => limit > 0)
+      .filter(({ skill, limit }) => limit > 0 && shouldShowSkillUses(skill))
       .map(({ skill, limit }) => skillUsesStatus(character, skill, limit));
     return {
       id: `${characterId}-${randomUUID()}`,

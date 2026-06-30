@@ -23,6 +23,22 @@ export function skillCooldownFor(member, skillId) {
   return Math.max(0, member?.skillCooldowns?.[skillId] || 0);
 }
 
+export function skillUsesLimit(skill) {
+  return Math.max(0, Number(skill?.uses ?? skill?.maxUses ?? 0));
+}
+
+export function skillUsesRemaining(member, skill) {
+  const limit = skillUsesLimit(skill);
+  if (limit <= 0) return Infinity;
+  return Math.max(0, limit - Math.max(0, Number(member?.skillUses?.[skill.id] || 0)));
+}
+
+export function isSkillOutOfUses(member, skill) {
+  if (!skill) return false;
+  if ((member?.skillUses?.[skill.id] || 0) >= 999) return true;
+  return skillUsesRemaining(member, skill) <= 0;
+}
+
 export function isQueuedSkill(player, actorId, skillId) {
   return Boolean(actorId && skillId && (player?.queue || []).some((item) => item.actorId === actorId && item.skillId === skillId));
 }
@@ -37,6 +53,23 @@ export function hasStatus(member, type) {
     if (effect.type === type && effect.turns > 0) return true;
     return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => (
       childEffect.ignoredByEffectImmunity !== true && childEffect.type === type
+    ));
+  });
+}
+
+function invulnerableAffectsSkill(effect, skill) {
+  const affectedFamilies = Array.isArray(effect?.familiesAffected) ? effect.familiesAffected : [];
+  if (affectedFamilies.length === 0) return true;
+  const skillFamilies = Array.isArray(skill?.family) ? skill.family : [];
+  return affectedFamilies.some((family) => skillFamilies.includes(family));
+}
+
+function isInvulnerableAgainstSkill(member, skill) {
+  return (member?.statusEffects || []).some((effect) => {
+    if (effect.ignoredByEffectImmunity === true) return false;
+    if (effect.type === "invulnerable" && effect.turns > 0) return invulnerableAffectsSkill(effect, skill);
+    return effect.type === "complex" && effect.turns > 0 && (effect.effects || []).some((childEffect) => (
+      childEffect.ignoredByEffectImmunity !== true && childEffect.type === "invulnerable" && invulnerableAffectsSkill(childEffect, skill)
     ));
   });
 }
@@ -76,7 +109,7 @@ export function eligibleTargetsForSkill(skill, me, opponent, actor) {
   const allies = (me?.team || []).filter((member) => member.hp > 0);
   const canTargetInvulnerableEnemies = skillIgnoresInvulnerability(skill);
   const enemies = (opponent?.team || []).filter((member) => (
-    member.hp > 0 && (canTargetInvulnerableEnemies || !hasStatus(member, "invulnerable"))
+    member.hp > 0 && (canTargetInvulnerableEnemies || !isInvulnerableAgainstSkill(member, skill))
   ));
 
   if (skill.targetType === "self") return actor.hp > 0 ? [actor] : [];

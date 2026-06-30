@@ -31,7 +31,7 @@ export function MainMenu({ onPlay, onPlayBot, onPlayBotVsBot, onRunTests, onChar
     <section className="panel main-menu">
       <button type="button" onClick={onPlay}>
         <Swords size={20} />
-        Jugar
+        Jugar PVP
       </button>
       <button type="button" onClick={onPlayBot}>
         <Zap size={20} />

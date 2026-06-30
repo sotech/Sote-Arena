@@ -16,6 +16,7 @@ import { nagi } from "./characters/nagi/index.js";
 import { jotaro } from "./characters/jotaro/index.js";
 import { dio } from "./characters/dio/index.js";
 import { joseph } from "./characters/joseph/index.js";
+import { ichigo } from "./characters/ichigo/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -103,5 +104,6 @@ export const characters = [
   nagi,
   jotaro,
   dio,
-  joseph
+  joseph,
+  ichigo
 ].map(withSkillDefaults);

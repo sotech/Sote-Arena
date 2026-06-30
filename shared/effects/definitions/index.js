@@ -1,8 +1,10 @@
 import { addEffectToBaseEffect } from "./addEffectToBase.js";
 import { addNonReflectableEffect } from "./addNonReflectable.js";
 import { addUncountereableEffect } from "./addUncountereable.js";
+import { applyEffectsOntriggerEventEffect } from "./applyEffectsOntriggerEvent.js";
 import { allyCountStatusEffect } from "./allyCountStatus.js";
 import { breakShieldEffect } from "./breakShield.js";
+import { changeAvatarImageEffect } from "./changeAvatarImage.js";
 import { complexEffect } from "./complex.js";
 import { conditionalEffectsEffect } from "./conditionalEffects.js";
 import { counterEffect } from "./counter.js";
@@ -31,9 +33,11 @@ import { replaceSkillEffect } from "./replaceSkill.js";
 import { reviveOnDeathEffect } from "./reviveOnDeath.js";
 import { selfHealEffect } from "./selfHeal.js";
 import { shieldEffect } from "./shield.js";
+import { shieldDamageEffect } from "./shieldDamage.js";
 import { stunEffect } from "./stun.js";
 import { stunImmunityEffect } from "./stunImmunity.js";
 import { substituteChakraCostEffect } from "./substituteChakraCost.js";
+import { triggerSkillsEffect } from "./triggerSkills.js";
 
 export const effectTypes = {
   damage: damageEffect,
@@ -42,7 +46,9 @@ export const effectTypes = {
   "self-heal": selfHealEffect,
   payLife: payLifeEffect,
   breakShield: breakShieldEffect,
+  shieldDamage: shieldDamageEffect,
   shield: shieldEffect,
+  changeAvatarImage: changeAvatarImageEffect,
   "damage-reduction": damageReductionEffect,
   "effect-immunity": effectImmunityEffect,
   ignoreEffects: ignoreEffectsEffect,
@@ -56,12 +62,14 @@ export const effectTypes = {
   modifyTargetCount: modifyTargetCountEffect,
   addEffectToBase: addEffectToBaseEffect,
   addUncountereable: addUncountereableEffect,
+  applyEffectsOntriggerEvent: applyEffectsOntriggerEventEffect,
   addNonReflectable: addNonReflectableEffect,
   replaceEffects: replaceEffectsEffect,
   replaceSkill: replaceSkillEffect,
   removeStatus: removeStatusEffect,
   conditionalEffects: conditionalEffectsEffect,
   onEnemyDeath: onEnemyDeathEffect,
+  triggerSkills: triggerSkillsEffect,
   modifyChakraCost: modifyChakraCostEffect,
   substituteChakraCost: substituteChakraCostEffect,
   stun: stunEffect,

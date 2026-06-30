@@ -5,6 +5,7 @@ import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronR
 import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
+import deathSound from "./assets/sounds/death.mp3";
 import { ChakraCost, ChakraIcon, ChakraPool, Health, SquareImage } from "./components/common.jsx";
 import { ChatPanel, CollapsiblePanel } from "./components/ChatPanel.jsx";
 import { MainMenu } from "./components/MainMenu.jsx";
@@ -13,7 +14,7 @@ import { PatchNotesView } from "./components/PatchNotesView.jsx";
 import { StatusEffects } from "./components/StatusEffects.jsx";
 import { allAssetUrls, characterImage, characterSound, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
-import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
+import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillOutOfUses, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
 import { targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
@@ -535,23 +536,22 @@ function App() {
   }
 
   function playDeathSound(config) {
-    if (!config?.soundname) return;
-    const src = characterSound(config.soundname);
+    const src = (config?.soundname ? characterSound(config.soundname) : "") || deathSound;
     if (!src) return;
     stopDeathAudio(false);
 
     const audio = new Audio(src);
     deathAudioRef.current = audio;
-    audio.currentTime = Math.max(0, Number(config.start || 0));
-    audio.volume = config.shouldFadeIn ? 0 : sfxVolume;
+    audio.currentTime = Math.max(0, Number(config?.start || 0));
+    audio.volume = config?.shouldFadeIn ? 0 : sfxVolume;
 
     const stopAtEnd = () => {
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-      const requestedEnd = Number(config.end || 0);
+      const requestedEnd = Number(config?.end || 0);
       const endAt = requestedEnd > 0 ? Math.min(requestedEnd, duration || requestedEnd) : duration;
       if (!endAt || endAt <= audio.currentTime) return;
       const remainingMs = Math.max(0, (endAt - audio.currentTime) * 1000);
-      const fadeMs = config.shouldFadeOut ? Math.min(DEATH_AUDIO_FADE_MS, remainingMs) : 0;
+      const fadeMs = config?.shouldFadeOut ? Math.min(DEATH_AUDIO_FADE_MS, remainingMs) : 0;
       deathFadeOutTimeoutRef.current = window.setTimeout(() => {
         if (fadeMs > 0) fadeAudioWithFrame(audio, 0, fadeMs, deathFadeFrameRef);
       }, Math.max(0, remainingMs - fadeMs));
@@ -561,7 +561,7 @@ function App() {
     audio.addEventListener("loadedmetadata", stopAtEnd, { once: true });
     audio.play()
       .then(() => {
-        if (config.shouldFadeIn) fadeAudioWithFrame(audio, sfxVolume, DEATH_AUDIO_FADE_MS, deathFadeFrameRef);
+        if (config?.shouldFadeIn) fadeAudioWithFrame(audio, sfxVolume, DEATH_AUDIO_FADE_MS, deathFadeFrameRef);
         stopAtEnd();
       })
       .catch(() => {
@@ -1065,7 +1065,7 @@ function App() {
           sfxVolume={sfxVolume}
           musicVolume={musicVolume}
           canSurrender={room?.phase === "battle" && !me?.isBot}
-          primaryActionLabel={room?.mode === "bot-vs-bot" ? "Salir de modo ia vs ia" : ""}
+          primaryActionLabel={room?.mode === "bot-vs-bot" ? "Salir de modo IA vs IA" : ""}
           onPrimaryAction={room?.mode === "bot-vs-bot" ? returnHome : undefined}
           onSfxVolumeChange={setSfxVolume}
           onMusicVolumeChange={setMusicVolume}
@@ -1443,6 +1443,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
     .filter(Boolean);
+  const randomTeamLabel = selected.length > 0 ? "Completar Equipo Random" : "Equipo Random";
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -1481,12 +1482,10 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
             <div className="selection-title">
               <div className="selection-heading">
                 <h2>Elige 3 personajes</h2>
-                {room.mode === "bot" && (
-                  <button type="button" className="secondary random-team-button" onClick={onRandomTeam} disabled={me?.ready || characters.length < 3}>
-                    <RefreshCw size={16} />
-                    Equipo Random
-                  </button>
-                )}
+                <button type="button" className="secondary random-team-button" onClick={onRandomTeam} disabled={me?.ready || characters.length < 3}>
+                  <RefreshCw size={16} />
+                  {randomTeamLabel}
+                </button>
               </div>
               {selectedCharacters.length > 0 && (
                 <div className="selected-character-strip" aria-label="Personajes elegidos">
@@ -1649,6 +1648,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
     return isMyTurn
       && room.phase !== "finished"
       && !isSkillStunned(selectedActor, skill)
+      && !isSkillOutOfUses(selectedActor, skill)
       && skillCooldownFor(selectedActor, skill.id) <= 0
       && !isQueuedActor(me, selectedActor?.id)
       && !isQueuedSkill(me, selectedActor?.id, skill.id)
@@ -1762,6 +1762,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
               const isPending = pendingSkillId === skill.id;
               const disabled = !isPending && !canPrepareSkill(skill);
               const cooldown = skillCooldownFor(selectedActor, skill.id);
+              const outOfUses = isSkillOutOfUses(selectedActor, skill);
               const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
               return (
                 <button
@@ -1777,7 +1778,11 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
                   <span className="skill-copy">
                     <strong>{skill.name}</strong>
                     <small>
-                      {skill.passive ? "Pasiva - no usable" : <>{targetTypeLabel(skill.targetType)} - <ChakraCost chakra={chakraCost} /></>}
+                      {outOfUses
+                        ? "Sin usos disponibles"
+                        : skill.passive
+                          ? "Pasiva - no usable"
+                          : <>{targetTypeLabel(skill.targetType)} - <ChakraCost chakra={chakraCost} /></>}
                     </small>
                   </span>
                 </button>
@@ -2122,9 +2127,10 @@ function CharacterFooter({ member, character: characterOverride, compact = false
   const character = member?.character || characterOverride;
   if (!character) return null;
   const currentHp = member?.hp ?? character.maxHp;
+  const avatarImageId = member?.avatarImageId || character.id;
   return (
     <footer className={`skill-footer character-detail-footer ${compact ? "compact" : ""}`}>
-      <SquareImage alt={character.name} src={characterImage(character.id)} />
+      <SquareImage alt={character.name} src={characterImage(avatarImageId)} />
       <div className="skill-footer-body">
         <h2>{character.name}</h2>
         <p className="skill-footer-description">{characterDescription(character)}</p>
@@ -2290,7 +2296,7 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
           const invulnerable = targetable && hasStatus(member, "invulnerable");
           const untargetable = invulnerable && !eligible;
           const selectable = member.hp > 0 && (eligible || (!choosingTarget && ownTeam));
-          const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.character.id);
+          const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.avatarImageId || member.character.id);
           const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");
           const fighterHint = eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : "";
           return (

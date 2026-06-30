@@ -9,18 +9,24 @@ function tooltipDescriptionForEffect(effect) {
     ?? null;
 }
 
+function turnsFromDuration(duration) {
+  if (duration === "lastUntilShieldBroken") return -1;
+  return duration;
+}
+
 export function applyReplaceSkillEffect({ targets, effect, skill, actor, actorCharacter, currentTurn, addStatus, statusOrigin }) {
   for (const target of targets) {
     const baseSkillId = effect.baseSkillId || skill.id;
     addStatus(target, {
       id: randomUUID(),
       type: "replaceSkill",
-      turns: effect.duration,
+      turns: turnsFromDuration(effect.duration),
       baseSkillId,
       skillId: effect.skillId,
       showStatusEffect: effect.showStatusEffect,
-      sourceSkillId: skill.id,
-      sourceSkillName: skill.name,
+      statusLinkId: effect.statusLinkId,
+      sourceSkillId: effect.statusSourceSkillId || skill.id,
+      sourceSkillName: effect.statusSourceSkillName || skill.name,
       sourceActorName: actorCharacter.name,
       ...statusOrigin(actor),
       createdTurn: currentTurn,

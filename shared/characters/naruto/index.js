@@ -92,6 +92,44 @@ export const naruto = {
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
       family: ["physical", "strategic", "instant"]
+    },
+    {
+      id: "kurama-possession",
+      name: "Posesion Kurama",
+      passive: true,
+      startsActive: true,
+      chakra: {},
+      targetType: "self",
+      description: "Pasiva oculta: si Naruto llega a 30% de vida o menos, obtiene 50% de reduccion de daño permanentemente.",
+      effects: [{
+        type: "triggerSkills",
+        duration: -1,
+        targets: "self",
+        condition: { type: "hpPercent", comparator: "<=", value: 30 },
+        showStatusEffect: false,
+        effects: [
+          {
+            type: "damage-reduction",
+            value: 50,
+            percent: true,
+            duration: -1,
+            targets: "self",
+            statusSourceSkillId: "kurama-possession",
+            statusSourceSkillName: "Posesion Kurama",
+            statusIconSkillId: "kyuubi-chakra",
+            descriptions: ["Naruto esta poseido por Kurama y recibe 50% menos daño permanentemente."]
+          },
+          {
+            type: "changeAvatarImage",
+            duration: -1,
+            targets: "self",
+            avatarImage: "naruto-kurama",
+            showStatusEffect: false
+          }
+        ]
+      }],
+      hideUntilReplaced: true,
+      family: ["special", "strategic", "instant"]
     }
   ]
 };
