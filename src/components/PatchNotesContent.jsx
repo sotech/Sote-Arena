@@ -58,12 +58,32 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
-      <PatchNotesPatch patch="1.4.0">
+      <PatchNotesPatch patch="1.4.0">        
         <CharacterPatch id="ichigo">
           <New>Agregado Kurosaki Ichigo.</New>
         </CharacterPatch>
+        <CharacterPatch id="jotaro">
+          <Balance>Star Finger cuesta 1 recurso neutral mas.</Balance>
+          <Balance>Star Finder hace 5 mas de daño.</Balance>
+          <Balance>Stand: Star Platinum cuesta 1 recurso fisico y 1 recurso especial.</Balance>
+          <Balance>Stand: Star Platinum dura 3 turnos.</Balance>
+        </CharacterPatch>
+        <CharacterPatch id="dio">
+          <Buff>Stand: The World ahora aumenta el daño de MUDA MUDA MUDA 10 adicional.</Buff>
+          <Nerf>Stand: The World ahora cuesta 1 recurso fisico y 1 recurso especial.</Nerf>
+          <Nerf>Perfora Abdomen ahora cuesta 2 recursos fisicos y su daño es de 40.</Nerf>
+        </CharacterPatch>
         <CharacterPatch id="naruto">
           <New>Posesion Kurama. Cuando Naruto llegue a un 30% de vida o menos, esta pasiva se activara y Naruto ganará 50% reducción de daño permanentemente.</New>
+        </CharacterPatch>
+        <CharacterPatch id="kankuro">
+          <Buff>Emboscada de marionetas hace 30 de daño.</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="joseph">
+          <Buff>Hamon ahora otorga 80% de reduccion de daño.</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="sasuke">
+          <Buff>Kirin ahora hace 55 de daño.</Buff>
         </CharacterPatch>
         <ul>          
           <Fix>Habilidades sin usos quedan deshabilitadas en la UI</Fix>

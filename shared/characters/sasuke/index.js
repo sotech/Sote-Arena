@@ -25,9 +25,9 @@ export const sasuke = {
       targetType: "enemy",
       uncountereable: true,
       nonReflectable: true,
-      description: "Sasuke libera una descarga electrica sobre el enemigo. El enemigo recibe 45 daño. No puede ser contrarrestada ni reflejada. Si algun enemigo esta afectado por Espada de Kusanagi, ese enemigo tambien recibira 10 de afliccion que ignora invulnerabilidad, contrarrestar o reflejo.",
+      description: "Sasuke libera una descarga electrica sobre el enemigo. El enemigo recibe 55 daño. No puede ser contrarrestada ni reflejada. Si algun enemigo esta afectado por Espada de Kusanagi, ese enemigo tambien recibira 10 de afliccion que ignora invulnerabilidad, contrarrestar o reflejo.",
       effects: [
-        { type: "damage", value: 45, targets: "target" },
+        { type: "damage", value: 55, targets: "target" },
         { type: "damage", value: 10, damageType: "affliction", targets: "enemies", ignoreInvulnerable: true, require: { type: "hasStatusEffect", effectId: "kusanagi-sword" } }
       ],
       cooldown: 1,

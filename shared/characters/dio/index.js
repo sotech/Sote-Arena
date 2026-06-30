@@ -11,7 +11,7 @@ export const dio = {
       name: "MUDA MUDA MUDA",
       chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "The World golpea a un enemigo. Inflige 15 de daño durante 3 turnos. Puede ser interrumpida.",
+      description: "The World golpea a un enemigo con una rafaga de golpes. Inflige 15 de daño durante 3 turnos. Con Stand: The World activo inflige 10 adicional por turno. Puede ser interrumpida.",
       effects: [
         {
           type: "complex",
@@ -75,11 +75,12 @@ export const dio = {
     {
       id: "stand-the-world",
       name: "Stand: The World",
-      chakra: { bloodline: 2 },
+      chakra: { taijutsu: 1, bloodline: 1 },
       targetType: "self",
       description: "Dio invoca The World durante 3 turnos, obtiene 35% de reduccion de daño, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
       effects: [
         { type: "damage-reduction", value: 35, percent: true, duration: 3, targets: "self" },
+        { type: "modifyDamage", value: 10, duration: 3, targets: "self", skillIds: ["ora-ora-ora"] },
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "blood-transfer", skillId: "abdomen-pierce" },
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-the-world", skillId: "the-world" }
       ],
@@ -139,10 +140,10 @@ export const dio = {
     {
       id: "abdomen-pierce",
       name: "Perfora Abdomen",
-      chakra: { taijutsu: 1},
+      chakra: { taijutsu: 2 },
       targetType: "enemy",
-      description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 50 de daño. No puede ser contrarrestada ni reflejada.",
-      effects: [{ type: "damage", value: 50, targets: "target" }],
+      description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 40 de daño. No puede ser contrarrestada ni reflejada.",
+      effects: [{ type: "damage", value: 40, targets: "target" }],
       uncountereable: true,
       nonReflectable: true,
       isExtraSkill: true,

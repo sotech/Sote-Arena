@@ -42,12 +42,12 @@ export const jotaro = {
     {
       id: "star-finger",
       name: "Star Finger",
-      chakra: { bloodline: 1 },
+      chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Star Platinum atraviesa defensas. Inflige 25 de daño perforante e ignora invulnerabilidad. Con Star Platinum activo inflige 10 adicional y no puede ser contrarrestada.",
+      description: "Star Platinum atraviesa defensas. Rompe los escudos del oponente, inflige 30 de daño perforante e ignora invulnerabilidad. Con Star Platinum activo inflige 15 adicional y no puede ser contrarrestada.",
       effects: [
         { type: "breakShield", value: 1, targets: "target", ignoreInvulnerable: true },
-        { type: "damage", value: 25, damageType: "piercing", targets: "target", ignoreInvulnerable: true }
+        { type: "damage", value: 30, damageType: "piercing", targets: "target", ignoreInvulnerable: true }
       ],
       cooldown: 1,
       family: ["physical", "offensive", "instant"]
@@ -55,14 +55,14 @@ export const jotaro = {
     {
       id: "stand-star-platinum",
       name: "Stand: Star Platinum",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      chakra: { taijutsu: 1, bloodline: 1 },
       targetType: "self",
-      description: "Jotaro invoca Star Platinum durante 2 turnos, obtiene 25% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
+      description: "Jotaro invoca Star Platinum durante 3 turnos, obtiene 35% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
       effects: [
-        { type: "damage-reduction", value: 25, percent: true, duration: 2, targets: "self" },
-        { type: "modifyDamage", value: 10, duration: 2, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
-        { type: "addUncountereable", duration: 2, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
-        { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "stand-star-platinum", skillId: "star-platinum-the-world" }
+        { type: "damage-reduction", value: 25, percent: true, duration: 3, targets: "self" },
+        { type: "modifyDamage", value: 10, duration: 3, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
+        { type: "addUncountereable", duration: 3, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
+        { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-star-platinum", skillId: "star-platinum-the-world" }
       ],
       cooldown: 3,
       family: ["mental", "strategic", "instant"]

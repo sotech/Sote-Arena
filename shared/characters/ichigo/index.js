@@ -89,7 +89,7 @@ export const ichigo = {
       hideSkillUses:true,
       isSecret: true,
       description: `Solo se puede usar 1 vez. Se mantiene activa en Ichigo por 3 turnos. Si Ichigo llega a 50 de vida o menos mientras esta habilidad esta activa,
-      Ichigo gana Posesion Hueco. Gana 70 de escudo. Si el escudo se rompe, Posesion Hueco - Efecto termina. Combo Zangetsu se reemplaza con Vortice Negro y Getsuga Tensho se reemplaza con Getsuga Tensho Negro.`,
+      Ichigo gana Posesion Hueco. Gana 60 de escudo. Si el escudo se rompe, Posesion Hueco - Efecto termina. Combo Zangetsu se reemplaza con Vortice Negro y Getsuga Tensho se reemplaza con Getsuga Tensho Negro.`,
       effects: [
         {
           type: "applyEffectsOntriggerEvent",
@@ -104,7 +104,7 @@ export const ichigo = {
           effects: [
             {
               type: "shield",
-              value: 70,
+              value: 60,
               targets: "self",
               isStackable: false,
               duration: "lastUntilShieldBroken",
@@ -164,11 +164,11 @@ export const ichigo = {
       passive: true,
       chakra: {},
       targetType: "self",
-      description: "Ichigo gana 70 de escudo. Si se rompe todo el escudo, Posesion Hueco - Efecto termina. Combo Zangetsu se reemplaza con Vortice Negro y Getsuga Tensho con Getsuga Tensho Negro.",
+      description: "Ichigo gana 60 de escudo. Si se rompe todo el escudo, Posesion Hueco - Efecto termina. Combo Zangetsu se reemplaza con Vortice Negro y Getsuga Tensho con Getsuga Tensho Negro.",
       effects: [
         {
           type: "shield",
-          value: 70,
+          value: 60,
           targets: "self",
           isStackable: false,
           duration: "lastUntilShieldBroken",
@@ -184,8 +184,8 @@ export const ichigo = {
       name: "Vortice Negro",
       chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Ichigo inflige 35 de daño perforante a todos los enemigos.",
-      effects: [{ type: "damage", value: 35, damageType: "piercing", targets: "target" }],
+      description: "Ichigo inflige 30 de daño perforante a todos los enemigos.",
+      effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }],
       cooldown: 2,
       isExtraSkill: true,
       hideUntilReplaced: true,
@@ -196,9 +196,9 @@ export const ichigo = {
       name: "Getsuga Tensho Negro",
       chakra: { ninjutsu: 1, genjutsu: 1 },
       targetType: "enemy",
-      description: "Ichigo inflige 55 de daño perforante a un enemigo.",
-      effects: [{ type: "damage", value: 55, damageType: "piercing", targets: "target" }],
-      cooldown: 1,
+      description: "Ichigo inflige 45 de daño perforante a un enemigo.",
+      effects: [{ type: "damage", value: 45, damageType: "piercing", targets: "target" }],
+      cooldown: 2,
       isExtraSkill: true,
       hideUntilReplaced: true,
       family: ["special", "offensive", "instant"]

@@ -21,10 +21,10 @@ export const joseph = {
       name: "Hamon",
       chakra: { bloodline: 1 },
       targetType: "self",
-      description: "Joseph obtiene 1 acumulacion de Hamon y 75% de reduccion de daño durante 1 turno. Cada Hamon aumenta Boleadoras Resonantes en 5.",
+      description: "Joseph obtiene 1 acumulacion de Hamon y 80% de reduccion de daño durante 1 turno. Cada Hamon aumenta Boleadoras Resonantes en 5.",
       effects: [
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["clacker-volley"], isStackable: true },
-        { type: "damage-reduction", value: 75, percent: true, duration: 1, targets: "self" }
+        { type: "damage-reduction", value: 80, percent: true, duration: 1, targets: "self" }
       ],
       cooldown: 2,
       family: ["special", "strategic", "instant"]
