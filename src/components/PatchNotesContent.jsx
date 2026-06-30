@@ -59,6 +59,9 @@ export function PatchNotesContent() {
   return (
     <>
       <PatchNotesPatch patch="1.3.2">
+        <CharacterPatch id="joseph">
+          <li>Aumentado el cooldown de Tu siguiente frase es... en 1</li>
+        </CharacterPatch>
         <New>Agregado seleccion de equipo al azar en modo vs IA</New>
         <li>Mejoras en el sistema de registro.</li>
         <li>Mejoras en el resumen de partida.</li>

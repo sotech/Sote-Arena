@@ -46,7 +46,7 @@ export const joseph = {
           { type: "modifyDamage", isStackable: true ,value: 10, duration: -1, targets: "origin", skillIds: ["clacker-volley"], statusNoticeDescription: "Tu siguiente frase es: habilidad contrarrestada" }
         ]
       }],
-      cooldown: 1,
+      cooldown: 2,
       family: ["mental", "strategic", "instant"]
     },
     {
