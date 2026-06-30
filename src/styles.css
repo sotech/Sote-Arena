@@ -292,6 +292,14 @@ h2 {
   background: #f7f9fc;
 }
 
+.balance-test-row.balance-rank-top {
+  background: #dff3ff;
+}
+
+.balance-test-row.balance-rank-bottom {
+  background: #ffe2e2;
+}
+
 .balance-test-row.head {
   background: #17202a;
   color: #fff;

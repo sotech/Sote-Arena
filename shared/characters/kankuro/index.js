@@ -23,7 +23,7 @@ export const kankuro = {
     {
       id: "iron-puppet-barrage",
       name: "Rafaga de marionetas de hierro",
-      chakra: { neutralChakra: 1 },
+      chakra: { neutralChakra: 2 },
       targetType: "enemies",
       description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de dano de afliccion durante 2 turnos.",
       effects: [

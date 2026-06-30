@@ -41,8 +41,8 @@ export const dio = {
       chakra: { bloodline: 1 },
       targetType: "anyCharacter",
       description: `Dio absorbe la sangre de cualquiera que lo rodee. 
-      Si el objetivo es enemigo, hace 15 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 dano adicional durante 2 turnos. 
-      Si es aliado, hace 15 de daño de afliccion, Dio recupera 25 de vida y MUDA MUDA MUDA inflige 15 dano adicional durante 2 turnos. 
+      Si el objetivo es enemigo, hace 20 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 dano adicional durante 3 turnos. 
+      Si es aliado, hace 20 de daño de afliccion, Dio recupera 25 de vida y MUDA MUDA MUDA inflige 15 dano adicional durante 3 turnos. 
       .`,
       requires: [{ scope: "target", type: "characterId", operator: "ne", value: "dio", message: "Transferencia de Sangre no puede usarse sobre Dio." }],
       effects: [{
@@ -53,17 +53,17 @@ export const dio = {
           {
             relation: "enemy",
             effects: [
-              { type: "damage", value: 15, damageType: "affliction", targets: "target" },
+              { type: "damage", value: 20, damageType: "affliction", targets: "target" },
               { type: "self-heal", value: 15, targets: "self" },
-              { type: "modifyDamage", value: 10, duration: 2, targets: "self", skillIds: ["muda-muda-muda"] }
+              { type: "modifyDamage", value: 10, duration: 3, targets: "self", skillIds: ["muda-muda-muda"] }
             ]
           },
           {
             relation: "ally",
             effects: [
-              { type: "damage", value: 15, damageType: "affliction", targets: "target" },
+              { type: "damage", value: 20, damageType: "affliction", targets: "target" },
               { type: "self-heal", value: 25, targets: "self" },
-              { type: "modifyDamage", value: 15, duration: 2, targets: "self", skillIds: ["muda-muda-muda"] }
+              { type: "modifyDamage", value: 15, duration: 3, targets: "self", skillIds: ["muda-muda-muda"] }
             ]
           }
         ]
@@ -79,7 +79,7 @@ export const dio = {
       description: "Dio invoca The World durante 3 turnos, obtiene 35% de reduccion de dano, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
       effects: [
         { type: "damage-reduction", value: 35, percent: true, duration: 3, targets: "self" },
-        { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "muda-muda-muda", skillId: "abdomen-pierce" },
+        { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "blood-transfer", skillId: "abdomen-pierce" },
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-the-world", skillId: "the-world" }
       ],
       cooldown: 4,
@@ -113,8 +113,21 @@ export const dio = {
       name: "The World",
       chakra: { bloodline: 2 },
       targetType: "allPlayers",
-      description: "Dio detiene el tiempo. Todos excepto Dio quedan aturdidos durante 1 turnos.",
-      effects: [{ type: "stun", value: 1, targets: ["allies", "enemies"] }],
+      description: "Dio detiene el tiempo. Todos excepto Dio quedan aturdidos durante 2 turnos. Durante este tiempo, los enemigos aturdidos por esta habilidad reciben doble daño de Dio",
+      effects: [
+        { type: "stun", value: 2, targets: ["allies", "enemies"] },
+        {
+          type: "modifyDamageMultiplier",
+          multiplier: 2,
+          duration: 2,
+          targets: "self",
+          targetStatus: { type: "stun", sourceSkillId: "the-world", originCharacterId: "dio" },
+          statusSourceSkillId: "the-world-damage-window",
+          statusSourceSkillName: "The World",
+          statusIconSkillId: "the-world",
+          descriptions: ["Los enemigos aturdidos por The World reciben doble dano de las habilidades de Dio."]
+        }
+      ],
       uncountereable: true,
       nonReflectable: true,
       isExtraSkill: true,

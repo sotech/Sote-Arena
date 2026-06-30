@@ -43,7 +43,7 @@ export function groupStatusEffects(effects = []) {
 export function statusEffectGroupValue(group) {
   const usesEffect = group.effects.find((effect) => effect.type === "skill-uses");
   if (usesEffect) return usesEffect.remainingUses ?? usesEffect.value;
-  const stackCount = group.effects.reduce((total, effect) => total + Math.max(0, Number(effect.stackCount || 0)), 0);
+  const stackCount = visualStackCount(group.effects);
   if (stackCount > 0) return stackCount;
   const damageModifier = groupStatusDamageModifierValue(group);
   if (damageModifier !== null) return damageModifier > 0 ? `+${damageModifier}` : String(damageModifier);
@@ -53,6 +53,25 @@ export function statusEffectGroupValue(group) {
     return Math.max(...timedEffects.map((effect) => effect.turns));
   }
   return statusEffectValue(group.effects[0]);
+}
+
+function visualStackKey(effect = {}) {
+  const source = effect.sourceSkillName || effect.sourceSkillId || "";
+  const scope = Array.isArray(effect.skillIds)
+    ? `skills:${[...effect.skillIds].sort().join(",")}`
+    : "global";
+  return `${effect.type}|${source}|${scope}`;
+}
+
+function visualStackCount(effects = []) {
+  const totals = new Map();
+  for (const effect of effects) {
+    const count = Math.max(0, Number(effect.stackCount || 0));
+    if (count <= 0) continue;
+    const key = visualStackKey(effect);
+    totals.set(key, (totals.get(key) || 0) + count);
+  }
+  return totals.size > 0 ? Math.max(...totals.values()) : 0;
 }
 
 export function statusEffectGroupMeta(group) {
@@ -76,6 +95,7 @@ export function statusEffectValue(effect) {
     const value = Number(effect.value || 0);
     return value > 0 ? `+${value}` : String(value);
   }
+  if (effect.type === "modifyDamageMultiplier") return `x${Number(effect.multiplier ?? effect.value ?? 1)}`;
   if (effect.turns === -1) return "∞";
   if (Number.isFinite(effect.turns)) return effect.turns;
   return effect.turns;
@@ -131,6 +151,11 @@ export function effectDescription(effect) {
     const hpStep = Math.max(1, Number(effect.hpStep || 1));
     const duration = durationDescription(effect.duration);
     return `Aumenta dano: +${amount} por cada ${hpStep} HP faltante${duration}${scope}`;
+  }
+  if (effect.type === "modifyDamageMultiplier") {
+    const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
+    const duration = durationDescription(effect.duration);
+    return `Multiplica dano: x${Number(effect.multiplier ?? effect.value ?? 1)}${duration}${scope}`;
   }
   if (effect.type === "modifyDamageType") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";

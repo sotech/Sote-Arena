@@ -18,24 +18,27 @@ import { targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
 import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, inspectableSkillsForCharacter } from "../shared/skillReplacements.js";
-import { GAME_VERSION } from "../shared/config.js";
+import {
+  ADVANTAGE_HEALTH_SHARE,
+  AUDIO_FADE_MS,
+  BALANCE_TEST_FIGHT_COUNT,
+  BGM_FADE_MS,
+  BGM_VOLUME_RATIO,
+  DEATH_AUDIO_FADE_MS,
+  DEFAULT_BALANCE_SORT,
+  GAME_VERSION,
+  MESSAGE_SOUND_END_TIME,
+  MESSAGE_SOUND_START_TIME,
+  NOTIFIER_END_TIME,
+  NOTIFIER_START_TIME,
+  PATCH_NOTES_SEEN_KEY,
+  RESULT_AUDIO_FADE_MS,
+  SOCKET_PATH,
+  SOCKET_URL
+} from "./config.js";
 import "./styles.css";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || undefined;
-const SOCKET_PATH = import.meta.env.VITE_SOCKET_PATH || "/socket.io";
 const socket = io(SOCKET_URL, { path: SOCKET_PATH });
-const NOTIFIER_START_TIME = 0;
-const NOTIFIER_END_TIME = 0.8;
-const MESSAGE_SOUND_START_TIME = 0.5;
-const MESSAGE_SOUND_END_TIME = 1.5;
-const AUDIO_FADE_MS = 450;
-const RESULT_AUDIO_FADE_MS = 1000;
-const BGM_FADE_MS = 1000;
-const DEATH_AUDIO_FADE_MS = 500;
-const BGM_VOLUME_RATIO = 0.5;
-const ADVANTAGE_HEALTH_SHARE = 0.7;
-const PATCH_NOTES_SEEN_KEY = `sote-arena-patch-notes-seen-${GAME_VERSION}`;
-const DEFAULT_BALANCE_SORT = { key: "winrate", direction: "desc" };
 const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
 const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
@@ -724,7 +727,7 @@ function App() {
     setBalanceTestResult(null);
     setBalanceTestLoading(true);
     setHomeView("balance-test");
-    const response = await callSocket("test:runBalance", { fightCount: 1000 });
+    const response = await callSocket("test:runBalance", { fightCount: BALANCE_TEST_FIGHT_COUNT });
     setBalanceTestLoading(false);
     if (!response.ok) {
       setError(response.error);
@@ -1121,6 +1124,21 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
       return direction * (firstValue - secondValue) || first.name.localeCompare(second.name, "es", { sensitivity: "base" });
     });
   }, [result, sortConfig]);
+  const winrateRankClasses = useMemo(() => {
+    const rows = [...(result?.results || [])].sort((first, second) => {
+      const firstTotal = first.wins + first.losses;
+      const secondTotal = second.wins + second.losses;
+      const firstWinrate = firstTotal > 0 ? first.wins / firstTotal : 0;
+      const secondWinrate = secondTotal > 0 ? second.wins / secondTotal : 0;
+      return secondWinrate - firstWinrate || second.wins - first.wins || first.losses - second.losses || first.name.localeCompare(second.name, "es", { sensitivity: "base" });
+    });
+    const classes = new Map();
+    rows.slice(0, 3).forEach((item) => classes.set(item.id, "balance-rank-top"));
+    rows.slice(-3).forEach((item) => {
+      if (!classes.has(item.id)) classes.set(item.id, "balance-rank-bottom");
+    });
+    return classes;
+  }, [result]);
 
   function sortBy(key) {
     setSortConfig((current) => ({
@@ -1206,7 +1224,7 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
               const total = item.wins + item.losses;
               const winrate = total > 0 ? Math.round((item.wins / total) * 100) : 0;
               return (
-                <div className="balance-test-row" role="row" key={item.id}>
+                <div className={`balance-test-row ${winrateRankClasses.get(item.id) || ""}`} role="row" key={item.id}>
                   <strong>{item.name}</strong>
                   <span>{item.used}</span>
                   <span>{item.wins}</span>
@@ -2094,6 +2112,11 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
   const [damageAnimations, setDamageAnimations] = useState({});
 
   useEffect(() => {
+    previousHpRef.current = new Map((player?.team || []).map((member) => [member.id, member.hp]));
+    setDamageAnimations({});
+  }, [player?.id]);
+
+  useEffect(() => {
     const nextHp = new Map();
     const nextAnimations = {};
     for (const member of player?.team || []) {
@@ -2121,7 +2144,7 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
       <h2>{title}</h2>
       <div className="fighters">
         {player?.team.map((member) => {
-          const damageAnimation = damageAnimations[member.id];
+          const damageAnimation = choosingTarget && targetable ? null : damageAnimations[member.id];
           const eligible = choosingTarget && eligibleTargetIds.has(member.id);
           const invulnerable = targetable && hasStatus(member, "invulnerable");
           const untargetable = invulnerable && !eligible;

@@ -56,10 +56,15 @@ import {
 } from "./players.js";
 import { registerSocketHandlers } from "./socketHandlers.js";
 import { botNeutralPayment, playBotTurn } from "./bot.js";
-
-const PORT = process.env.PORT || 3002;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://127.0.0.1:5173";
-const CLIENT_ORIGINS = CLIENT_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
+import {
+  BALANCE_TEST_DEFAULT_FIGHT_COUNT,
+  BALANCE_TEST_MAX_FIGHT_COUNT,
+  BALANCE_TEST_TURN_LIMIT,
+  CLIENT_ORIGINS,
+  NEGATIVE_STATUS_TYPES,
+  PORT,
+  SKILL_MODIFIER_EFFECT_TYPES
+} from "./config.js";
 
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGINS }));
@@ -76,16 +81,7 @@ const io = new Server(server, {
 const rooms = new Map();
 const socketRooms = new Map();
 const skillModifierEffectTypes = [
-  "modifyDamage",
-  "modifyDamageByMissingHp",
-  "modifyDamageType",
-  "modifyTargetType",
-  "modifyTargetCount",
-  "addEffectToBase",
-  "addUncountereable",
-  "addNonReflectable",
-  "replaceEffects",
-  "replaceSkill",
+  ...SKILL_MODIFIER_EFFECT_TYPES,
   ...chakraCostModifierTypes
 ];
 
@@ -260,28 +256,10 @@ function removeShieldStatuses(target) {
   return before;
 }
 
-const negativeStatusTypes = new Set([
-  "stun",
-  "modifyDamage",
-  "modifyDamageByMissingHp",
-  "modifyDamageType",
-  "modifyTargetType",
-  "modifyTargetCount",
-  "addEffectToBase",
-  "addUncountereable",
-  "addNonReflectable",
-  "replaceEffects",
-  "replaceSkill",
-  "modifyChakraCost",
-  "substituteChakraCost",
-  "counter",
-  "reflect"
-]);
-
 function isNegativeStatus(effect) {
   if (!effect) return false;
-  if (negativeStatusTypes.has(effect.type)) return true;
-  return effect.type === "complex" && (effect.effects || []).some((childEffect) => negativeStatusTypes.has(childEffect.type));
+  if (NEGATIVE_STATUS_TYPES.has(effect.type)) return true;
+  return effect.type === "complex" && (effect.effects || []).some((childEffect) => NEGATIVE_STATUS_TYPES.has(childEffect.type));
 }
 
 function resolveReviveOnDeathEffects(room) {
@@ -685,8 +663,8 @@ function winnerByHealth(room) {
   return p1Hp > p2Hp ? p1.id : p2.id;
 }
 
-export function runBalanceTest(fightCount = 1000) {
-  const count = Math.max(1, Math.min(1000, Number(fightCount || 1000)));
+export function runBalanceTest(fightCount = BALANCE_TEST_DEFAULT_FIGHT_COUNT) {
+  const count = Math.max(1, Math.min(BALANCE_TEST_MAX_FIGHT_COUNT, Number(fightCount || BALANCE_TEST_DEFAULT_FIGHT_COUNT)));
   const usageCounts = new Map();
   const results = new Map(characters.map((character) => [character.id, {
     id: character.id,
@@ -722,7 +700,7 @@ export function runBalanceTest(fightCount = 1000) {
 
     maybeStart(room);
     let turns = 0;
-    while (room.phase === "battle" && turns < 200) {
+    while (room.phase === "battle" && turns < BALANCE_TEST_TURN_LIMIT) {
       const activePlayer = findPlayer(room, room.activePlayerId);
       playBotTurn(room, engine);
       resolveTurn(room, activePlayer.id, botNeutralPayment(activePlayer));
@@ -788,6 +766,8 @@ export function addStatus(member, status) {
   if (status.type === "replaceSkill" && status.turns === -1 && status.showStatusEffect === undefined) {
     status.showStatusEffect = false;
   }
+  status = cappedStackableStatus(member, status);
+  if (!status) return;
   const existing = (member.statusEffects || []).find((effect) => (
     effect.type === status.type
     && effect.sourceSkillId === status.sourceSkillId
@@ -844,6 +824,8 @@ export function addStatus(member, status) {
         ? Number(existing.value || 0) + Number(status.value || 0)
         : status.value;
       existing.damageType = status.damageType;
+      existing.multiplier = status.multiplier;
+      existing.targetStatus = status.targetStatus;
       existing.targetType = status.targetType;
       existing.count = status.count;
       existing.random = status.random;
@@ -898,6 +880,54 @@ export function addStatus(member, status) {
   member.statusEffects = [...(member.statusEffects || []), status];
 }
 
+function stackScopeKey(status = {}) {
+  if (Array.isArray(status.skillIds)) return `skills:${[...status.skillIds].sort().join(",")}`;
+  if (status.baseSkillId || status.skillId) return `skill:${status.baseSkillId || ""}->${status.skillId || ""}`;
+  if (status.targetStatus) return `target:${JSON.stringify(status.targetStatus)}`;
+  if (status.targetType) return `targetType:${status.targetType}`;
+  if (Array.isArray(status.familiesAffected)) return `families:${[...status.familiesAffected].sort().join(",")}`;
+  return "global";
+}
+
+function stackLimitKey(status = {}) {
+  const source = status.sourceSkillName || status.sourceSkillId;
+  return `${status.type}|${source || ""}|${stackScopeKey(status)}`;
+}
+
+function statusStackCount(status = {}) {
+  if (status.stackCount === undefined) return 0;
+  return Math.max(1, Number(status.stackCount || 1));
+}
+
+function existingStackCountForStatus(member, status) {
+  const key = stackLimitKey(status);
+  return (member.statusEffects || [])
+    .filter((item) => stackLimitKey(item) === key)
+    .reduce((total, item) => total + statusStackCount(item), 0);
+}
+
+function scaleNumericValue(value, ratio) {
+  if (value === undefined || value === null || !Number.isFinite(Number(value))) return value;
+  return Number(value) * ratio;
+}
+
+function cappedStackableStatus(member, status) {
+  const maxStacks = Number(status.maxStacks || 0);
+  if (status.isStackable !== true || maxStacks <= 0) return status;
+  const incomingStacks = statusStackCount(status) || 1;
+  const allowedStacks = Math.min(incomingStacks, Math.max(0, maxStacks - existingStackCountForStatus(member, status)));
+  if (allowedStacks <= 0) return null;
+  if (allowedStacks >= incomingStacks) return status;
+  const ratio = allowedStacks / incomingStacks;
+  return {
+    ...status,
+    stackCount: allowedStacks,
+    value: scaleNumericValue(status.value, ratio),
+    remainingReduction: scaleNumericValue(status.remainingReduction, ratio),
+    remainingShield: scaleNumericValue(status.remainingShield, ratio)
+  };
+}
+
 function statusOrigin(actor) {
   return {
     originActorId: actor?.id,
@@ -915,6 +945,12 @@ function hasStunImmunity(member, sourceSkillId) {
 
 function appliesToModifiedSkill(effect, skill) {
   if (!["modifyDamage", "modifyDamageByMissingHp"].includes(effect.type) || (effect.turns <= 0 && effect.turns !== -1)) return false;
+  if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
+  return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
+}
+
+function appliesToDamageMultiplierSkill(effect, skill) {
+  if (effect.type !== "modifyDamageMultiplier" || (effect.turns <= 0 && effect.turns !== -1)) return false;
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }
@@ -998,6 +1034,42 @@ export function damageBuffValue(actor, skill, currentTurn) {
     .filter((effect) => appliesToModifiedSkill({ ...effect, turns: 1 }, skill))
     .reduce((total, effect) => total + effectBuffValue(effect), 0);
   return directBuffs + complexBuffs;
+}
+
+function statusMatchesTargetCondition(status, condition = {}) {
+  if (!status || (status.turns <= 0 && status.turns !== -1) || statusIsIgnored(status)) return false;
+  const expectedType = condition.type || condition.statusType || condition.effectId;
+  if (expectedType && status.type !== expectedType) return false;
+  const sourceSkillIds = [condition.sourceSkillId, ...(Array.isArray(condition.sourceSkillIds) ? condition.sourceSkillIds : [])].filter(Boolean);
+  if (sourceSkillIds.length > 0 && !sourceSkillIds.includes(status.sourceSkillId)) return false;
+  const originCharacterIds = [condition.originCharacterId, ...(Array.isArray(condition.originCharacterIds) ? condition.originCharacterIds : [])].filter(Boolean);
+  if (originCharacterIds.length > 0 && !originCharacterIds.includes(status.originCharacterId)) return false;
+  const originActorIds = [condition.originActorId, ...(Array.isArray(condition.originActorIds) ? condition.originActorIds : [])].filter(Boolean);
+  if (originActorIds.length > 0 && !originActorIds.includes(status.originActorId)) return false;
+  return true;
+}
+
+function targetMatchesDamageMultiplier(effect, target) {
+  if (!effect.targetStatus) return true;
+  return activeStatusEffects(target).some((status) => statusMatchesTargetCondition(status, effect.targetStatus));
+}
+
+export function damageMultiplierValue(actor, skill, target, currentTurn) {
+  const multiplierForEffect = (effect) => (
+    appliesToDamageMultiplierSkill(effect, skill) && targetMatchesDamageMultiplier(effect, target)
+      ? Math.max(0, Number(effect.multiplier ?? effect.value ?? 1))
+      : 1
+  );
+  const directMultiplier = activeStatusEffects(actor)
+    .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
+    .reduce((multiplier, effect) => multiplier * multiplierForEffect(effect), 1);
+  const complexMultiplier = activeStatusEffects(actor)
+    .filter((effect) => effect.type === "complex" && (effect.turns > 0 || effect.turns === -1))
+    .filter((effect) => !(effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn))
+    .flatMap((effect) => effect.effects || [])
+    .filter((effect) => !statusIsIgnored(effect))
+    .reduce((multiplier, effect) => multiplier * multiplierForEffect({ ...effect, turns: 1 }), 1);
+  return directMultiplier * complexMultiplier;
 }
 
 export function isSkillCountereable(actor, skill, currentTurn) {
@@ -1263,6 +1335,7 @@ function snapshotComplexEffects(effects, actor, skill, target, currentTurn) {
 
     const baseDamage = Math.max(0, Number(childEffect.value || 0));
     const buffedDamage = baseDamage + damageBuffValue(actor, skill, currentTurn);
+    const multiplier = damageMultiplierValue(actor, skill, target, currentTurn);
     const damageType = modifiedDamageType(
       actor,
       skill,
@@ -1272,7 +1345,7 @@ function snapshotComplexEffects(effects, actor, skill, target, currentTurn) {
 
     return {
       ...childEffect,
-      value: buffedDamage + damageBonusForTarget(childEffect, target, actor),
+      value: Math.ceil((buffedDamage + damageBonusForTarget(childEffect, target, actor)) * multiplier),
       damageType
     };
   });
@@ -1758,13 +1831,15 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       continue;
     }
 
-    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
+    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier") {
       for (const target of targets) {
         addStatus(target, {
           id: randomUUID(),
           type: effect.type,
           turns: effect.duration,
           value: effect.value,
+          multiplier: effect.multiplier,
+          targetStatus: effect.targetStatus,
           amountPerStep: effect.amountPerStep,
           hpStep: effect.hpStep,
           skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
@@ -1871,6 +1946,19 @@ function applyBattleStartPassives(room) {
 
 function applyDeathTriggerEffect(room, member, status, effect) {
   const memberCharacter = getCharacterById(member.characterId);
+  const maxStacks = Number(effect.maxStacks || 0);
+  const sourceSkillId = effect.statusSourceSkillId || status.sourceSkillId;
+  const sourceSkillName = effect.statusSourceSkillName || status.sourceSkillName;
+  const stackPreview = {
+    ...effect,
+    type: effect.type,
+    sourceSkillId,
+    sourceSkillName,
+    stackCount: effect.stackCount ?? (effect.isStackable === true ? 1 : undefined)
+  };
+  if (effect.isStackable === true && maxStacks > 0 && existingStackCountForStatus(member, stackPreview) >= maxStacks) {
+    return "";
+  }
   if (effect.type === "damage-reduction") {
     const value = positiveEffectValue(effect);
     addStatus(member, {
@@ -1882,9 +1970,10 @@ function applyDeathTriggerEffect(room, member, status, effect) {
       percent: effect.percent === true,
       restoresEachTurn: effect.restoresEachTurn !== false,
       isStackable: effect.isStackable === true,
-      stackCount: effect.stackCount,
-      sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
-      sourceSkillName: effect.statusSourceSkillName || status.sourceSkillName,
+      stackCount: effect.stackCount ?? (effect.isStackable === true ? 1 : undefined),
+      maxStacks: effect.maxStacks,
+      sourceSkillId,
+      sourceSkillName,
       statusIconSkillId: effect.statusIconSkillId,
       sourceActorName: status.sourceActorName,
       originActorId: status.originActorId,
@@ -1895,19 +1984,22 @@ function applyDeathTriggerEffect(room, member, status, effect) {
     });
     return value > 0 ? `${memberCharacter.name} gano ${value}${effect.percent ? "%" : ""} de reduccion de dano.` : "";
   }
-  if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
+  if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier") {
     addStatus(member, {
       id: randomUUID(),
       type: effect.type,
       turns: effect.duration,
       value: effect.value,
+      multiplier: effect.multiplier,
+      targetStatus: effect.targetStatus,
       amountPerStep: effect.amountPerStep,
       hpStep: effect.hpStep,
       skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
       isStackable: effect.isStackable,
-      stackCount: effect.stackCount,
-      sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
-      sourceSkillName: effect.statusSourceSkillName || status.sourceSkillName,
+      stackCount: effect.stackCount ?? (effect.isStackable === true ? 1 : undefined),
+      maxStacks: effect.maxStacks,
+      sourceSkillId,
+      sourceSkillName,
       statusIconSkillId: effect.statusIconSkillId,
       sourceActorName: status.sourceActorName,
       originActorId: status.originActorId,
@@ -2101,7 +2193,8 @@ export function applyQueuedSkill(room, player, action) {
       const damageType = modifiedDamageType(actor, skill, effect.damageType || "basic", room.turn);
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
-        const targetDamage = buffedDamage + damageBonusForTarget(effect, target, actor);
+        const multiplier = damageMultiplierValue(actor, skill, target, room.turn);
+        const targetDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier);
         const dealt = applyDamage(target, targetDamage, damageType);
         totalDamage += dealt;
       }
@@ -2153,6 +2246,7 @@ export function applyQueuedSkill(room, player, action) {
           restoresEachTurn: appliedEffect.restoresEachTurn !== false,
           isStackable: appliedEffect.isStackable === true,
           stackCount: appliedEffect.stackCount,
+          maxStacks: appliedEffect.maxStacks,
           ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
           sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
@@ -2237,7 +2331,7 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
-    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
+    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier") {
       for (const target of targets) {
         const appliedEffect = effectForTargetImmunity(effect, target);
         addStatus(target, {
@@ -2245,11 +2339,14 @@ export function applyQueuedSkill(room, player, action) {
           type: appliedEffect.type,
           turns: appliedEffect.duration,
           value: appliedEffect.value,
+          multiplier: appliedEffect.multiplier,
+          targetStatus: appliedEffect.targetStatus,
           amountPerStep: appliedEffect.amountPerStep,
           hpStep: appliedEffect.hpStep,
           skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
           isStackable: appliedEffect.isStackable,
           stackCount: appliedEffect.stackCount,
+          maxStacks: appliedEffect.maxStacks,
           ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
           sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
@@ -2652,7 +2749,7 @@ app.get("/api/characters", (_req, res) => {
 });
 
 app.post("/api/balance-test", (req, res) => {
-  res.json(runBalanceTest(req.body?.fightCount || 1000));
+  res.json(runBalanceTest(req.body?.fightCount || BALANCE_TEST_DEFAULT_FIGHT_COUNT));
 });
 
 app.get("/api/rooms/:code", (req, res) => {

@@ -10,21 +10,22 @@ export const nagi = {
       name: "Remate de volea",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 30 de dano y obtiene Flow, aumentando Remate de Cinco Etapas en 20.",
+      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 30 de dano y obtiene Flow, aumentando Remate de Cinco Etapas en 15.",
       effects: [
         { type: "damage", value: 30, targets: "target" },
         {
           type: "modifyDamage",
-          value: 20,
+          value: 15,
           duration: -1,
           targets: "self",
           skillIds: ["five-stage-volley"],
           isStackable: true,
           stackCount: 1,
+          maxStacks: 3,
           statusSourceSkillId: "flow-stacks",
           statusSourceSkillName: "Acumulaciones de La Zona",
           statusIconSkillId: "flow",
-          descriptions: ["Remate de Cinco Etapas gana 20 de dano por cada acumulacion de La Zona."]
+          descriptions: ["Remate de Cinco Etapas gana 15 de dano por cada acumulacion de La Zona."]
         }
       ],
       cooldown: 0,
@@ -44,6 +45,7 @@ export const nagi = {
         skillIds: ["five-stage-volley"],
         isStackable: true,
         stackCount: 1,
+        maxStacks: 3,
         statusSourceSkillId: "flow-stacks",
         statusSourceSkillName: "Acumulaciones de La Zona",
         statusIconSkillId: "flow",

@@ -26,6 +26,7 @@ export function statusDescription(effect, actorCharacter) {
     return `${actorCharacter.name} ha modificado el dano${scope} de este personaje en ${effect.value}.`;
   }
   if (effect.type === "modifyDamageByMissingHp") return `${actorCharacter.name} ha modificado el dano de este personaje segun su vida faltante.`;
+  if (effect.type === "modifyDamageMultiplier") return `${actorCharacter.name} ha multiplicado el dano de este personaje.`;
   if (effect.type === "modifyDamageType") return `${actorCharacter.name} ha modificado el tipo de dano de este personaje.`;
   if (effect.type === "modifyTargetType") return `${actorCharacter.name} ha modificado los objetivos de este personaje.`;
   if (effect.type === "modifyTargetCount") return `${actorCharacter.name} ha modificado la cantidad de objetivos de este personaje.`;
@@ -74,6 +75,11 @@ function modifyDamageByMissingHpDescriptions(effect) {
   return [`${effect.sourceActorName || "Un personaje"} aumenta el dano en ${amount} por cada ${hpStep} de vida faltante${scope}.`];
 }
 
+function modifyDamageMultiplierDescriptions(effect) {
+  const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
+  return [`${effect.sourceActorName || "Un personaje"} multiplica el dano x${Number(effect.multiplier ?? effect.value ?? 1)}${scope}.`];
+}
+
 function modifyDamageTypeDescriptions(effect) {
   const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
   return [`${effect.sourceActorName || "Un personaje"} cambio el tipo de dano a ${damageTypeLabel(effect.damageType)}${scope}.`];
@@ -103,6 +109,7 @@ function replaceSkillDescriptions(effect) {
 export function modifierDescriptions(effect) {
   if (effect.type === "modifyDamage") return modifyDamageDescriptions(effect);
   if (effect.type === "modifyDamageByMissingHp") return modifyDamageByMissingHpDescriptions(effect);
+  if (effect.type === "modifyDamageMultiplier") return modifyDamageMultiplierDescriptions(effect);
   if (effect.type === "modifyDamageType") return modifyDamageTypeDescriptions(effect);
   if (effect.type === "modifyTargetType") return [`${effect.sourceActorName || "Un personaje"} cambio los objetivos de habilidades.`];
   if (effect.type === "modifyTargetCount") return [`${effect.sourceActorName || "Un personaje"} limito la cantidad de objetivos de habilidades.`];
@@ -157,6 +164,10 @@ export function simpleEffectDescription(effect) {
     const amount = Number(effect.amountPerStep ?? effect.value ?? 0);
     const hpStep = Math.max(1, Number(effect.hpStep || 1));
     return `Aumenta ${amount} de dano por cada ${hpStep} de vida faltante${scope}.`;
+  }
+  if (effect.type === "modifyDamageMultiplier") {
+    const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
+    return `Multiplica x${Number(effect.multiplier ?? effect.value ?? 1)} el dano${scope}.`;
   }
   if (effect.type === "modifyDamageType") {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";

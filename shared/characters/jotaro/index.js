@@ -92,32 +92,21 @@ export const jotaro = {
     {
       id: "star-platinum-the-world",
       name: "Star Platinum: The World",
-      chakra: { bloodline: 3 },
+      chakra: { bloodline: 2 },
       targetType: "allPlayers",
-      description: "Jotaro detiene el tiempo. No puede ser contrarrestada ni reflejada. Todos excepto Jotaro quedan aturdidos durante 1 turno. ORA ORA ORA gana 10 de dano y Star Finger gana 20 de dano.",
+      description: "Jotaro detiene el tiempo. No puede ser contrarrestada ni reflejada. Todos excepto Jotaro quedan aturdidos durante 2 turnos. Durante este tiempo, los enemigos aturdidos por esta habilidad reciben doble daño de Jotaro",
       effects: [
-        { type: "stun", value: 1, targets: ["allies", "enemies"] },
+        { type: "stun", value: 2, targets: ["allies", "enemies"] },
         {
-          type: "modifyDamage",
-          value: 10,
-          duration: 1,
+          type: "modifyDamageMultiplier",
+          multiplier: 2,
+          duration: 2,
           targets: "self",
-          skillIds: ["ora-ora-ora"],
-          statusSourceSkillId: "star-platinum-world-ora",
+          targetStatus: { type: "stun", sourceSkillId: "star-platinum-the-world", originCharacterId: "jotaro" },
+          statusSourceSkillId: "star-platinum-the-world-damage-window",
           statusSourceSkillName: "Star Platinum: The World",
           statusIconSkillId: "star-platinum-the-world",
-          descriptions: ["ORA ORA ORA y Star Finger duplican su dano."]
-        },
-        {
-          type: "modifyDamage",
-          value: 20,
-          duration: 1,
-          targets: "self",
-          skillIds: ["star-finger"],
-          statusSourceSkillId: "star-platinum-world-finger",
-          statusSourceSkillName: "Star Platinum: The World",
-          statusIconSkillId: "star-platinum-the-world",
-          descriptions: ["ORA ORA ORA y Star Finger duplican su dano."]
+          descriptions: ["Los enemigos aturdidos por Star Platinum: The World reciben doble dano de las habilidades de Jotaro."]
         }
       ],
       uncountereable: true,

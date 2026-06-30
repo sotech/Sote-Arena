@@ -32,7 +32,7 @@ export const aizen = {
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 25 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
+      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 20 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
       effects: [
         { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] },
         {
@@ -43,7 +43,7 @@ export const aizen = {
           charges: 1,
           effects: [{
             type: "damage",
-            value: 25,
+            value: 20,
             targets: "enemies",
             damageType: "piercing",
             ignoreInvulnerable: true,

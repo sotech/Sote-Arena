@@ -3,6 +3,7 @@ import { characters } from "../shared/characters.js";
 import { GAME_VERSION } from "../shared/config.js";
 import { createBotPlayer, scheduleBotIfNeeded } from "./bot.js";
 import { emptyChakra } from "./chakra.js";
+import { BALANCE_TEST_DEFAULT_FIGHT_COUNT } from "./config.js";
 import {
   cleanPlayerName,
   createRoomCode,
@@ -131,7 +132,7 @@ export function registerSocketHandlers(io, {
 
     socket.on("test:runBalance", ({ fightCount } = {}, callback) => {
       try {
-        callback?.({ ok: true, data: runBalanceTest?.(fightCount || 1000) });
+        callback?.({ ok: true, data: runBalanceTest?.(fightCount || BALANCE_TEST_DEFAULT_FIGHT_COUNT) });
       } catch (error) {
         callback?.({ ok: false, error: error?.message || "No se pudo ejecutar el testeo." });
       }

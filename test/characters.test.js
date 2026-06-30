@@ -241,6 +241,64 @@ test("stacked damage status descriptions show the accumulated modifier", () => {
   assert.ok(member.statusEffects[0].descriptions.some((description) => description.includes("10")));
 });
 
+test("named stack groups share max stack limits across source skills", () => {
+  const member = { statusEffects: [] };
+  const baseStatus = {
+    type: "modifyDamage",
+    turns: -1,
+    value: 15,
+    sourceSkillName: "Acumulaciones de La Zona",
+    sourceActorName: "Nagi Seishiro",
+    skillIds: ["five-stage-volley"],
+    isStackable: true,
+    stackCount: 1,
+    maxStacks: 3,
+    createdTurn: 1
+  };
+
+  addStatus(member, { ...baseStatus, id: "flow-1", sourceSkillId: "flow-stacks-a" });
+  addStatus(member, { ...baseStatus, id: "flow-2", sourceSkillId: "flow-stacks-a", createdTurn: 2 });
+  addStatus(member, { ...baseStatus, id: "flow-3", sourceSkillId: "flow-stacks-b", createdTurn: 3 });
+  addStatus(member, { ...baseStatus, id: "flow-4", sourceSkillId: "flow-stacks-b", createdTurn: 4 });
+
+  assert.equal(member.statusEffects.reduce((total, effect) => total + Number(effect.stackCount || 0), 0), 3);
+  assert.equal(damageBuffValue(member, { id: "five-stage-volley", name: "Remate de Cinco Etapas" }, 5), 45);
+});
+
+test("black feather visual group counts one stack per death", () => {
+  const groups = groupStatusEffects([
+    {
+      id: "black-feather-reduction",
+      type: "damage-reduction",
+      turns: -1,
+      stackCount: 2,
+      sourceSkillId: "black-feather",
+      sourceSkillName: "Pluma negra"
+    },
+    {
+      id: "black-feather-masamune",
+      type: "modifyDamage",
+      turns: -1,
+      stackCount: 2,
+      sourceSkillId: "black-feather-masamune",
+      sourceSkillName: "Pluma negra",
+      skillIds: ["masamune"]
+    },
+    {
+      id: "black-feather-supernova",
+      type: "modifyDamage",
+      turns: -1,
+      stackCount: 2,
+      sourceSkillId: "black-feather-supernova",
+      sourceSkillName: "Pluma negra",
+      skillIds: ["supernova"]
+    }
+  ]);
+
+  assert.equal(groups.length, 1);
+  assert.equal(statusEffectGroupValue(groups[0]), 2);
+});
+
 test("skill ids are shown as skill names in descriptions", () => {
   assert.equal(
     effectDescription({ type: "modifyDamage", value: 10, duration: 4, targets: "self", skillIds: ["puppet-ambush"] }),

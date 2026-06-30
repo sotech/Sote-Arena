@@ -58,6 +58,30 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="1.3.1">
+        <CharacterPatch id="aizen">
+          <Nerf>Dispersate, Kyouka Suijetsu hace 5 menos de daño.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="dio">
+          <Balance>Stand: The World ahora cambia Transfusion de Sangre por Perfora abdomen en lugar de MUDA MUDA MUDA.</Balance>
+          <Buff>Los enemigos aturdidos por The World reciben doble daño de Dio.</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="jotaro">
+          <Buff>Los enemigos aturdidos por Star Platinum: The World reciben doble daño de Jotaro.</Buff>
+          <Buff>Star Platinum: The World cuesta 1 recurso especial menos.</Buff>
+          <Buff>Star Platinum: The World aturde 1 turno mas.</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="nagi">
+          <Nerf>Remate de Volea hace 25 de daño</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="sephiroth">
+          <Fix>Corregido los stacks de Sephiroth</Fix>
+          <Nerf>Pluma Negra otorga 15 puntos de daño a Supernova por acumulacion.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="kankuro">
+          <Nerf>Rafaga de marionetas de hierro ahora cuesta 2 recursos neutrales </Nerf>
+        </CharacterPatch>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.3.0">
         <CharacterPatch id="alucard">
           <New>Agregado Alucard</New>

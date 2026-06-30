@@ -17,6 +17,7 @@ import { invulnerableEffect } from "./invulnerable.js";
 import { modifyChakraCostEffect } from "./modifyChakraCost.js";
 import { modifyDamageEffect } from "./modifyDamage.js";
 import { modifyDamageByMissingHpEffect } from "./modifyDamageByMissingHp.js";
+import { modifyDamageMultiplierEffect } from "./modifyDamageMultiplier.js";
 import { modifyDamageTypeEffect } from "./modifyDamageType.js";
 import { modifyTargetCountEffect } from "./modifyTargetCount.js";
 import { modifyTargetTypeEffect } from "./modifyTargetType.js";
@@ -49,6 +50,7 @@ export const effectTypes = {
   allyCountStatus: allyCountStatusEffect,
   modifyDamage: modifyDamageEffect,
   modifyDamageByMissingHp: modifyDamageByMissingHpEffect,
+  modifyDamageMultiplier: modifyDamageMultiplierEffect,
   modifyDamageType: modifyDamageTypeEffect,
   modifyTargetType: modifyTargetTypeEffect,
   modifyTargetCount: modifyTargetCountEffect,

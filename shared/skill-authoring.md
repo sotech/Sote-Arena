@@ -132,6 +132,7 @@ effects: [
 | `substituteChakraCost` | `chakra`, `duration`, `targets`, `skillIds` | Sobrescribe el coste final de chakra. |
 | `modifyDamage` | `value`, `duration`, `targets`, `skillIds`, `isStackable` | Suma o resta dano de habilidades. |
 | `modifyDamageByMissingHp` | `amountPerStep`, `hpStep`, `duration`, `targets`, `skillIds` | Suma dano por vida faltante del portador. |
+| `modifyDamageMultiplier` | `multiplier`, `duration`, `targets`, `skillIds`, `targetStatus` | Multiplica el dano de habilidades. `targetStatus` limita el multiplicador a objetivos con un estado especifico. |
 | `modifyDamageType` | `damageType`, `duration`, `targets`, `skillIds` | Cambia el tipo de dano. |
 | `modifyTargetType` | `targetType`, `duration`, `targets`, `skillIds` | Cambia temporalmente el `targetType` activo. |
 | `modifyTargetCount` | `count`, `random`, `duration`, `targets`, `skillIds` | Limita cuantos objetivos resuelve una habilidad. |
