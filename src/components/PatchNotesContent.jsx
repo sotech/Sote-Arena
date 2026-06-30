@@ -62,11 +62,14 @@ export function PatchNotesContent() {
         <CharacterPatch id="joseph">
           <li>Aumentado el cooldown de Tu siguiente frase es... en 1</li>
         </CharacterPatch>
-        <New>Agregado seleccion de equipo al azar en modo vs IA</New>
-        <li>Mejoras en el sistema de registro.</li>
-        <li>Mejoras en el resumen de partida.</li>
-        <li>Estandarizadas familias de habilidades.</li>
+        <ul>
+          <New>Agregado seleccion de equipo al azar en modo vs IA</New>
+          <li>Mejoras en el sistema de registro.</li>
+          <li>Mejoras en el resumen de partida.</li>
+          <li>Estandarizadas familias de habilidades.</li>
+        </ul>
       </PatchNotesPatch>
+
       <PatchNotesPatch patch="1.3.1">
         <CharacterPatch id="aizen">
           <Nerf>Dispersate, Kyouka Suijetsu hace 5 menos de daño.</Nerf>
@@ -91,6 +94,7 @@ export function PatchNotesContent() {
           <Nerf>Rafaga de marionetas de hierro ahora cuesta 2 recursos neutrales </Nerf>
         </CharacterPatch>
       </PatchNotesPatch>
+
       <PatchNotesPatch patch="1.3.0">
         <CharacterPatch id="alucard">
           <New>Agregado Alucard</New>
