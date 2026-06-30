@@ -1,6 +1,6 @@
 {
-  "name": "shinobi-arena",
-  "version": "0.1.0",
+  "name": "sote-arena",
+  "version": "1.4.1",
   "private": true,
   "type": "module",
   "scripts": {

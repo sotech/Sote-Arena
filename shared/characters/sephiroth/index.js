@@ -11,27 +11,9 @@ export const sephiroth = {
       name: "Masamune",
       chakra: { bloodline: 1 },
       targetType: "enemy",
-      description: "Sephiroth atraviesa al enemigo con la Masamune. Inflige 15 de daño perforante durante 2 turnos. Puede ser interrumpida.",
-      effects: [
-        {
-          type: "complex",
-          duration: 2,
-          targets: "self",
-          mode: "interruptible",
-          interruptFamilies: ["physical", "channeled", "offensive"],
-          statusLinkId: "masamune",
-          showStatusEffect: true,
-          descriptions: ["Masamune puede ser interrumpida."]
-        },
-        {
-          type: "complex",
-          duration: 2,
-          targets: "target",
-          cancelIfOriginStunned: true,
-          interruptFamilies: ["physical", "channeled", "offensive"],
-          statusLinkId: "masamune",
-          effects: [{ type: "damage", value: 15, damageType: "piercing", targets: "self" }]
-        }
+      description: "Sephiroth atraviesa al enemigo con la Masamune. Inflige 25 de daño perforante",
+      effects: [        
+        { type: "damage", value: 25, damageType: "piercing", targets: "target" }
       ],
       cooldown: 3,
       family: ["physical", "offensive", "channeled"]
@@ -56,7 +38,7 @@ export const sephiroth = {
       startsActive: true,
       chakra: {},
       targetType: "self",
-      description: "Pasiva: cada vez que muere un enemigo, Sephiroth obtiene una Pluma Negra durante 2 turnos. Cada acumulacion otorga 10 de reduccion de daño, aumenta Masamune en 10 y aumenta Supernova en 20. Maximo: 2 acumulaciones.",
+      description: "Cada vez que muere un enemigo, Sephiroth obtiene una Pluma Negra. Cada acumulacion otorga 10 de reduccion de daño, aumenta Masamune en 15 y aumenta Supernova en 20. Maximo: 2 acumulaciones.",
       effects: [{
         type: "onEnemyDeath",
         duration: -1,
@@ -74,11 +56,11 @@ export const sephiroth = {
             statusSourceSkillId: "black-feather",
             statusSourceSkillName: "Pluma negra",
             statusIconSkillId: "black-feather",
-            descriptions: ["Cada Pluma Negra otorga 10 de reduccion de daño, aumenta Masamune en 10 y aumenta Supernova en 20."]
+            descriptions: ["Cada Pluma Negra otorga 10 de reduccion de daño, aumenta Masamune en 15 y aumenta Supernova en 20."]
           },
           {
             type: "modifyDamage",
-            value: 10,
+            value: 15,
             duration: -1,
             targets: "self",
             skillIds: ["masamune"],
@@ -88,11 +70,11 @@ export const sephiroth = {
             statusSourceSkillId: "black-feather-masamune",
             statusSourceSkillName: "Pluma negra",
             statusIconSkillId: "black-feather",
-            descriptions: ["Cada Pluma Negra otorga 10 de reduccion de daño, aumenta Masamune en 10 y aumenta Supernova en 20."]
+            descriptions: ["Cada Pluma Negra otorga 10 de reduccion de daño, aumenta Masamune en 15 y aumenta Supernova en 20."]
           },
           {
             type: "modifyDamage",
-            value: 15,
+            value: 20,
             duration: -1,
             targets: "self",
             skillIds: ["supernova"],

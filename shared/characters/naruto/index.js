@@ -66,9 +66,9 @@ export const naruto = {
       name: "Poder del Kyubi",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "self",
-      description: "Naruto gana 1 Recurso Fisico y 1 Recurso Energetico. Naruto pierde 5 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
+      description: "Naruto gana 1 Recurso Fisico y 1 Recurso Energetico. Naruto pierde 15 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
       effects: [
-        { type: "payLife", value: 5, targets: "self", notKill: true },
+        { type: "payLife", value: 15, targets: "self", notKill: true },
         { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
         { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" },
         {

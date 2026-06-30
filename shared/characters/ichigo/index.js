@@ -182,7 +182,7 @@ export const ichigo = {
     {
       id: "black-vortex",
       name: "Vortice Negro",
-      chakra: { ninjutsu: 1, neutralChakra: 1 },
+      chakra: { ninjutsu: 1, neutralChakra: 2 },
       targetType: "enemies",
       description: "Ichigo inflige 30 de daño perforante a todos los enemigos.",
       effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }],

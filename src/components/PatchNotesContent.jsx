@@ -58,6 +58,31 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="1.4.1">
+        <CharacterPatch id="dio">
+          <Buff>Stand: The World ahora reduce 50% el daño recibido</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="ichigo">
+          <Buff>Vortice Negro cuesta 1 recurso neutral mas.</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="jotaro">
+          <Buff>Stand: Star Platinum ahora reduce 50% el daño recibido</Buff>
+        </CharacterPatch>        
+        <CharacterPatch id="joseph">
+          <Balance>Hamon ahora dura 3 turnos, reduce 50% el daño y tiene un cooldown de 4.</Balance>
+        </CharacterPatch>
+        <CharacterPatch id="nagi">
+          <Balance>Remate de volea cuesta 1 neutral menos y hace 10 de daño menos.</Balance>
+          <Nerf>Genio Perezoso cuesta 1 neutral mas.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="sephiroth">
+          <Balance>Masamune ahora hace directamente 25 de daño.</Balance>
+          <Buff>Pluma negra otorga 15 de daño adicional a Masamune y 20 a Supernova.</Buff>
+        </CharacterPatch>
+        <CharacterPatch id="naruto">
+          <Nerf>Poder del Kyubi cuesta 15 de salud.</Nerf>
+        </CharacterPatch>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.4.0">        
         <CharacterPatch id="ichigo">
           <New>Agregado Kurosaki Ichigo.</New>

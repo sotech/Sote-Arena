@@ -9,11 +9,11 @@ export const nagi = {
     {
       id: "volley-shot",
       name: "Remate de volea",
-      chakra: { taijutsu: 1, neutralChakra: 1 },
+      chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 30 de daño y obtiene Flow, aumentando Remate de Cinco Etapas en 15.",
+      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 20 de daño y obtiene Flow, aumentando Remate de Cinco Etapas en 15.",
       effects: [
-        { type: "damage", value: 30, targets: "target" },
+        { type: "damage", value: 20, targets: "target" },
         {
           type: "modifyDamage",
           value: 15,
@@ -72,8 +72,8 @@ export const nagi = {
     },
     {
       id: "lazy-genius",
-      name: "Lazy Genius",
-      chakra: { genjutsu: 1 },
+      name: "Genio Perezoso",
+      chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "self",
       description: "Nagi obtiene 75% de reduccion de daño durante 3 turnos. Por este tiempo, Remate de volea cuesta 1 recurso fisico menos.",
       effects: [

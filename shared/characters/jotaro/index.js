@@ -57,9 +57,9 @@ export const jotaro = {
       name: "Stand: Star Platinum",
       chakra: { taijutsu: 1, bloodline: 1 },
       targetType: "self",
-      description: "Jotaro invoca Star Platinum durante 3 turnos, obtiene 35% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
+      description: "Jotaro invoca Star Platinum durante 3 turnos, obtiene 50% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
       effects: [
-        { type: "damage-reduction", value: 25, percent: true, duration: 3, targets: "self" },
+        { type: "damage-reduction", value: 50, percent: true, duration: 3, targets: "self" },
         { type: "modifyDamage", value: 10, duration: 3, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
         { type: "addUncountereable", duration: 3, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-star-platinum", skillId: "star-platinum-the-world" }
