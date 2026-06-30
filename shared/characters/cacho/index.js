@@ -10,7 +10,7 @@ export const cacho = {
       name: "Lariat de Cacho",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Cacho utiliza un Lariat sobre el enemigo e inflige 20 de dano a un enemigo.",
+      description: "Cacho utiliza un Lariat sobre el enemigo e inflige 20 de daño a un enemigo.",
       effects: [
         { type: "damage", value: 20, targets: "target" }
         ],
@@ -21,7 +21,7 @@ export const cacho = {
       name: "Humo peligroso",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 15 de daño de afliccion aturdiendo sus habilidades fisicas por 1 turno. Ademas cacho recibe 10 puntos de daño de afliccion.",
+      description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 15 de daño de afliccion y aturdiendo sus habilidades fisicas por 1 turno. Ademas Cacho recibe 10 puntos de daño de afliccion.",
       effects: [
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self", familiesAffected: ["physical"] }] },
         { type: "damage", value: 10, damageType: "affliction", targets: "target" },
@@ -35,7 +35,7 @@ export const cacho = {
       name: "Cuidados de cigarrillo",
       chakra: { neutralChakra: 2 },
       targetType: "self",
-      description: "Cacho fuma unos puchos. Cacho se restaura 15 de vida y gana 15 de reduccion de dano durante 2 turnos.",
+      description: "Cacho fuma unos puchos. Cacho se restaura 15 de vida y gana 15 puntos de reduccion de daño durante 2 turnos.",
       effects: [
         { type: "heal", value: 15, targets: "target" },
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage-reduction", value: 15, targets: "self" }] }

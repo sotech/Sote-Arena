@@ -11,7 +11,7 @@ export const dio = {
       name: "MUDA MUDA MUDA",
       chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "The World golpea a un enemigo. Inflige 15 de dano durante 3 turnos. Puede ser interrumpida.",
+      description: "The World golpea a un enemigo. Inflige 15 de daño durante 3 turnos. Puede ser interrumpida.",
       effects: [
         {
           type: "complex",
@@ -42,8 +42,8 @@ export const dio = {
       chakra: { bloodline: 1 },
       targetType: "anyCharacter",
       description: `Dio absorbe la sangre de cualquiera que lo rodee. 
-      Si el objetivo es enemigo, hace 20 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 dano adicional durante 3 turnos. 
-      Si es aliado, hace 20 de daño de afliccion, Dio recupera 25 de vida y MUDA MUDA MUDA inflige 15 dano adicional durante 3 turnos. 
+      Si el objetivo es enemigo, hace 20 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 daño adicional durante 3 turnos. 
+      Si es aliado, hace 20 de daño de afliccion, Dio recupera 25 de vida y MUDA MUDA MUDA inflige 15 daño adicional durante 3 turnos. 
       .`,
       requires: [{ scope: "target", type: "characterId", operator: "ne", value: "dio", message: "Transferencia de Sangre no puede usarse sobre Dio." }],
       effects: [{
@@ -77,7 +77,7 @@ export const dio = {
       name: "Stand: The World",
       chakra: { bloodline: 2 },
       targetType: "self",
-      description: "Dio invoca The World durante 3 turnos, obtiene 35% de reduccion de dano, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
+      description: "Dio invoca The World durante 3 turnos, obtiene 35% de reduccion de daño, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
       effects: [
         { type: "damage-reduction", value: 35, percent: true, duration: 3, targets: "self" },
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "blood-transfer", skillId: "abdomen-pierce" },
@@ -126,7 +126,7 @@ export const dio = {
           statusSourceSkillId: "the-world-damage-window",
           statusSourceSkillName: "The World",
           statusIconSkillId: "the-world",
-          descriptions: ["Los enemigos aturdidos por The World reciben doble dano de las habilidades de Dio."]
+          descriptions: ["Los enemigos aturdidos por The World reciben doble daño de las habilidades de Dio."]
         }
       ],
       uncountereable: true,
@@ -141,7 +141,7 @@ export const dio = {
       name: "Perfora Abdomen",
       chakra: { taijutsu: 1},
       targetType: "enemy",
-      description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 50 de dano. No puede ser contrarrestada ni reflejada.",
+      description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 50 de daño. No puede ser contrarrestada ni reflejada.",
       effects: [{ type: "damage", value: 50, targets: "target" }],
       uncountereable: true,
       nonReflectable: true,

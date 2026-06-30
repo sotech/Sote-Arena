@@ -10,7 +10,7 @@ export const hinata = {
       name: "Puño suave",
       chakra: { taijutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Golpeando puntos de chakra fijos, Hinata inflige 15 de dano a un enemigo durante 2 turnos. Durante Guardia Byakugan, esta habilidad tambien remueve 1 chakra cada turno por 2 turnos.",
+      description: "Golpeando puntos de chakra fijos, Hinata inflige 15 de daño a un enemigo durante 2 turnos. Durante Guardia Byakugan, esta habilidad tambien remueve 1 chakra cada turno por 2 turnos.",
       effects: [
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
       ],
@@ -22,9 +22,9 @@ export const hinata = {
       name: "Guardia Byakugan",
       chakra: { bloodline: 1 },
       targetType: "self",
-      description: `Hinata adopta una guardia defensiva durante 3 turnos y gana 15 de reduccion de dano.
+      description: `Hinata adopta una guardia defensiva durante 3 turnos y gana 15 de reduccion de daño.
         Durante este tiempo, Puno suave remueve 1 chakra por turno durante 2 turnos al objetivo enemigo.
-        Sello de chakra inflige 5 dano adicional, cuesta 1 chakra neutral menos y otorga 15 de escudo destructible no acumulable a los aliados.`,
+        Sello de chakra inflige 5 daño adicional, cuesta 1 chakra neutral menos y otorga 15 de escudo destructible no acumulable a los aliados.`,
       effects: [
         {
           type: "complex",
@@ -59,7 +59,7 @@ export const hinata = {
       name: "Sello de chakra",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Golpeando nodos especificos del oponente, Hinata inflige 15 de dano a todos los enemigos. Durante Guardia Byakugan, esta habilidad otorga 15 de escudo a los aliados",
+      description: "Golpeando nodos especificos del oponente, Hinata inflige 15 de daño a todos los enemigos. Durante Guardia Byakugan, esta habilidad otorga 15 de escudo a los aliados",
       effects: [
         { type: "damage", value: 15, targets: "target" }
       ],

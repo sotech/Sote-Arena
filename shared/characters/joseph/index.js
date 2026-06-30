@@ -11,7 +11,7 @@ export const joseph = {
       name: "Boleadoras Resonantes",
       chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "Joseph lanza sus Boleadoras con Hamon. Inflige 20 de dano y aumenta 5 por cada acumulacion de Hamon.",
+      description: "Joseph lanza sus Boleadoras con Hamon. Inflige 20 de daño y aumenta 5 por cada acumulacion de Hamon.",
       effects: [{ type: "damage", value: 20, targets: "target" }],
       cooldown: 0,
       family: ["physical", "offensive", "instant"]
@@ -21,7 +21,7 @@ export const joseph = {
       name: "Hamon",
       chakra: { bloodline: 1 },
       targetType: "self",
-      description: "Joseph obtiene 1 acumulacion de Hamon y 75% de reduccion de dano durante 1 turno. Cada Hamon aumenta Boleadoras Resonantes en 5.",
+      description: "Joseph obtiene 1 acumulacion de Hamon y 75% de reduccion de daño durante 1 turno. Cada Hamon aumenta Boleadoras Resonantes en 5.",
       effects: [
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["clacker-volley"], isStackable: true },
         { type: "damage-reduction", value: 75, percent: true, duration: 1, targets: "self" }

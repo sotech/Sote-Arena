@@ -10,7 +10,7 @@ export const naruto = {
       name: "Oodama Rasengan",
       chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
-      description: "Naruto inflige 40 de dano a un enemigo. Ignora invulnerabilidad. Durante el siguiente turno despues de usar Poder del Kyubi, esta habilidad aturde 1 turno.",
+      description: "Naruto inflige 40 de daño a un enemigo. Ignora invulnerabilidad. Durante el siguiente turno despues de usar Poder del Kyubi, esta habilidad aturde 1 turno.",
       effects: [
         { type: "damage", value: 40, targets: "target", ignoreInvulnerable: true },
         { type: "stun", value: 1, targets: "target", require: { scope: "self", type: "hasStatusEffect", effectId: "kyuubi-chakra" } }
@@ -23,7 +23,7 @@ export const naruto = {
       name: "Multi clones de sombra",
       chakra: { neutralChakra: 2 },
       targetType: "enemies",
-      description: "Naruto inflige 20 de dano a todos los enemigos. Por 1 turno ignora aturdimientos y efectos negativos, aunque esos estados sigan apareciendo sobre Naruto.",
+      description: "Naruto inflige 20 de daño a todos los enemigos. Por 1 turno ignora aturdimientos y efectos negativos, aunque esos estados sigan apareciendo sobre Naruto.",
       effects: [
         { type: "damage", value: 20, targets: "target" },
         {

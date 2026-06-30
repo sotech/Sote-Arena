@@ -10,7 +10,7 @@ export const kakuzu = {
       name: "Estilo de viento: Presion",
       chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Kakuzu inflige 25 de dano a un enemigo y lo aturde 1 turno. Al usarse, esta habilidad cambia a Estilo de fuego: Fuego infernal hasta usar otra habilidad de cambio.",
+      description: "Kakuzu inflige 25 de daño a un enemigo y lo aturde 1 turno. Al usarse, esta habilidad cambia a Estilo de fuego: Fuego infernal hasta usar otra habilidad de cambio.",
       effects: [
         { type: "damage", value: 25, targets: "target" },
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] },
@@ -23,7 +23,7 @@ export const kakuzu = {
       name: "Estilo de rayo: Falso relampago",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Kakuzu inflige 30 puntos de dano perforante a un enemigo. Al usarse, esta habilidad cambia a Estilo de agua: Muro de agua hasta usar otra habilidad de cambio.",
+      description: "Kakuzu inflige 30 puntos de daño perforante a un enemigo. Al usarse, esta habilidad cambia a Estilo de agua: Muro de agua hasta usar otra habilidad de cambio.",
       effects: [
         { type: "damage", value: 30, damageType: "piercing", targets: "target" },
         { type: "replaceSkill", baseSkillId: "raiton-false-lightning", skillId: "suiton-suijenki", targets: "self", duration: -1, showStatusEffect: false }
@@ -59,7 +59,7 @@ export const kakuzu = {
       name: "Estilo de fuego: Fuego infernal",
       chakra: { bloodline: 1 },
       targetType: "enemies",
-      description: "Kakuzu inflige 15 de dano de afliccion a todos los enemigos. Al usarse, esta habilidad cambia a Estilo de viento: Presion hasta usar otra habilidad de cambio.",
+      description: "Kakuzu inflige 15 de daño de afliccion a todos los enemigos. Al usarse, esta habilidad cambia a Estilo de viento: Presion hasta usar otra habilidad de cambio.",
       effects: [
         { type: "damage", value: 15, damageType: "affliction", targets: "target" },
         { type: "replaceSkill", baseSkillId: "fuuton-pressure-damage", skillId: "fuuton-pressure-damage", targets: "self", duration: -1 }

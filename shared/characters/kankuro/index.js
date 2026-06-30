@@ -10,7 +10,7 @@ export const kankuro = {
       name: "Emboscada de marionetas",
       chakra: { neutralChakra: 2 },
       targetType: "enemy",
-      description: "Usando sus marionetas para la ofensiva, Kankuro inflige 25 de dano a un enemigo. Inflige 10 de dano adicional si el objetivo esta aturdido.",
+      description: "Usando sus marionetas para la ofensiva, Kankuro inflige 25 de daño a un enemigo. Inflige 10 de daño adicional si el objetivo esta aturdido.",
       effects: [
         {
           type: "damage",
@@ -26,7 +26,7 @@ export const kankuro = {
       name: "Rafaga de marionetas de hierro",
       chakra: { neutralChakra: 2 },
       targetType: "enemies",
-      description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de dano de afliccion durante 2 turnos.",
+      description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de daño de afliccion durante 2 turnos.",
       effects: [
         { type: "complex", duration: 2, targets: "enemies", effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }] }
       ],
@@ -38,7 +38,7 @@ export const kankuro = {
       name: "Preparacion de marionetas",
       chakra: { neutralChakra: 1 },
       targetType: "self",
-      description: "Kankuro prepara sus marionetas para atacar. Kankuro gana 5 puntos de defensa destruible y por 4 turnos el dano de Rafaga de marionetas de hierro aumenta en 5 y el dano de Emboscada de marionetas aumenta en 10.",
+      description: "Kankuro prepara sus marionetas para atacar. Kankuro gana 5 puntos de defensa destruible y por 4 turnos el daño de Rafaga de marionetas de hierro aumenta en 5 y el daño de Emboscada de marionetas aumenta en 10.",
       effects: [
         { type: "shield", value: 5, targets: "self", isStackable: true },
         {

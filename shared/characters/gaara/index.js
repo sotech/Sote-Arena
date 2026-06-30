@@ -11,7 +11,7 @@ export const gaara = {
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
       description: `Gaara encierra en arena a su objetivo y lo comprime rompiendo huesos y carne. 
-                    Inflige 35 de dano a un enemigo y lo aturde 1 turno.`,
+                    Inflige 35 de daño a un enemigo y lo aturde 1 turno.`,
       effects: [
         { type: "damage", value: 35, targets: "target" },
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }

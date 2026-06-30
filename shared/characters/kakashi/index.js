@@ -10,7 +10,7 @@ export const kakashi = {
       name: "Raikiri",
       chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
-      description: "Usando su habilidad ilustre, Kakashi inflige 40 de dano perforante a un enemigo.",
+      description: "Usando su habilidad ilustre, Kakashi inflige 40 de daño perforante a un enemigo.",
       effects: [
         { type: "damage", value: 40, damageType: "piercing", targets: "target" },
         { type: "instakill", targets: "target", when: { type: "hasStatusEffect", effectId: "ninken-trap" } }

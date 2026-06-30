@@ -11,7 +11,7 @@ export const alucard = {
       name: "Casull & Jackal",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Alucard dispara sus pistolas hacia un enemigo. Inflige 20 de daño a un enemigo durante 2 turnos y recupera 10 de vida al final de cada turno. Puede ser interrumpida.",
+      description: "Alucard dispara sus pistolas hacia un enemigo. Inflige 20 de daño a un enemigo durante 2 turnos y recupera 10 de vida al final de cada turno. Esta habilidad puede ser interrumpida.",
       effects: [
         {
           type: "complex",
@@ -58,7 +58,7 @@ export const alucard = {
       name: "Nivel de Restriccion 0",
       chakra: { bloodline: 2 },
       targetType: "self",
-      description: "Casull & Jackal hacen el doble de dano (+25). Forma de niebla hace el doble de dano (+15). Alucard recibe 25% mas de dano. Solo puede utilizarse una vez por combate.",
+      description: "Casull & Jackal y Forma de niebla hacen el doble de dano. Durante este tiempo Alucard recibe 25% mas de dano. Solo puede utilizarse una vez por combate.",
       effects: [
         {
           type: "modifyDamage",

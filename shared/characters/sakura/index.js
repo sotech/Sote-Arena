@@ -10,7 +10,7 @@ export const sakura = {
       name: "Puno de chakra",
       chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "Sakura inflige 25 puntos de dano perforante a un enemigo.",
+      description: "Sakura inflige 25 puntos de daño perforante a un enemigo.",
       effects: [
         { type: "damage", value: 25, damageType: "piercing", targets: "target" }
       ],
@@ -33,7 +33,7 @@ export const sakura = {
       name: "Sello de Fuerza de 100",
       chakra: { bloodline: 1 },
       targetType: "self",
-      description: "Sakura recupera 15 puntos de salud. Durante 2 turnos, Puno de chakra hace 15 mas de dano y Sakura recibe 40% reduccion de dano. Esta habilidad puede usarse solo 3 veces.",
+      description: "Sakura recupera 15 puntos de salud. Durante 2 turnos, Puno de chakra hace 15 mas de daño y Sakura recibe 40% reduccion de daño. Esta habilidad puede usarse solo 3 veces.",
       effects: [
         {
           type: "heal",

@@ -10,7 +10,7 @@ export const mai = {
       name: "Aranazo de gato",
       chakra: { neutralChakra: 1 },
       targetType: "enemy",
-      description: "Mai arana a un enemigo, infligiendo 5 de dano perforante. Cada uso aumenta permanentemente el dano de esta habilidad en 5.",
+      description: "Mai arana a un enemigo, infligiendo 5 de daño perforante. Cada uso aumenta permanentemente el daño de esta habilidad en 5.",
       effects: [
         { type: "damage", value: 5, damageType: "piercing", targets: "target" },
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
@@ -49,7 +49,7 @@ export const mai = {
       trigger: "battleStart",
       chakra: {},
       targetType: "self",
-      description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 5 de reduccion de dano y 5 de escudo cada turno. El escudo no puede superar 5 por aliado vivo.",
+      description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 5 de reduccion de daño y 5 de escudo cada turno. El escudo no puede superar 5 por aliado vivo.",
       effects: [
         { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 5, shieldPerAlly: 5, maxShieldPerAlly: 5, maxShield: 20 }
       ],
