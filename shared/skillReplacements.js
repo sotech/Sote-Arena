@@ -10,6 +10,10 @@ export function allSkillsForCharacter(character) {
   return character?.skills || [];
 }
 
+export function inspectableSkillsForCharacter(character) {
+  return allSkillsForCharacter(character).filter((skill) => skill.hideSkillInInspect !== true);
+}
+
 function skillReplacementApplies(effect, baseSkill) {
   return effect?.type === "replaceSkill"
     && (effect.turns > 0 || effect.turns === -1)

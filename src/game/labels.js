@@ -3,17 +3,26 @@ import { getSkillNameById } from "../../shared/characters.js";
 import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
 import { skillFamiliesLabel, stunFamiliesAffected } from "../../shared/effects.js";
 
+const resourceLabels = {
+  taijutsu: "Fisico",
+  ninjutsu: "Energetico",
+  genjutsu: "Mental",
+  bloodline: "Especial",
+  neutralChakra: "neutral"
+};
+
 export function chakraCostLabel(chakra = {}) {
   return Object.entries(chakra)
     .filter(([, amount]) => amount > 0)
-    .map(([type, amount]) => `${amount} ${type}`)
+    .map(([type, amount]) => `${amount} ${chakraEffectTypeLabel(type)}`)
     .join(" + ");
 }
 
 export function groupStatusEffects(effects = []) {
   const groups = new Map();
   for (const [index, effect] of effects.filter((effect) => effect.showStatusEffect !== false).entries()) {
-    const key = effect.id || `${effect.sourceSkillId || effect.type}-${index}`;
+    const title = effect.sourceSkillName ? getSkillNameById(effect.sourceSkillName) : getSkillNameById(effect.sourceSkillId);
+    const key = title ? `title-${title}` : (effect.id || `${effect.sourceSkillId || effect.type}-${index}`);
     const current = groups.get(key);
     if (current) {
       current.effects.push(effect);
@@ -22,8 +31,8 @@ export function groupStatusEffects(effects = []) {
     }
     groups.set(key, {
       id: key,
-      sourceSkillId: effect.sourceSkillId,
-      sourceSkillName: effect.sourceSkillName ? getSkillNameById(effect.sourceSkillName) : getSkillNameById(effect.sourceSkillId),
+      sourceSkillId: effect.statusIconSkillId || effect.sourceSkillId,
+      sourceSkillName: title,
       className: effect.type,
       effects: [effect]
     });
@@ -34,6 +43,8 @@ export function groupStatusEffects(effects = []) {
 export function statusEffectGroupValue(group) {
   const usesEffect = group.effects.find((effect) => effect.type === "skill-uses");
   if (usesEffect) return usesEffect.remainingUses ?? usesEffect.value;
+  const stackCount = group.effects.reduce((total, effect) => total + Math.max(0, Number(effect.stackCount || 0)), 0);
+  if (stackCount > 0) return stackCount;
   const damageModifier = groupStatusDamageModifierValue(group);
   if (damageModifier !== null) return damageModifier > 0 ? `+${damageModifier}` : String(damageModifier);
   if (group.effects.some((effect) => effect.turns === -1)) return "∞";
@@ -94,6 +105,7 @@ export function effectDescription(effect) {
     return [`${damageTypeLabel(effect.damageType)}: ${effect.value}`, ...bonuses].join(" | ");
   }
   if (effect.type === "instakill") return "Muerte instantanea";
+  if (effect.type === "breakShield") return "Rompe escudo";
   if (effect.type === "heal") return `Cura: ${effect.value}`;
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
@@ -145,7 +157,7 @@ export function effectDescription(effect) {
   if (effect.type === "addUncountereable") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const duration = durationDescription(effect.duration);
-    return `No countereable${duration}${scope}`;
+    return `No contrarestable${duration}${scope}`;
   }
   if (effect.type === "addNonReflectable") {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
@@ -179,11 +191,15 @@ export function effectDescription(effect) {
   if (effect.type === "payLife") return `Paga vida: ${effect.value}${effect.notKill ? " (no puede matar)" : ""}`;
   if (effect.type === "invulnerable") return `Invulnerable: ${effect.value} turno(s)`;
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion";
+  if (effect.type === "stunImmunity") return "Inmune a aturdimientos especificos";
   if (effect.type === "ignoreEffects") return `Ignora efectos: ${(effect.ignoreEffects || []).join(", ") || "ninguno"}`;
+  if (effect.type === "removeStatus") return "Elimina estados especificos";
+  if (effect.type === "conditionalEffects") return "Efectos condicionales";
+  if (effect.type === "onEnemyDeath") return "Se activa al derrotar enemigos";
   if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
-  if (effect.type === "gain-chakra") return `Gana chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
-  if (effect.type === "remove-chakra") return `Elimina chakra: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
+  if (effect.type === "gain-chakra") return `Gana recurso: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
+  if (effect.type === "remove-chakra") return `Elimina recurso: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
   if (effect.type === "complex") {
     const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
     return `Efecto complejo: ${effect.duration} turno(s)${descriptions ? ` - ${descriptions}` : ""}`;
@@ -192,8 +208,8 @@ export function effectDescription(effect) {
 }
 
 export function chakraEffectTypeLabel(type) {
-  if (type === "neutralChakra") return "neutral";
-  return type ? `de ${type}` : "aleatorio";
+  if (!type) return "aleatorio";
+  return resourceLabels[type] || type;
 }
 
 export function damageTypeLabel(type = "basic") {
@@ -210,6 +226,7 @@ export function targetTypeLabel(type) {
   if (type === "allies") return "Todos los aliados";
   if (type === "self") return "Propio";
   if (type === "allPlayers") return "Todos";
+  if (type === "anyCharacter") return "Cualquier personaje";
   return type;
 }
 

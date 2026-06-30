@@ -231,6 +231,112 @@ h2 {
   max-width: none;
 }
 
+.balance-test-view {
+  display: grid;
+  gap: 18px;
+  margin: 0 auto;
+  max-width: 840px;
+  padding: 24px;
+}
+
+.balance-test-loading {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  min-height: 280px;
+}
+
+.balance-test-loading svg {
+  animation: spinnerRotate 900ms linear infinite;
+}
+
+.balance-test-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.balance-test-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.balance-action-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.balance-test-table {
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.balance-test-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, 1fr) repeat(6, minmax(76px, auto));
+  min-height: 42px;
+  padding: 8px 12px;
+}
+
+.balance-test-row:nth-child(odd) {
+  background: #f7f9fc;
+}
+
+.balance-test-row.head {
+  background: #17202a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.balance-sort-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: 6px;
+  justify-content: flex-end;
+  letter-spacing: inherit;
+  padding: 0;
+  text-align: right;
+  text-transform: inherit;
+  width: 100%;
+}
+
+.balance-test-row.head span:first-child .balance-sort-button {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.balance-sort-button svg {
+  color: #a8d5ff;
+  flex: 0 0 auto;
+  opacity: 0.62;
+}
+
+.balance-sort-button.active svg {
+  color: #fff;
+  opacity: 1;
+}
+
+.balance-test-row span:not(:first-child) {
+  text-align: right;
+}
+
 patch-notes-patch,
 character-patch {
   background: #fff;

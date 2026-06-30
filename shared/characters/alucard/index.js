@@ -1,0 +1,113 @@
+export const alucard = {
+  id: "alucard",
+  name: "Alucard",
+  avatar: "AL",
+  maxHp: 100,
+  deathSound: { soundname: "alucard", shouldFadeIn: true, shouldFadeOut: true },
+  skills: [
+    {
+      id: "casull-jackal",
+      name: "Casull & Jackal",
+      chakra: { bloodline: 1, neutralChakra: 1 },
+      targetType: "enemy",
+      description: "Alucard dispara sus pistolas. Inflige 20 de dano a un enemigo durante 2 turnos y recupera 10 de vida al final de cada turno. Puede ser interrumpida.",
+      effects: [
+        {
+          type: "complex",
+          duration: 2,
+          targets: "self",
+          mode: "interruptible",
+          interruptFamilies: ["physical", "channeled", "offensive"],
+          statusLinkId: "casull-jackal",
+          showStatusEffect: true,
+          descriptions: ["Casull & Jackal puede ser interrumpida."]
+        },
+        {
+          type: "complex",
+          duration: 2,
+          targets: "target",
+          cancelIfOriginStunned: true,
+          interruptFamilies: ["physical", "channeled", "offensive"],
+          statusLinkId: "casull-jackal",
+          effects: [
+            { type: "damage", value: 20, targets: "self" },
+            { type: "self-heal", value: 10, targets: "origin", requirePreviousDamage: true }
+          ]
+        }
+      ],
+      cooldown: 3,
+      family: ["physical", "channeled", "offensive"]
+    },
+    {
+      id: "mist-form",
+      name: "Forma de Niebla",
+      chakra: { bloodline: 2 },
+      targetType: "enemies",
+      description: "Alucard se disuelve en niebla y atraviesa a sus enemigos. Inflige 15 de dano a todos, obtiene invulnerabilidad 1 turno y recupera 15 de vida.",
+      effects: [
+        { type: "damage", value: 15, targets: "target" },
+        { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
+        { type: "self-heal", value: 15, targets: "self" }
+      ],
+      cooldown: 4,
+      family: ["special", "instant", "offensive"]
+    },
+    {
+      id: "restriction-level-zero",
+      name: "Nivel de Restriccion 0",
+      chakra: { bloodline: 2 },
+      targetType: "self",
+      description: "Casull & Jackal hacen el doble de dano (+25). Forma de niebla hace el doble de dano (+15). Alucard recibe 25% mas de dano. Solo puede utilizarse una vez por combate.",
+      effects: [
+        {
+          type: "modifyDamage",
+          value: 25,
+          duration: -1,
+          targets: "self",
+          skillIds: ["casull-jackal"],
+          statusSourceSkillId: "restriction-level-zero-casull",
+          statusSourceSkillName: "Nivel de Restriccion 0",
+          statusIconSkillId: "restriction-level-zero",
+          descriptions: ["Casull & Jackal hacen el doble de dano. Forma de niebla hace el doble de dano. Alucard recibe 25% mas de dano."]
+        },
+        {
+          type: "modifyDamage",
+          value: 15,
+          duration: -1,
+          targets: "self",
+          skillIds: ["mist-form"],
+          statusSourceSkillId: "restriction-level-zero-mist",
+          statusSourceSkillName: "Nivel de Restriccion 0",
+          statusIconSkillId: "restriction-level-zero",
+          descriptions: ["Casull & Jackal hacen el doble de dano. Forma de niebla hace el doble de dano. Alucard recibe 25% mas de dano."]
+        },
+      ],
+      uses: 1,
+      cooldown: 0,
+      family: ["strategic", "instant"]
+    },
+    {
+      id: "undead-king",
+      name: "Rey sin vida",
+      chakra: { neutralChakra: 1 },
+      targetType: "self",
+      description: "Alucard obtiene invulnerabilidad durante 1 turno. La primera vez que Alucard llega a 0 HP, revive con 50 HP. Si revive, Nivel de Restriccion 0 queda deshabilitado.",
+      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
+      cooldown: 4,
+      family: ["instant"]
+    },
+    {
+      id: "undead-king-passive",
+      name: "Rey sin vida pasiva",
+      passive: true,
+      startsActive: true,
+      chakra: {},
+      targetType: "self",
+      description: "La primera vez que Alucard llega a 0 HP, revive con 50 HP y deshabilita Nivel de Restriccion 0.",
+      effects: [{ type: "reviveOnDeath", value: 50, hp: 50, duration: -1, targets: "self", disableSkillIds: ["restriction-level-zero"] }],
+      hideUntilReplaced: true,
+      hideSkillInInspect: true,
+      family: ["instant"]
+    }
+  ]
+};

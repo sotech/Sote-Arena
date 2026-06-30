@@ -4,22 +4,22 @@ Shinobi Arena es un juego web por turnos inspirado en duelos de equipos ninja. E
 
 ## Descripcion
 
-Cada jugador crea o se une a una sala, elige un equipo de 3 personajes y confirma cuando esta listo. Al comenzar la partida, los jugadores alternan turnos para usar habilidades, administrar chakra, preparar una cola de acciones y reaccionar a los efectos activos en el campo.
+Cada jugador crea o se une a una sala, elige un equipo de 3 personajes y confirma cuando esta listo. Al comenzar la partida, los jugadores alternan turnos para usar habilidades, administrar recursos, preparar una cola de acciones y reaccionar a los efectos activos en el campo.
 
-El objetivo es derrotar al equipo rival usando combinaciones de dano, curacion, escudos, aturdimientos, invulnerabilidad, manipulacion de chakra y cooldowns.
+El objetivo es derrotar al equipo rival usando combinaciones de dano, curacion, escudos, aturdimientos, invulnerabilidad, manipulacion de recursos y cooldowns.
 
 ## Caracteristicas
 
 - Partidas 1 vs 1 en salas con codigo.
 - Seleccion de equipo con personajes y habilidades inspeccionables.
 - Combate 3 vs 3 por turnos.
-- Sistema de chakra por tipos: taijutsu, ninjutsu, bloodline y genjutsu.
-- Intercambio de chakra durante el turno.
+- Sistema de recursos por tipos: Fisico, Energetico, Especial y Mental.
+- Intercambio de recursos durante el turno.
 - Cola de habilidades con reordenamiento y cancelacion.
 - Seleccion visual de objetivos elegibles.
 - Cooldowns por habilidad.
 - Limite de una habilidad por personaje por turno.
-- Efectos de combate: dano, curacion, escudo, reduccion de dano, stun, invulnerabilidad, ganar chakra y eliminar chakra.
+- Efectos de combate: dano, curacion, escudo, reduccion de dano, stun, invulnerabilidad, ganar recursos y eliminar recursos.
 - Chat en sala de espera y durante la partida.
 - Registro de batalla con historial scrolleable.
 - Sonidos de notificacion de turno y mensajes, con control de volumen.

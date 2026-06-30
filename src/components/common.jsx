@@ -12,7 +12,7 @@ export function ChakraPool({ chakra }) {
         <span className={`chakra-chip ${type.className}`} key={type.id}>
           <ChakraIcon type={type.id} />
           <b>{chakra?.[type.id] || 0}</b>
-          {type.label}
+          {type.shortLabel || type.label}
         </span>
       ))}
     </div>
@@ -40,7 +40,7 @@ export function ChakraCost({ chakra = {} }) {
     entries.push({ id: "neutralChakra", label: "Neutral", amount: neutralAmount });
   }
 
-  if (!entries.length) return <span className="chakra-cost empty">Sin chakra</span>;
+  if (!entries.length) return <span className="chakra-cost empty">Sin recursos</span>;
 
   return (
     <span className="chakra-cost">

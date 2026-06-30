@@ -46,6 +46,7 @@ import {
 } from "./chakra.js";
 import {
   cloneCooldowns,
+  createTeam,
   findPlayer,
   getMember,
   getRoomMember,
@@ -54,6 +55,7 @@ import {
   teamAlive
 } from "./players.js";
 import { registerSocketHandlers } from "./socketHandlers.js";
+import { botNeutralPayment, playBotTurn } from "./bot.js";
 
 const PORT = process.env.PORT || 3002;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://127.0.0.1:5173";
@@ -241,11 +243,103 @@ function healValueForTarget(effect, target) {
 }
 
 function clearDefeatedStatusEffects(room) {
+  resolveReviveOnDeathEffects(room);
   for (const player of room.players || []) {
     for (const member of player.team || []) {
       if (member.hp > 0) continue;
       member.statusEffects = [];
       member.shield = 0;
+    }
+  }
+}
+
+function removeShieldStatuses(target) {
+  const before = shieldValue(target);
+  target.statusEffects = (target.statusEffects || []).filter((effect) => effect.type !== "shield");
+  target.shield = 0;
+  return before;
+}
+
+const negativeStatusTypes = new Set([
+  "stun",
+  "modifyDamage",
+  "modifyDamageByMissingHp",
+  "modifyDamageType",
+  "modifyTargetType",
+  "modifyTargetCount",
+  "addEffectToBase",
+  "addUncountereable",
+  "addNonReflectable",
+  "replaceEffects",
+  "replaceSkill",
+  "modifyChakraCost",
+  "substituteChakraCost",
+  "counter",
+  "reflect"
+]);
+
+function isNegativeStatus(effect) {
+  if (!effect) return false;
+  if (negativeStatusTypes.has(effect.type)) return true;
+  return effect.type === "complex" && (effect.effects || []).some((childEffect) => negativeStatusTypes.has(childEffect.type));
+}
+
+function resolveReviveOnDeathEffects(room) {
+  for (const player of room.players || []) {
+    for (const member of player.team || []) {
+      if (member.hp > 0) continue;
+      const revive = (member.statusEffects || []).find((effect) => (
+        effect.type === "reviveOnDeath"
+        && effect.consumed !== true
+        && (effect.turns > 0 || effect.turns === -1)
+      ));
+      if (!revive) continue;
+
+      revive.consumed = true;
+      member.hp = Math.max(1, Number(revive.hp || revive.value || 1));
+      member.shield = 0;
+      member.statusEffects = (member.statusEffects || [])
+        .filter((effect) => effect === revive || !isNegativeStatus(effect));
+
+      if (Array.isArray(revive.disableSkillIds) && revive.disableSkillIds.length > 0) {
+        member.skillUses = { ...(member.skillUses || {}) };
+        for (const skillId of revive.disableSkillIds) member.skillUses[skillId] = 999;
+        member.statusEffects = (member.statusEffects || []).filter((effect) => (
+          effect.type !== "skill-uses" || !revive.disableSkillIds.includes(effect.sourceSkillId)
+        ));
+      }
+
+      if (Number(revive.invulnerableTurns || 0) > 0) {
+        addStatus(member, {
+          id: randomUUID(),
+          type: "invulnerable",
+          turns: Number(revive.invulnerableTurns),
+          sourceSkillId: revive.sourceSkillId,
+          sourceSkillName: revive.sourceSkillName,
+          sourceActorName: revive.sourceActorName,
+          originActorId: revive.originActorId,
+          originCharacterId: revive.originCharacterId,
+          createdTurn: room.turn,
+          descriptions: [`${revive.sourceActorName || "Un personaje"} revivio y obtuvo invulnerabilidad.`]
+        });
+      }
+
+      member.statusEffects = (member.statusEffects || []).filter((effect) => effect !== revive);
+      addStatus(member, {
+        id: `${revive.sourceSkillId || "revive"}-revived`,
+        type: "revived",
+        turns: -1,
+        value: 1,
+        showStatusEffect: true,
+        sourceSkillId: revive.sourceSkillId,
+        sourceSkillName: revive.sourceSkillName,
+        sourceActorName: revive.sourceActorName,
+        originActorId: revive.originActorId,
+        originCharacterId: revive.originCharacterId,
+        createdTurn: room.turn,
+        descriptions: [`Este personaje ha sido revivido gracias a ${revive.sourceSkillName || "una habilidad"}.`]
+      });
+      room.log.unshift(`${revive.sourceActorName || getCharacterById(member.characterId)?.name || "Un personaje"} volvio a la batalla.`);
     }
   }
 }
@@ -299,6 +393,14 @@ function affectedPlayersForChakraEffect(room, player, targets, effect) {
     return targetOwners.length > 0 ? targetOwners : [opponentOf(room, player.id)].filter(Boolean);
   }
   return [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
+}
+
+function recordBalanceStats(room, sourceMember, { damage = 0, healing = 0 } = {}) {
+  if (!room?.balanceStats || !sourceMember?.characterId) return;
+  const stats = room.balanceStats.characters[sourceMember.characterId] || { damageDone: 0, healingDone: 0 };
+  stats.damageDone += Math.max(0, Number(damage || 0));
+  stats.healingDone += Math.max(0, Number(healing || 0));
+  room.balanceStats.characters[sourceMember.characterId] = stats;
 }
 
 function maybeStart(room) {
@@ -401,11 +503,11 @@ export function exchangeChakra(room, playerId, receivedType, spent) {
 
   const player = findPlayer(room, playerId);
   if (player.chakraExchange?.turn === room.turn && !player.chakraExchange.undone) return "Ya intercambiaste chakra este turno.";
-  if (totalChakra(player.chakra) < 5) return "Necesitas al menos 5 chakras para intercambiar.";
+  if (totalChakra(player.chakra) < 5) return "Necesitas al menos 5 recursos para intercambiar.";
 
   const selected = cleanChakraSelection(spent);
-  if (totalChakra(selected) !== 5) return "Debes entregar exactamente 5 chakras.";
-  if (!canPay(player.chakra, selected)) return "No tienes esos chakras disponibles.";
+  if (totalChakra(selected) !== 5) return "Debes entregar exactamente 5 recursos.";
+  if (!canPay(player.chakra, selected)) return "No tienes esos recursos disponibles.";
 
   payChakra(player, selected);
   player.chakra[receivedType] = (player.chakra[receivedType] || 0) + 1;
@@ -565,6 +667,104 @@ function hasStatus(member, type) {
   });
 }
 
+function balancedTeamIds(usageCounts) {
+  const weightedCharacters = [...characters]
+    .map((character) => ({ id: character.id, used: usageCounts.get(character.id) || 0, random: Math.random() }))
+    .sort((a, b) => a.used - b.used || a.random - b.random);
+  const ids = weightedCharacters.slice(0, 3).map((item) => item.id);
+  ids.forEach((id) => usageCounts.set(id, (usageCounts.get(id) || 0) + 1));
+  return ids;
+}
+
+function winnerByHealth(room) {
+  const [p1, p2] = room.players;
+  const hpTotal = (player) => player.team.reduce((total, member) => total + Math.max(0, Number(member.hp || 0)), 0);
+  const p1Hp = hpTotal(p1);
+  const p2Hp = hpTotal(p2);
+  if (p1Hp === p2Hp) return Math.random() < 0.5 ? p1.id : p2.id;
+  return p1Hp > p2Hp ? p1.id : p2.id;
+}
+
+export function runBalanceTest(fightCount = 1000) {
+  const count = Math.max(1, Math.min(1000, Number(fightCount || 1000)));
+  const usageCounts = new Map();
+  const results = new Map(characters.map((character) => [character.id, {
+    id: character.id,
+    name: character.name,
+    used: 0,
+    wins: 0,
+    losses: 0,
+    damageDone: 0,
+    healingDone: 0
+  }]));
+  const fights = [];
+  const engine = botEngine();
+
+  for (let index = 0; index < count; index += 1) {
+    const teamOneIds = balancedTeamIds(usageCounts);
+    const teamTwoIds = balancedTeamIds(usageCounts);
+    const room = {
+      code: `TEST-${index}`,
+      mode: "bot-vs-bot-test",
+      phase: "lobby",
+      players: [
+        { id: `test-${index}-1`, name: "Bot 1", side: "red", isBot: true, ready: true, connected: true, chakra: emptyChakra(), queue: [], team: createTeam(teamOneIds) },
+        { id: `test-${index}-2`, name: "Bot 2", side: "blue", isBot: true, ready: true, connected: true, chakra: emptyChakra(), queue: [], team: createTeam(teamTwoIds) }
+      ],
+      activePlayerId: null,
+      winnerId: null,
+      finishReason: null,
+      turn: 0,
+      chat: [],
+      log: [],
+      balanceStats: { characters: {} }
+    };
+
+    maybeStart(room);
+    let turns = 0;
+    while (room.phase === "battle" && turns < 200) {
+      const activePlayer = findPlayer(room, room.activePlayerId);
+      playBotTurn(room, engine);
+      resolveTurn(room, activePlayer.id, botNeutralPayment(activePlayer));
+      turns += 1;
+    }
+
+    if (room.phase !== "finished") {
+      room.phase = "finished";
+      room.winnerId = winnerByHealth(room);
+    }
+
+    const winner = findPlayer(room, room.winnerId);
+    const loser = opponentOf(room, room.winnerId);
+    const winnerIds = new Set((winner?.team || []).map((member) => member.characterId));
+    const loserIds = new Set((loser?.team || []).map((member) => member.characterId));
+
+    for (const id of [...teamOneIds, ...teamTwoIds]) results.get(id).used += 1;
+    for (const id of winnerIds) results.get(id).wins += 1;
+    for (const id of loserIds) results.get(id).losses += 1;
+    for (const [id, stats] of Object.entries(room.balanceStats.characters || {})) {
+      const result = results.get(id);
+      if (!result) continue;
+      result.damageDone += Math.round(Number(stats.damageDone || 0));
+      result.healingDone += Math.round(Number(stats.healingDone || 0));
+    }
+
+    fights.push({
+      number: index + 1,
+      winner: winner?.name || "Empate",
+      turns,
+      red: teamOneIds,
+      blue: teamTwoIds
+    });
+  }
+
+  return {
+    fightCount: count,
+    results: [...results.values()].sort((a, b) => b.wins - a.wins || a.losses - b.losses || a.name.localeCompare(b.name)),
+    fights
+  };
+}
+
 function stunAffectsSkill(effect, skill) {
   const affectedFamilies = stunFamiliesAffected(effect);
   if (affectedFamilies.length === 0) return true;
@@ -588,7 +788,11 @@ export function addStatus(member, status) {
   if (status.type === "replaceSkill" && status.turns === -1 && status.showStatusEffect === undefined) {
     status.showStatusEffect = false;
   }
-  const existing = (member.statusEffects || []).find((effect) => effect.type === status.type && effect.sourceSkillId === status.sourceSkillId);
+  const existing = (member.statusEffects || []).find((effect) => (
+    effect.type === status.type
+    && effect.sourceSkillId === status.sourceSkillId
+    && (status.type !== "replaceSkill" || effect.baseSkillId === status.baseSkillId)
+  ));
   if (status.type === "shield") {
     if (existing) {
       existing.remainingShield = status.isStackable
@@ -609,18 +813,28 @@ export function addStatus(member, status) {
   }
   if (status.type === "damage-reduction") {
     if (existing) {
-      existing.value = status.value;
-      existing.remainingReduction = status.remainingReduction;
+      existing.value = status.isStackable
+        ? Number(existing.value || 0) + Number(status.value || 0)
+        : status.value;
+      existing.remainingReduction = status.isStackable
+        ? Number(existing.remainingReduction || 0) + Number(status.remainingReduction || 0)
+        : status.remainingReduction;
       existing.turns = mergeStatusTurns(existing.turns, status.turns);
       existing.restoresEachTurn = status.restoresEachTurn;
       existing.percent = status.percent;
-      existing.descriptions = damageReductionDescriptions(existing);
+      existing.isStackable = status.isStackable;
+      existing.stackCount = status.isStackable && (existing.stackCount !== undefined || status.stackCount !== undefined)
+        ? Math.max(1, Number(existing.stackCount || 1)) + Math.max(1, Number(status.stackCount || 1))
+        : status.stackCount;
+      existing.statusIconSkillId = status.statusIconSkillId;
+      existing.descriptions = hasCustomDescriptions(status) ? status.descriptions : damageReductionDescriptions(existing);
       existing.createdTurn = status.createdTurn;
       existing.originActorId = status.originActorId;
       existing.originCharacterId = status.originCharacterId;
       return;
     }
-    status.descriptions = damageReductionDescriptions(status);
+    status.isStackable = status.isStackable;
+    status.descriptions = hasCustomDescriptions(status) ? status.descriptions : damageReductionDescriptions(status);
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
@@ -645,6 +859,10 @@ export function addStatus(member, status) {
       existing.reflectTo = status.reflectTo;
       existing.showStatusEffect = status.showStatusEffect;
       existing.isStackable = status.isStackable;
+      existing.statusIconSkillId = status.statusIconSkillId;
+      existing.stackCount = status.isStackable
+        ? Math.max(1, Number(existing.stackCount || 1)) + Math.max(1, Number(status.stackCount || 1))
+        : status.stackCount;
       existing.isSecret = Boolean(status.isSecret);
       existing.descriptions = hasCustomDescriptions(status) ? status.descriptions : modifierDescriptions(existing);
       existing.createdTurn = status.createdTurn;
@@ -653,6 +871,11 @@ export function addStatus(member, status) {
       return;
     }
     status.descriptions = hasCustomDescriptions(status) ? status.descriptions : modifierDescriptions(status);
+    member.statusEffects = [...(member.statusEffects || []), status];
+    return;
+  }
+  if (status.type === "onEnemyDeath") {
+    status.descriptions = hasCustomDescriptions(status) ? status.descriptions : [statusDescription(status, getCharacterById(member.characterId))];
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
@@ -680,6 +903,14 @@ function statusOrigin(actor) {
     originActorId: actor?.id,
     originCharacterId: actor?.characterId
   };
+}
+
+function hasStunImmunity(member, sourceSkillId) {
+  return activeStatusEffects(member).some((effect) => {
+    if (effect.type !== "stunImmunity" || (effect.turns <= 0 && effect.turns !== -1)) return false;
+    const skillIds = Array.isArray(effect.skillIds) ? effect.skillIds : [];
+    return skillIds.length === 0 || skillIds.includes(sourceSkillId);
+  });
 }
 
 function appliesToModifiedSkill(effect, skill) {
@@ -976,6 +1207,11 @@ function memberMeetsRequirement(member, requirement) {
     const character = getCharacterById(member.characterId) || member.character;
     return Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId));
   }
+  if (type === "characterId") {
+    const expected = requirement.characterId ?? requirement.id ?? requirement.value;
+    const operator = requirement.operator || requirement.comparison || "eq";
+    return operator === "ne" ? member.characterId !== expected : member.characterId === expected;
+  }
   if (type === "hp") {
     return compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value);
   }
@@ -1074,6 +1310,10 @@ function targetsForSkill(room, player, actor, targetId, skill, currentTurn = roo
   if (targetType === "enemy") targets = [getMember(opponent, targetId)].filter(Boolean).filter((member) => canBeTargetedBy(player, member, skill));
   if (targetType === "ally") targets = [getMember(player, targetId)].filter(Boolean);
   if (targetType === "otherAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.id !== actor.id);
+  if (targetType === "anyCharacter") targets = [
+    getMember(player, targetId),
+    getMember(opponent, targetId)
+  ].filter(Boolean).filter((member) => player.team.includes(member) || canBeTargetedBy(player, member, skill));
   if (targetType === "enemies") targets = aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, skill));
   if (targetType === "allies") targets = aliveMembers(player);
   if (targetType === "allPlayers") targets = [...aliveMembers(player), ...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, skill))];
@@ -1140,6 +1380,10 @@ function targetNameForSkill(room, player, actor, targetId, skill) {
   if (skill.targetType === "enemies") return "Todos los enemigos";
   if (skill.targetType === "allies") return "Todos los aliados";
   if (skill.targetType === "allPlayers") return "Todos los jugadores";
+  if (skill.targetType === "anyCharacter") {
+    const target = getMember(player, targetId) || getMember(opponentOf(room, player.id), targetId);
+    return target ? getCharacterById(target.characterId).name : "objetivo invalido";
+  }
   const targets = targetsForSkill(room, player, actor, targetId, skill);
   if (skill.targetType === "self") return getCharacterById(actor.characterId).name;
   return targets[0] ? getCharacterById(targets[0].characterId).name : "objetivo invalido";
@@ -1177,9 +1421,10 @@ function applyComplexStatusEffects(room, player) {
         status.pausedThisTurn = true;
         continue;
       }
+      status.damageAppliedThisTick = false;
       for (const effect of status.effects || []) {
         if (statusIsIgnored(effect)) continue;
-        if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "effect-immunity" || effect.type === "ignoreEffects" || effect.type === "stun") {
+        if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "effect-immunity" || effect.type === "ignoreEffects" || effect.type === "stun" || effect.type === "stunImmunity") {
           continue;
         }
 
@@ -1190,15 +1435,28 @@ function applyComplexStatusEffects(room, player) {
           .filter((target) => canEffectAffectTarget(room, sourcePlayer, target, effect));
         if (targets.length === 0) continue;
 
-        if (effect.type === "damage") {
-          let totalDamage = 0;
+        if (effect.type === "breakShield") {
+          let totalBroken = 0;
           for (const target of targets) {
             if (!effectAppliesToTarget(effect, target, member)) continue;
-            totalDamage += applyDamage(target, positiveEffectValue(effect), effect.damageType || "basic");
+            totalBroken += removeShieldStatuses(target);
           }
-          if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano continuo.`);
+          if (totalBroken > 0) events.push(`${status.sourceSkillName} destruyo ${totalBroken} de escudo.`);
           continue;
         }
+
+      if (effect.type === "damage") {
+        let totalDamage = 0;
+        for (const target of targets) {
+          if (!effectAppliesToTarget(effect, target, member)) continue;
+          totalDamage += applyDamage(target, positiveEffectValue(effect), effect.damageType || "basic");
+        }
+        status.lastDamageDealt = totalDamage;
+        status.damageAppliedThisTick = totalDamage > 0;
+        recordBalanceStats(room, getRoomMember(room, status.originActorId), { damage: totalDamage });
+        if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano continuo.`);
+        continue;
+      }
 
         if (effect.type === "payLife") {
           let totalPaid = 0;
@@ -1224,6 +1482,7 @@ function applyComplexStatusEffects(room, player) {
         }
 
         if (effect.type === "heal" || effect.type === "self-heal") {
+          if (effect.requirePreviousDamage === true && status.damageAppliedThisTick !== true) continue;
           let totalHeal = 0;
           for (const target of targets) {
             if (!effectAppliesToTarget(effect, target, member)) continue;
@@ -1232,7 +1491,9 @@ function applyComplexStatusEffects(room, player) {
             target.hp = Math.min(targetCharacter.maxHp, target.hp + healValueForTarget(effect, target));
             totalHeal += target.hp - before;
           }
+          recordBalanceStats(room, getRoomMember(room, status.originActorId), { healing: totalHeal });
           if (totalHeal > 0) events.push(`${status.sourceSkillName} curo ${totalHeal} de vida.`);
+          status.damageAppliedThisTick = false;
           continue;
         }
 
@@ -1279,11 +1540,42 @@ function applyComplexStatusEffects(room, player) {
           if (totalChakra(changedChakra) > 0) {
             events.push(`${status.sourceSkillName} ${effect.type === "gain-chakra" ? "gano" : "elimino"} ${chakraLabel(changedChakra)}.`);
           }
+          continue;
+        }
+
+        if (effect.type === "removeStatus") {
+          for (const target of targets) removeMatchingStatuses(target, effect);
         }
       }
     }
   }
   return events;
+}
+
+function removeMatchingStatuses(target, effect) {
+  const sourceIds = Array.isArray(effect.statusSourceSkillIds) ? effect.statusSourceSkillIds : [];
+  const types = Array.isArray(effect.statusTypes) ? effect.statusTypes : [];
+  target.statusEffects = (target.statusEffects || []).filter((status) => {
+    if (sourceIds.length > 0 && !sourceIds.includes(status.sourceSkillId)) return true;
+    if (types.length > 0 && !types.includes(status.type)) return true;
+    return false;
+  });
+  target.shield = shieldValue(target);
+}
+
+function relationForTarget(room, player, target) {
+  const owner = ownerOfMember(room, target);
+  if (!owner || !player) return "";
+  return owner.id === player.id ? "ally" : "enemy";
+}
+
+function expandConditionalEffects(effects, room, player, selectedTargets) {
+  return effects.flatMap((effect) => {
+    if (effect.type !== "conditionalEffects") return [effect];
+    const relation = relationForTarget(room, player, selectedTargets[0]);
+    const matchedCase = (effect.cases || []).find((item) => item.relation === relation || item.when === relation);
+    return matchedCase?.effects || [];
+  });
 }
 
 function validateSkillAction(room, playerId, actorId, targetId, skillId) {
@@ -1305,7 +1597,7 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   if (usesLimit > 0 && (actor.skillUses?.[skill.id] || 0) >= usesLimit) return `${skill.name} ya no tiene usos disponibles.`;
   if (queuedSkillFor(player, actor.id, skill.id)) return `${skill.name} ya esta en cola.`;
   const chakraCost = modifiedSkillChakraCost(actor, skill);
-  if (!canPaySkillCost(player.chakra, chakraCost, queuedNeutralChakraCost(player))) return `No tienes chakra suficiente: requiere ${chakraLabel(chakraCost)}.`;
+  if (!canPaySkillCost(player.chakra, chakraCost, queuedNeutralChakraCost(player))) return `No tienes recursos suficientes: requiere ${chakraLabel(chakraCost)}.`;
 
   const targets = targetsForSkill(room, player, actor, targetId, skill);
   if (targets.length === 0 || targets.some((target) => target.hp <= 0)) return "Objetivo invalido.";
@@ -1348,9 +1640,12 @@ function reactiveStatusApplies(status, skill, trigger) {
   return true;
 }
 
-function addCounteredNotice(member, status, currentTurn) {
+function addCounteredNotice(member, status, currentTurn, counteredSkill = null) {
   const sourceActorName = status.sourceActorName || "Un personaje";
   const sourceSkillName = status.sourceSkillName || "una habilidad";
+  const descriptions = status.sourceSkillId === "your-next-line"
+    ? [`Tu siguiente frase es ${counteredSkill?.name || "habilidad contrarestada"}`]
+    : [`${sourceActorName} de ${sourceSkillName} ha contrarrestado a este personaje.`];
   addStatus(member, {
     id: randomUUID(),
     type: "countered",
@@ -1360,7 +1655,7 @@ function addCounteredNotice(member, status, currentTurn) {
     sourceSkillName: "Habilidad contrarrestada",
     sourceActorName,
     createdTurn: currentTurn,
-    descriptions: [`${sourceActorName} de ${sourceSkillName} ha contrarrestado a este personaje.`]
+    descriptions
   });
 }
 
@@ -1421,6 +1716,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
         totalDamage += dealt;
         if (dealt > 0) addTriggeredEffectNotice(target, status, effect, currentTurn);
       }
+      recordBalanceStats(room, sourceMember, { damage: totalDamage });
       if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano.`);
       continue;
     }
@@ -1457,6 +1753,32 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
           originCharacterId: status.originCharacterId,
           createdTurn: currentTurn,
           remainingReductions: {}
+        });
+      }
+      continue;
+    }
+
+    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: effect.type,
+          turns: effect.duration,
+          value: effect.value,
+          amountPerStep: effect.amountPerStep,
+          hpStep: effect.hpStep,
+          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          isStackable: effect.isStackable,
+          stackCount: effect.stackCount,
+          sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
+          sourceSkillName: effect.statusSourceSkillName || status.sourceSkillName,
+          statusIconSkillId: effect.statusIconSkillId,
+          sourceActorName: status.sourceActorName,
+          originActorId: status.originActorId,
+          originCharacterId: status.originCharacterId,
+          createdTurn: currentTurn,
+          descriptions: effect.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(effect)
         });
       }
     }
@@ -1547,6 +1869,101 @@ function applyBattleStartPassives(room) {
   return events;
 }
 
+function applyDeathTriggerEffect(room, member, status, effect) {
+  const memberCharacter = getCharacterById(member.characterId);
+  if (effect.type === "damage-reduction") {
+    const value = positiveEffectValue(effect);
+    addStatus(member, {
+      id: randomUUID(),
+      type: "damage-reduction",
+      turns: effect.duration,
+      value,
+      remainingReduction: value,
+      percent: effect.percent === true,
+      restoresEachTurn: effect.restoresEachTurn !== false,
+      isStackable: effect.isStackable === true,
+      stackCount: effect.stackCount,
+      sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
+      sourceSkillName: effect.statusSourceSkillName || status.sourceSkillName,
+      statusIconSkillId: effect.statusIconSkillId,
+      sourceActorName: status.sourceActorName,
+      originActorId: status.originActorId,
+      originCharacterId: status.originCharacterId,
+      createdTurn: room.turn,
+      descriptions: hasCustomDescriptions(effect) ? effect.descriptions : [statusDescription({ ...effect, remainingReduction: value }, memberCharacter)],
+      tooltipDescription: tooltipDescriptionForEffect(effect)
+    });
+    return value > 0 ? `${memberCharacter.name} gano ${value}${effect.percent ? "%" : ""} de reduccion de dano.` : "";
+  }
+  if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp") {
+    addStatus(member, {
+      id: randomUUID(),
+      type: effect.type,
+      turns: effect.duration,
+      value: effect.value,
+      amountPerStep: effect.amountPerStep,
+      hpStep: effect.hpStep,
+      skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+      isStackable: effect.isStackable,
+      stackCount: effect.stackCount,
+      sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
+      sourceSkillName: effect.statusSourceSkillName || status.sourceSkillName,
+      statusIconSkillId: effect.statusIconSkillId,
+      sourceActorName: status.sourceActorName,
+      originActorId: status.originActorId,
+      originCharacterId: status.originCharacterId,
+      createdTurn: room.turn,
+      descriptions: effect.descriptions,
+      tooltipDescription: tooltipDescriptionForEffect(effect)
+    });
+    return `${memberCharacter.name} gano una acumulacion.`;
+  }
+  if (effect.type === "shield") {
+    const value = positiveEffectValue(effect);
+    addStatus(member, {
+      id: randomUUID(),
+      type: "shield",
+      turns: null,
+      value,
+      remainingShield: value,
+      isStackable: effect.isStackable === true,
+      sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
+      sourceSkillName: effect.statusSourceSkillName || status.sourceSkillName,
+      statusIconSkillId: effect.statusIconSkillId,
+      sourceActorName: status.sourceActorName,
+      originActorId: status.originActorId,
+      originCharacterId: status.originCharacterId,
+      createdTurn: room.turn,
+      descriptions: hasCustomDescriptions(effect) ? effect.descriptions : [statusDescription({ ...effect, remainingShield: value }, memberCharacter)],
+      tooltipDescription: tooltipDescriptionForEffect(effect)
+    });
+    member.shield = shieldValue(member);
+    return value > 0 ? `${memberCharacter.name} gano ${value} de escudo.` : "";
+  }
+  return "";
+}
+
+function applyEnemyDeathTriggers(room, beforeDeathsByPlayerId) {
+  const events = [];
+  for (const player of room.players || []) {
+    const opponent = opponentOf(room, player.id);
+    const enemyDeaths = opponent ? newDeaths(beforeDeathsByPlayerId.get(opponent.id) || new Set(), opponent) : [];
+    if (enemyDeaths.length === 0) continue;
+    for (const member of aliveMembers(player)) {
+      for (const status of member.statusEffects || []) {
+        if (status.type !== "onEnemyDeath" || (status.turns <= 0 && status.turns !== -1) || statusIsIgnored(status)) continue;
+        for (const effect of status.effects || []) {
+          for (let index = 0; index < enemyDeaths.length; index += 1) {
+            const event = applyDeathTriggerEffect(room, member, status, effect);
+            if (event) events.push(event);
+          }
+        }
+      }
+    }
+  }
+  return events;
+}
+
 export function applyQueuedSkill(room, player, action) {
   const opponent = opponentOf(room, player.id);
   const actor = getMember(player, action.actorId);
@@ -1577,7 +1994,7 @@ export function applyQueuedSkill(room, player, action) {
   const counter = firstCounterForAction(actor, selectedTargets, effectiveSkill, room.turn);
   if (counter) {
     const triggeredEvents = consumeReactiveStatus(room, counter.member, counter.status, room.turn);
-    addCounteredNotice(actor, counter.status, room.turn);
+    addCounteredNotice(actor, counter.status, room.turn, skill);
     setSkillCooldown(actor, skill.id, skill.cooldown || 0);
     return [
       `${actorCharacter.name} uso ${skill.name}, pero fue cancelada por un counter.`,
@@ -1612,7 +2029,7 @@ export function applyQueuedSkill(room, player, action) {
   const reflectedNoticeTargetIds = new Set();
 
   const baseEffects = replacementEffectsForSkill(actor, skill, room.turn) || (skill.effects || []);
-  const activeEffects = [...baseEffects, ...addedEffectsForSkill(actor, skill, room.turn)]
+  const activeEffects = expandConditionalEffects([...baseEffects, ...addedEffectsForSkill(actor, skill, room.turn)], room, player, selectedTargets)
     .map((effect) => (reflect ? reflectedEffect(effect, effectiveSkill, reflect.status) : effect));
 
   for (const effect of activeEffects) {
@@ -1631,6 +2048,16 @@ export function applyQueuedSkill(room, player, action) {
         addReflectedNotice(target, reflect.status, room.turn);
         reflectedNoticeTargetIds.add(target.id);
       }
+    }
+
+    if (effect.type === "breakShield") {
+      let totalBroken = 0;
+      for (const target of targets) {
+        if (!effectAppliesToTarget(effect, target, actor)) continue;
+        totalBroken += removeShieldStatuses(target);
+      }
+      if (totalBroken > 0) events.push(`${actorCharacter.name} destruyo ${totalBroken} de escudo.`);
+      continue;
     }
 
     if (effect.type === "complex") {
@@ -1724,13 +2151,18 @@ export function applyQueuedSkill(room, player, action) {
           remainingReduction: value,
           percent: appliedEffect.percent === true,
           restoresEachTurn: appliedEffect.restoresEachTurn !== false,
+          isStackable: appliedEffect.isStackable === true,
+          stackCount: appliedEffect.stackCount,
           ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
-          sourceSkillId: skill.id,
-          sourceSkillName: skill.name,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
+          statusIconSkillId: appliedEffect.statusIconSkillId,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingReduction: value }, actorCharacter)],
+          descriptions: appliedEffect.ignoredByEffectImmunity === true
+            ? appliedEffect.descriptions
+            : (hasCustomDescriptions(appliedEffect) ? appliedEffect.descriptions : [statusDescription({ ...appliedEffect, remainingReduction: value }, actorCharacter)]),
           tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageReduction += value;
@@ -1817,13 +2249,17 @@ export function applyQueuedSkill(room, player, action) {
           hpStep: appliedEffect.hpStep,
           skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
           isStackable: appliedEffect.isStackable,
+          stackCount: appliedEffect.stackCount,
           ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
-          sourceSkillId: skill.id,
-          sourceSkillName: skill.name,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
+          statusIconSkillId: appliedEffect.statusIconSkillId,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: appliedEffect.ignoredByEffectImmunity === true ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)],
+          descriptions: appliedEffect.ignoredByEffectImmunity === true
+            ? appliedEffect.descriptions
+            : (hasCustomDescriptions(appliedEffect) ? appliedEffect.descriptions : [statusDescription(appliedEffect, actorCharacter)]),
           tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageModifier += Number(appliedEffect.value || 0);
@@ -1901,6 +2337,11 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
+    if (effect.type === "removeStatus") {
+      for (const target of targets) removeMatchingStatuses(target, effect);
+      continue;
+    }
+
     if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") {
       totalChakraCostModifiers += applyChakraCostModifierEffect({
         targets,
@@ -1942,9 +2383,53 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
+    if (effect.type === "reviveOnDeath") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "reviveOnDeath",
+          turns: effect.duration ?? -1,
+          hp: effect.hp ?? effect.value ?? 1,
+          removeNegativeEffects: effect.removeNegativeEffects !== false,
+          invulnerableTurns: Number(effect.invulnerableTurns || 0),
+          disableSkillIds: Array.isArray(effect.disableSkillIds) ? effect.disableSkillIds : [],
+          showStatusEffect: effect.showStatusEffect ?? false,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: effect.descriptions || [`${actorCharacter.name} revivira al caer.`],
+          tooltipDescription: tooltipDescriptionForEffect(effect)
+        });
+      }
+      continue;
+    }
+
+    if (effect.type === "onEnemyDeath") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "onEnemyDeath",
+          turns: effect.duration ?? -1,
+          effects: Array.isArray(effect.effects) ? effect.effects : [],
+          showStatusEffect: effect.showStatusEffect ?? false,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: effect.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(effect)
+        });
+      }
+      continue;
+    }
+
     if (effect.type === "stun") {
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
+        if (hasStunImmunity(target, skill.id)) continue;
         const appliedEffect = effectForTargetImmunity(effect, target);
         const value = positiveEffectValue(appliedEffect);
         addStatus(target, {
@@ -1963,6 +2448,27 @@ export function applyQueuedSkill(room, player, action) {
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalStun += value;
       }
+    }
+
+    if (effect.type === "stunImmunity") {
+      for (const target of targets) {
+        addStatus(target, {
+          id: randomUUID(),
+          type: "stunImmunity",
+          turns: effect.duration ?? -1,
+          value: positiveEffectValue(effect),
+          skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          showStatusEffect: effect.showStatusEffect,
+          sourceSkillId: skill.id,
+          sourceSkillName: skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: effect.descriptions || [`${actorCharacter.name} ignora aturdimientos especificos.`],
+          tooltipDescription: tooltipDescriptionForEffect(effect)
+        });
+      }
+      continue;
     }
 
     if (effect.type === "invulnerable") {
@@ -2022,6 +2528,7 @@ export function applyQueuedSkill(room, player, action) {
   }
 
   if (totalDamage > 0) events.push(`${actorCharacter.name} uso ${skill.name} e hizo ${totalDamage} dano.`);
+  recordBalanceStats(room, actor, { damage: totalDamage, healing: totalHeal });
   if (totalLifePaid > 0) events.push(`${actorCharacter.name} pago ${totalLifePaid} de vida.`);
   if (totalInstakill > 0) events.push(`${actorCharacter.name} elimino ${totalInstakill} objetivo(s).`);
   if (totalHeal > 0) events.push(`${actorCharacter.name} curo ${totalHeal} de vida.`);
@@ -2061,10 +2568,10 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
 
   if (requiredNeutral > 0) {
     if (totalChakra(neutralPayment) !== requiredNeutral) {
-      return `Debes pagar ${requiredNeutral} chakra neutral para finalizar el turno.`;
+      return `Debes pagar ${requiredNeutral} recurso neutral para finalizar el turno.`;
     }
     if (!canPay(player.chakra, neutralPayment)) {
-      return "No tienes chakra suficiente para pagar el coste neutral.";
+      return "No tienes recursos suficientes para pagar el coste neutral.";
     }
     payChakra(player, neutralPayment);
   }
@@ -2078,8 +2585,12 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
   }
 
   for (const action of queue) {
+    const beforeActionDeathsByPlayerId = deathSnapshotsForRoom(room);
     room.log.unshift(applyQueuedSkill(room, player, action));
     clearDefeatedStatusEffects(room);
+    for (const event of applyEnemyDeathTriggers(room, beforeActionDeathsByPlayerId)) {
+      room.log.unshift(event);
+    }
     if (!teamAlive(opponent)) break;
   }
 
@@ -2092,7 +2603,12 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
     expireStatusEffects(player, room.turn, room);
     advanceTurn(room);
     expireStartTurnSecretEffects(findPlayer(room, room.activePlayerId), room.turn, room);
+    const beforeStartTurnDeathsByPlayerId = deathSnapshotsForRoom(room);
     applyStartTurnEffects(room);
+    clearDefeatedStatusEffects(room);
+    for (const event of applyEnemyDeathTriggers(room, beforeStartTurnDeathsByPlayerId)) {
+      room.log.unshift(event);
+    }
   }
 
   room.botMessage = botTauntForDeaths(room, beforeDeathsByPlayerId);
@@ -2135,6 +2651,10 @@ app.get("/api/characters", (_req, res) => {
   res.json(characters);
 });
 
+app.post("/api/balance-test", (req, res) => {
+  res.json(runBalanceTest(req.body?.fightCount || 1000));
+});
+
 app.get("/api/rooms/:code", (req, res) => {
   const room = rooms.get(req.params.code.toUpperCase());
   if (!room) {
@@ -2157,7 +2677,8 @@ registerSocketHandlers(io, {
   exchangeChakra,
   undoChakraExchange,
   removeQueuedSkill,
-  moveQueuedSkill
+  moveQueuedSkill,
+  runBalanceTest
 });
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

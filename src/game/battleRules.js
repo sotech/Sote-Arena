@@ -82,6 +82,7 @@ export function eligibleTargetsForSkill(skill, me, opponent, actor) {
   if (skill.targetType === "self") return actor.hp > 0 ? [actor] : [];
   if (skill.targetType === "ally" || skill.targetType === "allies") return allies;
   if (skill.targetType === "otherAlly") return allies.filter((member) => member.id !== actor.id);
+  if (skill.targetType === "anyCharacter") return [...allies.filter((member) => member.id !== actor.id), ...enemies];
   if (skill.targetType === "enemy" || skill.targetType === "enemies") return enemies;
   if (skill.targetType === "allPlayers") return [...allies, ...enemies];
   return [];
@@ -117,6 +118,11 @@ function memberMeetsRequirement(member, requirement) {
     const skillId = requirement.skillId || requirement.id || requirement.value;
     const character = member.character;
     return Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId));
+  }
+  if (type === "characterId") {
+    const expected = requirement.characterId ?? requirement.id ?? requirement.value;
+    const operator = requirement.operator || requirement.comparison || "eq";
+    return operator === "ne" ? member.characterId !== expected : member.characterId === expected;
   }
   if (type === "hp") {
     return compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value);

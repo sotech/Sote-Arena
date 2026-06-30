@@ -1,7 +1,32 @@
-import React from "react";
-import { FileText, Shield, Swords, Users, Zap } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { FileText, FlaskConical, Shield, Swords, Users, Zap } from "lucide-react";
 
-export function MainMenu({ onPlay, onPlayBot, onPlayBotVsBot, onCharacters, onPatchNotes, onOptions }) {
+export function MainMenu({ onPlay, onPlayBot, onPlayBotVsBot, onRunTests, onCharacters, onPatchNotes, onOptions }) {
+  const [showTestButton, setShowTestButton] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === "Control" || event.ctrlKey) setShowTestButton(true);
+    }
+
+    function handleKeyUp(event) {
+      if (event.key === "Control" || !event.ctrlKey) setShowTestButton(false);
+    }
+
+    function handleBlur() {
+      setShowTestButton(false);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, []);
+
   return (
     <section className="panel main-menu">
       <button type="button" onClick={onPlay}>
@@ -16,6 +41,12 @@ export function MainMenu({ onPlay, onPlayBot, onPlayBotVsBot, onCharacters, onPa
         <Swords size={20} />
         Bot vs Bot
       </button>
+      {showTestButton && (
+        <button type="button" onClick={onRunTests}>
+          <FlaskConical size={20} />
+          Testeo
+        </button>
+      )}
       <button type="button" className="secondary" onClick={onCharacters}>
         <Users size={20} />
         Personajes

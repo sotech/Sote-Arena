@@ -1,5 +1,5 @@
 export const requireScopes = ["self", "target", "anyTarget", "anyAlly", "anyEnemy"];
-export const requireTypes = ["hasStatusEffect", "hasSkill", "hasMinHp", "hasMaxHp", "hp"];
+export const requireTypes = ["hasStatusEffect", "hasSkill", "hasMinHp", "hasMaxHp", "hp", "characterId"];
 
 export function normalizeRequireScope(scope = "self") {
   const value = String(scope || "self").toLowerCase();
@@ -16,6 +16,7 @@ export function normalizeRequireType(type = "") {
   if (value === "hasskill" || value === "hashabilidad" || value === "poseehabilidad") return "hasSkill";
   if (value === "hasminhp" || value === "minhp" || value === "hpminima") return "hasMinHp";
   if (value === "hasmaxhp" || value === "maxhp" || value === "hpmaxima") return "hasMaxHp";
+  if (value === "characterid" || value === "character" || value === "personaje") return "characterId";
   if (value === "hp" || value === "health" || value === "vida") return "hp";
   return type;
 }

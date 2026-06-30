@@ -25,7 +25,8 @@ export function registerSocketHandlers(io, {
   exchangeChakra,
   undoChakraExchange,
   removeQueuedSkill,
-  moveQueuedSkill
+  moveQueuedSkill,
+  runBalanceTest
 }) {
   io.on("connection", (socket) => {
     socket.emit("characters", characters);
@@ -126,6 +127,14 @@ export function registerSocketHandlers(io, {
       scheduleBotIfNeeded(room, botEngine());
       callback?.({ ok: true, room: publicRoom(room, bot1.id), playerId: bot1.id });
       broadcast(room);
+    });
+
+    socket.on("test:runBalance", ({ fightCount } = {}, callback) => {
+      try {
+        callback?.({ ok: true, data: runBalanceTest?.(fightCount || 1000) });
+      } catch (error) {
+        callback?.({ ok: false, error: error?.message || "No se pudo ejecutar el testeo." });
+      }
     });
 
     socket.on("room:join", ({ code, name }, callback) => {

@@ -86,13 +86,25 @@ export function StatusEffects({ member, effects }) {
   }
 
   function tooltipItems(group) {
+    const seen = new Set();
     return group.effects.flatMap((effect) => {
       const descriptions = [
         ...(effect.descriptions || [`${effect.sourceActorName || "Un personaje"} ha aplicado ${effect.type} a este personaje.`]),
         ...dynamicStatusDescriptions(effect)
-      ].map((description) => ({ type: "text", value: description }));
+      ]
+        .filter((description) => {
+          const key = `text:${description}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((description) => ({ type: "text", value: description }));
       const html = tooltipHtml(effect);
-      return html ? [...descriptions, { type: "html", value: html }] : descriptions;
+      if (!html) return descriptions;
+      const htmlKey = `html:${html}`;
+      if (seen.has(htmlKey)) return descriptions;
+      seen.add(htmlKey);
+      return [...descriptions, { type: "html", value: html }];
     });
   }
 
@@ -117,7 +129,7 @@ export function StatusEffects({ member, effects }) {
   }
 
   function badgeValue(group) {
-    if (group.effects.some((effect) => effect.type === "shield")) {
+    if (group.effects.some((effect) => effect.type === "shield" || Number(effect.stackCount || 0) > 0)) {
       return statusEffectGroupValue(group);
     }
     return null;

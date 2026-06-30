@@ -41,6 +41,12 @@ function botTargetIdsForSkill(room, bot, actor, skill, engine) {
   if (skill.targetType === "self") return [actor.id];
   if (skill.targetType === "ally") return engine.aliveMembers(bot).map((member) => member.id);
   if (skill.targetType === "otherAlly") return engine.aliveMembers(bot).filter((member) => member.id !== actor.id).map((member) => member.id);
+  if (skill.targetType === "anyCharacter") {
+    return [
+      ...engine.aliveMembers(bot).filter((member) => member.id !== actor.id),
+      ...engine.aliveMembers(opponent).filter((member) => engine.canBeTargetedBy(bot, member))
+    ].map((member) => member.id);
+  }
   if (skill.targetType === "allies") return [engine.aliveMembers(bot)[0]?.id].filter(Boolean);
   if (skill.targetType === "enemy") {
     return engine.aliveMembers(opponent)
@@ -170,7 +176,7 @@ function botSkillOptions(room, bot, engine) {
   return options;
 }
 
-function botNeutralPayment(player) {
+export function botNeutralPayment(player) {
   let remaining = queuedNeutralChakraCost(player);
   const payment = emptyChakra();
   for (const type of CHAKRA_TYPES) {
@@ -182,7 +188,7 @@ function botNeutralPayment(player) {
   return payment;
 }
 
-function playBotTurn(room, engine) {
+export function playBotTurn(room, engine) {
   const bot = findPlayer(room, room.activePlayerId);
   if (!bot?.isBot || room.phase !== "battle") return;
 

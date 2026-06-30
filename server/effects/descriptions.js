@@ -2,6 +2,14 @@ import { getSkillNameById } from "../../shared/characters.js";
 import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
 import { skillFamiliesLabel, stunFamiliesAffected } from "../../shared/effects.js";
 
+const resourceLabels = {
+  taijutsu: "Fisico",
+  ninjutsu: "Energetico",
+  genjutsu: "Mental",
+  bloodline: "Especial",
+  neutralChakra: "neutral"
+};
+
 function hasCustomDescriptions(effect) {
   return Array.isArray(effect?.descriptions) && effect.descriptions.length > 0;
 }
@@ -10,18 +18,22 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo.`;
   if (effect.type === "payLife") return `${actorCharacter.name} pago ${effect.value} de vida.`;
   if (effect.type === "instakill") return `${actorCharacter.name} ha ejecutado a este personaje.`;
+  if (effect.type === "breakShield") return `${actorCharacter.name} destruyo los escudos de este personaje.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value}${effect.percent ? "%" : ""} de reduccion de dano.`;
   if (effect.type === "allyCountStatus") return `${actorCharacter.name} ha ganado proteccion por sus aliados vivos.`;
-  if (effect.type === "modifyDamage") return `${actorCharacter.name} ha modificado el dano de este personaje en ${effect.value}.`;
+  if (effect.type === "modifyDamage") {
+    const scope = effect.skillIds?.length ? ` de ${effect.skillIds.map(getSkillNameById).join(", ")}` : "";
+    return `${actorCharacter.name} ha modificado el dano${scope} de este personaje en ${effect.value}.`;
+  }
   if (effect.type === "modifyDamageByMissingHp") return `${actorCharacter.name} ha modificado el dano de este personaje segun su vida faltante.`;
   if (effect.type === "modifyDamageType") return `${actorCharacter.name} ha modificado el tipo de dano de este personaje.`;
   if (effect.type === "modifyTargetType") return `${actorCharacter.name} ha modificado los objetivos de este personaje.`;
   if (effect.type === "modifyTargetCount") return `${actorCharacter.name} ha modificado la cantidad de objetivos de este personaje.`;
   if (effect.type === "addEffectToBase") return `${actorCharacter.name} ha agregado efectos a las habilidades de este personaje.`;
-  if (effect.type === "addUncountereable") return `${actorCharacter.name} ha hecho habilidades de este personaje incountereables.`;
+  if (effect.type === "addUncountereable") return `${actorCharacter.name} ha hecho habilidades de este personaje no contrarestables.`;
   if (effect.type === "addNonReflectable") return `${actorCharacter.name} ha hecho habilidades de este personaje no reflejables.`;
   if (effect.type === "replaceEffects") return `${actorCharacter.name} ha reemplazado los efectos de habilidades de este personaje.`;
-  if (effect.type === "replaceSkill") return `${actorCharacter.name} ha reemplazado una habilidad de este personaje.`;
+  if (effect.type === "replaceSkill") return `${actorCharacter.name} reemplazo ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;
   if (effect.type === "counter") return `${actorCharacter.name} ha preparado un counter.`;
   if (effect.type === "reflect") return `${actorCharacter.name} ha preparado un reflejo.`;
   if (chakraCostModifierTypes.includes(effect.type)) return `${actorCharacter.name} ha modificado el coste de chakra de este personaje.`;
@@ -29,6 +41,7 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
   if (effect.type === "invulnerable") return `${actorCharacter.name} ha vuelto invulnerable a este personaje.`;
   if (effect.type === "effect-immunity") return `${actorCharacter.name} ignora efectos que no sean dano o sanacion.`;
+  if (effect.type === "stunImmunity") return `${actorCharacter.name} es inmune a aturdimientos especificos.`;
   if (effect.type === "ignoreEffects") return `${actorCharacter.name} ignora algunos efectos aplicados.`;
   return `${actorCharacter.name} ha aplicado ${effect.type} a este personaje.`;
 }
@@ -94,7 +107,7 @@ export function modifierDescriptions(effect) {
   if (effect.type === "modifyTargetType") return [`${effect.sourceActorName || "Un personaje"} cambio los objetivos de habilidades.`];
   if (effect.type === "modifyTargetCount") return [`${effect.sourceActorName || "Un personaje"} limito la cantidad de objetivos de habilidades.`];
   if (effect.type === "addEffectToBase") return addEffectToBaseDescriptions(effect);
-  if (effect.type === "addUncountereable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades incountereables.`];
+  if (effect.type === "addUncountereable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades no contrarestables.`];
   if (effect.type === "addNonReflectable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades no reflejables.`];
   if (effect.type === "replaceEffects") return replaceEffectsDescriptions(effect);
   if (effect.type === "replaceSkill") return replaceSkillDescriptions(effect);
@@ -106,7 +119,7 @@ export function modifierDescriptions(effect) {
 function chakraCostModifierSummary(chakra = {}, { asReplacement = false } = {}) {
   return Object.entries(chakra)
     .filter(([, amount]) => Number(amount || 0) !== 0)
-    .map(([type, amount]) => `${!asReplacement && Number(amount) > 0 ? "+" : ""}${amount} ${type === "neutralChakra" ? "neutral" : type}`)
+    .map(([type, amount]) => `${!asReplacement && Number(amount) > 0 ? "+" : ""}${amount} ${resourceLabels[type] || type}`)
     .join(", ");
 }
 
@@ -121,6 +134,7 @@ function modifyChakraCostDescriptions(effect) {
 export function simpleEffectDescription(effect) {
   if (effect.type === "damage") return `Inflige ${effect.value} de ${damageTypeLabel(effect.damageType)}.`;
   if (effect.type === "payLife") return `Paga ${effect.value} de vida${effect.notKill ? " sin poder morir" : ""}.`;
+  if (effect.type === "breakShield") return "Destruye todo el escudo.";
   if (effect.type === "instakill") return "Mata instantaneamente.";
   if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
   if (effect.type === "shield") return `Otorga ${effect.value} de escudo.`;
@@ -156,7 +170,7 @@ export function simpleEffectDescription(effect) {
     const descriptions = (effect.effects || []).map(simpleEffectDescription).join(" + ");
     return `Agrega efectos${scope}${descriptions ? `: ${descriptions}` : ""}.`;
   }
-  if (effect.type === "addUncountereable") return "Hace que habilidades no puedan ser countereadas.";
+  if (effect.type === "addUncountereable") return "Hace que habilidades no puedan ser contrarestadas.";
   if (effect.type === "addNonReflectable") return "Hace que habilidades no puedan ser reflejadas.";
   if (effect.type === "replaceSkill") {
     const duration = effect.duration === -1 || effect.turns === -1 ? " permanentemente" : "";
@@ -172,14 +186,18 @@ export function simpleEffectDescription(effect) {
   }
   if (effect.type === "invulnerable") return "Otorga invulnerabilidad.";
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion.";
+  if (effect.type === "stunImmunity") return "Otorga inmunidad a aturdimientos especificos.";
   if (effect.type === "ignoreEffects") return "Ignora efectos indicados aunque sus estados se apliquen.";
+  if (effect.type === "removeStatus") return "Elimina estados especificos.";
+  if (effect.type === "conditionalEffects") return "Aplica efectos condicionales.";
+  if (effect.type === "onEnemyDeath") return "Se activa cuando muere un enemigo.";
   if (effect.type === "stun") {
     const affectedFamilies = stunFamiliesAffected(effect);
     const scope = affectedFamilies.length ? ` a las habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";
     return `Aplica aturdimiento${scope}.`;
   }
-  if (effect.type === "gain-chakra") return `Otorga ${effect.value} chakra.`;
-  if (effect.type === "remove-chakra") return `Elimina ${effect.value} chakra.`;
+  if (effect.type === "gain-chakra") return `Otorga ${effect.value} recurso.`;
+  if (effect.type === "remove-chakra") return `Elimina ${effect.value} recurso.`;
   return `${effect.type}: ${effect.value || ""}`.trim();
 }
 

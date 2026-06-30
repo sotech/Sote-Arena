@@ -1,6 +1,7 @@
 const characterImages = import.meta.glob("../assets/characters/*.png", { eager: true, query: "?url", import: "default" });
 const skillImages = import.meta.glob("../assets/skills/*.png", { eager: true, query: "?url", import: "default" });
 const soundAssets = import.meta.glob("../assets/sounds/*.mp3", { eager: true, query: "?url", import: "default" });
+const characterSoundAssets = import.meta.glob("../assets/character-sounds/*.mp3", { eager: true, query: "?url", import: "default" });
 const bgmAssets = import.meta.glob("../assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" });
 const advantageBgmAssets = import.meta.glob("../assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" });
 const disadvantageBgmAssets = import.meta.glob("../assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" });
@@ -28,10 +29,15 @@ export const allAssetUrls = [
   ...Object.values(characterImages),
   ...Object.values(skillImages),
   ...Object.values(soundAssets),
+  ...Object.values(characterSoundAssets),
   ...Object.values(bgmAssets),
   ...Object.values(advantageBgmAssets),
   ...Object.values(disadvantageBgmAssets)
 ];
+
+export function characterSound(soundName) {
+  return characterSoundAssets[`../assets/character-sounds/${soundName}.mp3`] || "";
+}
 
 function fallbackSkillImage(skillId) {
   const letter = (skillId || "?").slice(0, 1).toUpperCase();

@@ -1,5 +1,12 @@
 export const CHAKRA_TYPES = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
 export const NEUTRAL_CHAKRA = "neutralChakra";
+const RESOURCE_LABELS = {
+  taijutsu: "Fisico",
+  ninjutsu: "Energetico",
+  genjutsu: "Mental",
+  bloodline: "Especial",
+  neutralChakra: "neutral"
+};
 
 export function emptyChakra() {
   return { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 };
@@ -24,7 +31,7 @@ export function cleanChakraSelection(chakra = {}) {
 export function chakraLabel(cost) {
   return Object.entries(cost)
     .filter(([, amount]) => amount > 0)
-    .map(([type, amount]) => `${amount} ${type === NEUTRAL_CHAKRA ? "neutral" : type}`)
+    .map(([type, amount]) => `${amount} ${RESOURCE_LABELS[type] || type}`)
     .join(", ");
 }
 

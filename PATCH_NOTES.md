@@ -40,7 +40,7 @@ Usa `CharacterPatch` cuando varios cambios pertenecen al mismo personaje. El `id
 ```jsx
 <CharacterPatch id="naruto">
   <Buff> Oodama Rasengan ahora hace 40 de dano.</Buff>
-  <New> Chakra del Kyubi agrega una nueva mecanica.</New>
+  <New> Poder del Kyubi agrega una nueva mecanica.</New>
 </CharacterPatch>
 ```
 

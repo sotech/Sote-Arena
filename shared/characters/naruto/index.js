@@ -9,7 +9,7 @@ export const naruto = {
       name: "Oodama Rasengan",
       chakra: { taijutsu: 1, ninjutsu: 1 },
       targetType: "enemy",
-      description: "Naruto inflige 40 de dano a un enemigo. Ignora invulnerabilidad. Durante el siguiente turno despues de usar Chakra del Kyubi, esta habilidad aturde 1 turno.",
+      description: "Naruto inflige 40 de dano a un enemigo. Ignora invulnerabilidad. Durante el siguiente turno despues de usar Poder del Kyubi, esta habilidad aturde 1 turno.",
       effects: [
         { type: "damage", value: 40, targets: "target", ignoreInvulnerable: true },
         { type: "stun", value: 1, targets: "target", require: { scope: "self", type: "hasStatusEffect", effectId: "kyuubi-chakra" } }
@@ -52,7 +52,8 @@ export const naruto = {
               "invulnerable",
               "gain-chakra",
               "remove-chakra"
-            ]
+            ],
+            value: 1
           }]
         }
       ],
@@ -61,10 +62,10 @@ export const naruto = {
     },
     {
       id: "kyuubi-chakra",
-      name: "Chakra del Kyubi",
+      name: "Poder del Kyubi",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "self",
-      description: "Naruto gana 1 chakra de Taijutsu y 1 chakra de Ninjutsu. Naruto pierde 5 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
+      description: "Naruto gana 1 Recurso Fisico y 1 Recurso Energetico. Naruto pierde 5 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
       effects: [
         { type: "payLife", value: 5, targets: "self", notKill: true },
         { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
@@ -75,7 +76,7 @@ export const naruto = {
           targets: "self",
           showStatusEffect: true,
           effects: [],
-          descriptions: ["Naruto gano 1 chakra de Taijutsu y 1 chakra de Ninjutsu. Oodama Rasengan aturdira 1 turno durante el siguiente turno."]
+          descriptions: ["Naruto gano 1 Recurso Fisico y 1 Recurso Energetico. Oodama Rasengan aturdira 1 turno durante el siguiente turno."]
         }
       ],
       cooldown: 2,

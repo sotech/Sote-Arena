@@ -5,7 +5,7 @@ import { naruto } from "../shared/characters/naruto/index.js";
 import { effectTypes, skillClassesLabel, supportedEffectTypes } from "../shared/effects.js";
 import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, exchangeChakra, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn, undoChakraExchange } from "../server/index.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
-import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
+import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter, inspectableSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
 import { eligibleTargetsForSkill, meetsSkillRequirements, playerHealthShare } from "../src/game/battleRules.js";
 import { effectDescription, groupStatusEffects, statusEffectGroupValue } from "../src/game/labels.js";
 
@@ -19,6 +19,18 @@ test("catalog exposes the playable characters", () => {
 test("characters can be imported from individual folders", () => {
   assert.equal(naruto.id, "naruto");
   assert.equal(naruto.skills.length, 4);
+});
+
+test("hideSkillInInspect hides skills only from inspection lists", () => {
+  const character = {
+    skills: [
+      { id: "visible-skill" },
+      { id: "hidden-skill", hideSkillInInspect: true }
+    ]
+  };
+
+  assert.deepEqual(allSkillsForCharacter(character).map((skill) => skill.id), ["visible-skill", "hidden-skill"]);
+  assert.deepEqual(inspectableSkillsForCharacter(character).map((skill) => skill.id), ["visible-skill"]);
 });
 
 test("skill families have class labels for descriptions", () => {

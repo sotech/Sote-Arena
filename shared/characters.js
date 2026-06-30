@@ -10,6 +10,12 @@ import { kakuzu } from "./characters/kakuzu/index.js";
 import { cacho } from "./characters/cacho/index.js";
 import { mai } from "./characters/mai/index.js";
 import { aizen } from "./characters/aizen/index.js";
+import { sephiroth } from "./characters/sephiroth/index.js";
+import { alucard } from "./characters/alucard/index.js";
+import { nagi } from "./characters/nagi/index.js";
+import { jotaro } from "./characters/jotaro/index.js";
+import { dio } from "./characters/dio/index.js";
+import { joseph } from "./characters/joseph/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -63,6 +69,7 @@ function skillBotDescription(skill) {
 
 function withSkillDefaults(character) {
   return {
+    deathSound: { soundname: character.id },
     ...character,
     skills: character.skills.map((skill) => ({ cooldown: 0, botDescription: skillBotDescription(skill), ...skill }))
   };
@@ -78,4 +85,23 @@ export function getSkillNameById(id) {
   .find((skill) => skill.id === id)?.name || id;
 }
 
-export const characters = [naruto, sasuke, sakura, kakashi, hinata, gaara, kankuro, daniel, kakuzu, cacho, mai, aizen].map(withSkillDefaults);
+export const characters = [
+  naruto,
+  sasuke,
+  sakura,
+  kakashi,
+  hinata,
+  gaara,
+  kankuro,
+  daniel,
+  kakuzu,
+  cacho,
+  mai,
+  aizen,
+  sephiroth,
+  alucard,
+  nagi,
+  jotaro,
+  dio,
+  joseph
+].map(withSkillDefaults);

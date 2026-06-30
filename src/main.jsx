@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, LoaderCircle, Minus, Monitor, Plus, Search, Smartphone, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, LoaderCircle, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Smartphone, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
@@ -11,13 +11,13 @@ import { MainMenu } from "./components/MainMenu.jsx";
 import { OptionsModal, ResultModal } from "./components/Overlays.jsx";
 import { PatchNotesView } from "./components/PatchNotesView.jsx";
 import { StatusEffects } from "./components/StatusEffects.jsx";
-import { allAssetUrls, characterImage, skillImage, skullImage } from "./game/assets.js";
+import { allAssetUrls, characterImage, characterSound, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
 import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
 import { targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
-import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter } from "../shared/skillReplacements.js";
+import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, inspectableSkillsForCharacter } from "../shared/skillReplacements.js";
 import { GAME_VERSION } from "../shared/config.js";
 import "./styles.css";
 
@@ -31,9 +31,11 @@ const MESSAGE_SOUND_END_TIME = 1.5;
 const AUDIO_FADE_MS = 450;
 const RESULT_AUDIO_FADE_MS = 1000;
 const BGM_FADE_MS = 1000;
+const DEATH_AUDIO_FADE_MS = 500;
 const BGM_VOLUME_RATIO = 0.5;
 const ADVANTAGE_HEALTH_SHARE = 0.7;
 const PATCH_NOTES_SEEN_KEY = `sote-arena-patch-notes-seen-${GAME_VERSION}`;
+const DEFAULT_BALANCE_SORT = { key: "winrate", direction: "desc" };
 const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
 const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
@@ -55,9 +57,12 @@ function App() {
   const [musicVolume, setMusicVolume] = useState(0.5);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [patchNotesPopupOpen, setPatchNotesPopupOpen] = useState(false);
+  const [balanceTestLoading, setBalanceTestLoading] = useState(false);
+  const [balanceTestResult, setBalanceTestResult] = useState(null);
   const turnAudioRef = useRef(null);
   const messageAudioRef = useRef(null);
   const resultAudioRef = useRef(null);
+  const deathAudioRef = useRef(null);
   const bgmAudioRef = useRef(null);
   const audioFadeFrameRef = useRef(0);
   const audioFadeOutTimeoutRef = useRef(null);
@@ -66,6 +71,9 @@ function App() {
   const resultFadeFrameRef = useRef(0);
   const resultFadeOutTimeoutRef = useRef(null);
   const resultStopTimeoutRef = useRef(null);
+  const deathFadeFrameRef = useRef(0);
+  const deathFadeOutTimeoutRef = useRef(null);
+  const deathStopTimeoutRef = useRef(null);
   const bgmFadeFrameRef = useRef(0);
   const bgmLoopFrameRef = useRef(0);
   const bgmBaseTrackRef = useRef("");
@@ -77,6 +85,7 @@ function App() {
   const lastChatRoomRef = useRef("");
   const lastChatMessageRef = useRef("");
   const lastNotifiedTurnRef = useRef("");
+  const lastHpByMemberRef = useRef(new Map());
 
   useEffect(() => {
     socket.on("characters", setCharacters);
@@ -195,12 +204,16 @@ function App() {
     if (resultAudioRef.current && resultAudioRef.current.paused) {
       resultAudioRef.current.volume = sfxVolume;
     }
+    if (deathAudioRef.current && deathAudioRef.current.paused) {
+      deathAudioRef.current.volume = sfxVolume;
+    }
   }, [sfxVolume, musicVolume]);
 
   useEffect(() => {
     return () => {
       stopBgm(false);
       stopResultAudio(false);
+      stopDeathAudio(false);
       clearAudioTimers();
       if (messageStopTimeoutRef.current) window.clearTimeout(messageStopTimeoutRef.current);
     };
@@ -251,6 +264,24 @@ function App() {
     stopBgm(true);
     playResultAudio();
   }, [room?.phase, room?.code, room?.winnerId, matchResult]);
+
+  useEffect(() => {
+    if (!room?.players?.length) {
+      lastHpByMemberRef.current.clear();
+      return;
+    }
+
+    const nextHp = new Map();
+    for (const player of room.players) {
+      for (const member of player.team || []) {
+        const previousHp = lastHpByMemberRef.current.get(member.id);
+        nextHp.set(member.id, member.hp);
+        if (previousHp === undefined || previousHp <= 0 || member.hp > 0) continue;
+        playDeathSound(member.character?.deathSound);
+      }
+    }
+    lastHpByMemberRef.current = nextHp;
+  }, [room?.players]);
 
   function clearAudioTimers() {
     if (audioFadeFrameRef.current) {
@@ -471,6 +502,70 @@ function App() {
     stop();
   }
 
+  function stopDeathAudio(withFade) {
+    const audio = deathAudioRef.current;
+    if (deathFadeFrameRef.current) {
+      window.cancelAnimationFrame(deathFadeFrameRef.current);
+      deathFadeFrameRef.current = 0;
+    }
+    if (deathFadeOutTimeoutRef.current) {
+      window.clearTimeout(deathFadeOutTimeoutRef.current);
+      deathFadeOutTimeoutRef.current = null;
+    }
+    if (deathStopTimeoutRef.current) {
+      window.clearTimeout(deathStopTimeoutRef.current);
+      deathStopTimeoutRef.current = null;
+    }
+    if (!audio) return;
+
+    const stop = () => {
+      audio.pause();
+      audio.currentTime = 0;
+      if (deathAudioRef.current === audio) deathAudioRef.current = null;
+    };
+
+    if (withFade && !audio.paused) {
+      fadeAudioWithFrame(audio, 0, DEATH_AUDIO_FADE_MS, deathFadeFrameRef, stop);
+      return;
+    }
+    stop();
+  }
+
+  function playDeathSound(config) {
+    if (!config?.soundname) return;
+    const src = characterSound(config.soundname);
+    if (!src) return;
+    stopDeathAudio(false);
+
+    const audio = new Audio(src);
+    deathAudioRef.current = audio;
+    audio.currentTime = Math.max(0, Number(config.start || 0));
+    audio.volume = config.shouldFadeIn ? 0 : sfxVolume;
+
+    const stopAtEnd = () => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      const requestedEnd = Number(config.end || 0);
+      const endAt = requestedEnd > 0 ? Math.min(requestedEnd, duration || requestedEnd) : duration;
+      if (!endAt || endAt <= audio.currentTime) return;
+      const remainingMs = Math.max(0, (endAt - audio.currentTime) * 1000);
+      const fadeMs = config.shouldFadeOut ? Math.min(DEATH_AUDIO_FADE_MS, remainingMs) : 0;
+      deathFadeOutTimeoutRef.current = window.setTimeout(() => {
+        if (fadeMs > 0) fadeAudioWithFrame(audio, 0, fadeMs, deathFadeFrameRef);
+      }, Math.max(0, remainingMs - fadeMs));
+      deathStopTimeoutRef.current = window.setTimeout(() => stopDeathAudio(false), remainingMs);
+    };
+
+    audio.addEventListener("loadedmetadata", stopAtEnd, { once: true });
+    audio.play()
+      .then(() => {
+        if (config.shouldFadeIn) fadeAudioWithFrame(audio, sfxVolume, DEATH_AUDIO_FADE_MS, deathFadeFrameRef);
+        stopAtEnd();
+      })
+      .catch(() => {
+        // Browsers can block audio until the user interacts with the page.
+      });
+  }
+
   function scheduleResultAudioEnd(audio) {
     const schedule = () => {
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
@@ -624,6 +719,21 @@ function App() {
     setRoom(response.room);
   }
 
+  async function runBalanceTest() {
+    setError("");
+    setBalanceTestResult(null);
+    setBalanceTestLoading(true);
+    setHomeView("balance-test");
+    const response = await callSocket("test:runBalance", { fightCount: 500 });
+    setBalanceTestLoading(false);
+    if (!response.ok) {
+      setError(response.error);
+      setHomeView("menu");
+      return;
+    }
+    setBalanceTestResult(response.data);
+  }
+
   async function joinRoom() {
     setError("");
     const playerName = name.trim();
@@ -743,6 +853,7 @@ function App() {
   function returnHome() {
     stopBgm(true);
     stopResultAudio(true);
+    stopDeathAudio(true);
     bgmBattleKeyRef.current = "";
     lastResultAudioKeyRef.current = "";
     setRoom(null);
@@ -816,6 +927,7 @@ function App() {
           }}
           onPlayBot={createBotRoom}
           onPlayBotVsBot={createBotVsBotRoom}
+          onRunTests={runBalanceTest}
           onCharacters={() => {
             setError("");
             setHomeView("characters");
@@ -872,6 +984,18 @@ function App() {
 
       {!room && homeView === "patch-notes" && (
         <PatchNotesView
+          onBack={() => {
+            setError("");
+            setHomeView("menu");
+          }}
+        />
+      )}
+
+      {!room && homeView === "balance-test" && (
+        <BalanceTestView
+          loading={balanceTestLoading}
+          result={balanceTestResult}
+          onRerun={runBalanceTest}
           onBack={() => {
             setError("");
             setHomeView("menu");
@@ -976,6 +1100,130 @@ function LoadingSpinner({ label = "Cargando vista" }) {
   );
 }
 
+function BalanceTestView({ loading, result, onBack, onRerun }) {
+  const [sortConfig, setSortConfig] = useState(DEFAULT_BALANCE_SORT);
+  const isDefaultSort = sortConfig.key === DEFAULT_BALANCE_SORT.key && sortConfig.direction === DEFAULT_BALANCE_SORT.direction;
+  const sortedResults = useMemo(() => {
+    if (!result?.results) return [];
+    const direction = sortConfig.direction === "asc" ? 1 : -1;
+    const valueFor = (item) => {
+      const total = item.wins + item.losses;
+      if (sortConfig.key === "name") return item.name;
+      if (sortConfig.key === "winrate") return total > 0 ? item.wins / total : 0;
+      return Number(item[sortConfig.key] || 0);
+    };
+    return [...result.results].sort((first, second) => {
+      const firstValue = valueFor(first);
+      const secondValue = valueFor(second);
+      if (typeof firstValue === "string" || typeof secondValue === "string") {
+        return direction * String(firstValue).localeCompare(String(secondValue), "es", { sensitivity: "base" });
+      }
+      return direction * (firstValue - secondValue) || first.name.localeCompare(second.name, "es", { sensitivity: "base" });
+    });
+  }, [result, sortConfig]);
+
+  function sortBy(key) {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === "desc" ? "asc" : "desc"
+    }));
+  }
+
+  function sortLabel(key, label) {
+    const active = sortConfig.key === key;
+    const suffix = active ? (sortConfig.direction === "asc" ? " ascendente" : " descendente") : "";
+    return `${label}${suffix}`;
+  }
+
+  function SortHeader({ sortKey, children }) {
+    const active = sortConfig.key === sortKey;
+    const SortIcon = active && sortConfig.direction === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        className={`balance-sort-button ${active ? "active" : ""}`}
+        onClick={() => sortBy(sortKey)}
+        aria-label={sortLabel(sortKey, children)}
+      >
+        <span>{children}</span>
+        <SortIcon aria-hidden="true" size={13} strokeWidth={3} />
+      </button>
+    );
+  }
+
+  return (
+    <section className="panel balance-test-view">
+      <button type="button" className="secondary back-button" onClick={onBack}>
+        <ChevronLeft size={18} />
+        Volver
+      </button>
+      {loading && (
+        <div className="balance-test-loading" role="status" aria-live="polite">
+          <LoaderCircle size={34} />
+          <h2>Calculando peleas</h2>
+        </div>
+      )}
+      {!loading && result && (
+        <>
+          <header className="balance-test-header">
+            <div>
+              <p className="eyebrow">Testeo IA vs IA</p>
+              <h2>{result.fightCount} peleas calculadas</h2>
+            </div>
+            <div className="balance-test-actions">
+              <button
+                type="button"
+                className="secondary balance-action-button"
+                onClick={onRerun}
+                aria-label="Volver a correr el testeo"
+              >
+                <RefreshCw size={16} />
+                Recalcular
+              </button>
+              <button
+                type="button"
+                className="secondary balance-action-button"
+                onClick={() => setSortConfig(DEFAULT_BALANCE_SORT)}
+                disabled={isDefaultSort}
+                aria-label="Resetear orden por mayor winrate"
+              >
+                <RotateCcw size={16} />
+                Reset
+              </button>
+            </div>
+          </header>
+          <div className="balance-test-table" role="table" aria-label="Resultados de testeo">
+            <div className="balance-test-row head" role="row">
+              <span><SortHeader sortKey="name">Personaje</SortHeader></span>
+              <span><SortHeader sortKey="used">Usos</SortHeader></span>
+              <span><SortHeader sortKey="wins">Victorias</SortHeader></span>
+              <span><SortHeader sortKey="losses">Derrotas</SortHeader></span>
+              <span><SortHeader sortKey="winrate">Winrate</SortHeader></span>
+              <span><SortHeader sortKey="damageDone">Daño</SortHeader></span>
+              <span><SortHeader sortKey="healingDone">Curación</SortHeader></span>
+            </div>
+            {sortedResults.map((item) => {
+              const total = item.wins + item.losses;
+              const winrate = total > 0 ? Math.round((item.wins / total) * 100) : 0;
+              return (
+                <div className="balance-test-row" role="row" key={item.id}>
+                  <strong>{item.name}</strong>
+                  <span>{item.used}</span>
+                  <span>{item.wins}</span>
+                  <span>{item.losses}</span>
+                  <span>{winrate}%</span>
+                  <span>{item.damageDone || 0}</span>
+                  <span>{item.healingDone || 0}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 const chakraUsageTypes = [
   ...chakraTypes,
   { id: "neutralChakra", label: "Neutral", className: "neutral" }
@@ -997,7 +1245,7 @@ function characterChakraUsage(character) {
 
 function CharacterChakraUsage({ character }) {
   return (
-    <div className="character-chakra-usage" aria-label={`Uso de chakra de ${character.name}`}>
+    <div className="character-chakra-usage" aria-label={`Uso de recursos de ${character.name}`}>
       {characterChakraUsage(character).map((type) => (
         <span className="character-chakra-usage-item" key={type.id} aria-label={`${type.label}: ${type.percent}%`}>
           <ChakraIcon type={type.id} />
@@ -1020,7 +1268,7 @@ function TeamChakraUsage({ characters }) {
   }
   const totalChakraCost = Object.values(totals).reduce((total, amount) => total + amount, 0);
   return (
-    <div className="character-chakra-usage team-chakra-usage" aria-label="Chakra usado por el equipo elegido">
+    <div className="character-chakra-usage team-chakra-usage" aria-label="Recursos usados por el equipo elegido">
       {chakraUsageTypes.map((type) => {
         const total = totals[type.id];
         const percent = totalChakraCost > 0 ? Math.round((total / totalChakraCost) * 100) : 0;
@@ -1046,7 +1294,7 @@ function CharactersCatalog({ characters, onBack }) {
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
-  const inspectedSkills = allSkillsForCharacter(inspectedCharacter);
+  const inspectedSkills = inspectableSkillsForCharacter(inspectedCharacter);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
 
   useEffect(() => {
@@ -1056,10 +1304,10 @@ function CharactersCatalog({ characters, onBack }) {
   useEffect(() => {
     if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
       setInspectedCharacterId(pageCharacters[0]?.id || "");
-      setInspectedSkillId(allSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
+      setInspectedSkillId(inspectableSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
     } else if (!inspectedCharacterId && pageCharacters[0]) {
       setInspectedCharacterId(pageCharacters[0].id);
-      setInspectedSkillId(allSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
+      setInspectedSkillId(inspectableSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
     }
   }, [filteredCharacters, inspectedCharacterId, pageCharacters]);
 
@@ -1070,7 +1318,7 @@ function CharactersCatalog({ characters, onBack }) {
   function inspectCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(allSkillsForCharacter(character)?.[0]?.id || "");
+    setInspectedSkillId(inspectableSkillsForCharacter(character)?.[0]?.id || "");
   }
 
   return (
@@ -1142,7 +1390,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
-  const inspectedSkills = allSkillsForCharacter(inspectedCharacter);
+  const inspectedSkills = inspectableSkillsForCharacter(inspectedCharacter);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
@@ -1166,7 +1414,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
   function clickCharacter(characterId) {
     const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(allSkillsForCharacter(character)?.[0]?.id || "");
+    setInspectedSkillId(inspectableSkillsForCharacter(character)?.[0]?.id || "");
     onToggle(characterId);
   }
 
@@ -1280,7 +1528,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
     .find((member) => member.id === inspectedMemberId) || selectedActor;
-  const inspectedSkills = allSkillsForCharacter(inspectedMember?.character);
+  const inspectedSkills = inspectableSkillsForCharacter(inspectedMember?.character);
   const selectedActorSkills = activeSkillsForMember(selectedActor, selectedActor?.character);
   const selectedActorDisplaySkills = actionSkillsForMember(selectedActor, selectedActor?.character);
   const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
@@ -1299,7 +1547,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const exchange = exchangeRecord && !exchangeRecord.undone ? exchangeRecord : null;
   const canUndoExchange = Boolean(exchange && !hasQueuedSkills && (me?.chakra?.[exchange.receivedType] || 0) > 0);
   const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchange && totalChakra(me?.chakra) >= 5;
-  const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar chakra";
+  const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar recursos";
   const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
   const chakraTotal = totalChakra(me?.chakra);
   const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNeutralChakra);
@@ -1420,7 +1668,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           <div className="turn-chakra-column">
             <div className="chakra">
               <Zap size={18} />
-              <span>Chakra</span>
+              <span>Recursos</span>
               <b className="chakra-total" title="Chakra disponible ajustado por cola">
                 {queuedNeutralChakra > 0 ? `${adjustedChakraTotal}/${chakraTotal}` : chakraTotal}
               </b>
@@ -1560,14 +1808,14 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
           <div>
             <p className="eyebrow">Turno actual</p>
             <h2 id="chakra-exchange-title">Intercambio de chakra</h2>
-            <p className="modal-copy">Intercambia 5 chakras por 1 chakra en especifico</p>
+            <p className="modal-copy">Intercambia 5 recursos por 1 recurso especifico</p>
           </div>
           <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar intercambio">
             <X size={18} />
           </button>
         </header>
         <div className="chakra-choice" aria-label="Chakra a recibir">
-          <h3>Chakra que quieres tener</h3>
+          <h3>Recurso que quieres tener</h3>
           {chakraTypes.map((type) => (
             <button
               type="button"
@@ -1579,8 +1827,8 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
             </button>
           ))}
         </div>
-        <section className="exchange-payment-list" aria-label="Chakras que estas pagando">
-          <h3>Chakras que pagas</h3>
+        <section className="exchange-payment-list" aria-label="Recursos que estas pagando">
+          <h3>Recursos que pagas</h3>
           {chakraTypes.map((type) => {
             const paid = spent[type.id] || 0;
             const remaining = (chakra?.[type.id] || 0) - paid;
@@ -1642,15 +1890,15 @@ function NeutralChakraModal({ chakra, required, onClose, onConfirm }) {
         <header>
           <div>
             <p className="eyebrow">Finalizar turno</p>
-            <h2 id="neutral-chakra-title">Pagar chakra neutral</h2>
-            <p className="modal-copy">Completa {required} chakra neutral con tus chakras disponibles.</p>
+            <h2 id="neutral-chakra-title">Pagar recurso neutral</h2>
+            <p className="modal-copy">Completa {required} recurso neutral con tus recursos disponibles.</p>
           </div>
           <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar pago neutral">
             <X size={18} />
           </button>
         </header>
-        <section className="exchange-payment-list" aria-label="Chakras que estas pagando">
-          <h3>Chakras que pagas</h3>
+        <section className="exchange-payment-list" aria-label="Recursos que estas pagando">
+          <h3>Recursos que pagas</h3>
           {chakraTypes.map((type) => {
             const paid = spent[type.id] || 0;
             const remaining = (chakra?.[type.id] || 0) - paid;
@@ -1717,7 +1965,7 @@ function PatchNotesPopup({ onClose }) {
 
 function BattleSkillFooter({ member, skill, onSkill }) {
   if (!member) return null;
-  const skills = allSkillsForCharacter(member.character);
+  const skills = inspectableSkillsForCharacter(member.character);
   return (
     <section className="battle-skill-footer">
       <div className="battle-skill-strip" aria-label={`Habilidades de ${member.character.name}`}>
@@ -1765,6 +2013,7 @@ function footerTargetTypeLabel(type) {
   if (type === "allies") return "Todos los aliados";
   if (type === "self") return "A si mismo";
   if (type === "allPlayers") return "Todos los personajes";
+  if (type === "anyCharacter") return "Cualquier personaje";
   return targetTypeLabel(type);
 }
 
