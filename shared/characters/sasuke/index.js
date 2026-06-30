@@ -2,6 +2,7 @@ export const sasuke = {
   id: "sasuke",
   name: "Sasuke Uchiha",
   avatar: "SU",
+  bio:"Sasuke Uchiha es un prodigio del clan Uchiha impulsado por su incansable búsqueda de poder y la verdad sobre su pasado. Su dominio del Mangekyō Sharingan, el control de las llamas negras del Amaterasu y su impecable habilidad con la espada lo convierten en uno de los shinobi más letales de su generación.",
   maxHp: 100,
   skills: [
     {
@@ -15,7 +16,7 @@ export const sasuke = {
         { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "chidori", skillId: "snake-grab" }
       ],
       cooldown: 3,
-      family: ["physical", "channeled", "offensive"]
+      family: ["physical", "offensive", "channeled"]
     },
     {
       id: "kirin",
@@ -30,7 +31,7 @@ export const sasuke = {
         { type: "damage", value: 10, damageType: "affliction", targets: "enemies", ignoreInvulnerable: true, require: { type: "hasStatusEffect", effectId: "kusanagi-sword" } }
       ],
       cooldown: 1,
-      family: ["chakra", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "mangekyou-sharingan",
@@ -50,7 +51,7 @@ export const sasuke = {
         }
       ],
       cooldown: 4,
-      family: ["mental", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "snake-grab",
@@ -64,7 +65,7 @@ export const sasuke = {
         { type: "damage", value: 10, targets: "target" },
         { type: "stun", value: 1, targets: "target" }
       ],
-      family: ["physical", "instant", "offensive"],
+      family: ["physical", "offensive", "instant"],
       cooldown: 1
     },
     {
@@ -75,7 +76,7 @@ export const sasuke = {
       description: "Sasuke se vuelve invulnerable 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     },
     {
       id: "amaterasu",
@@ -90,7 +91,7 @@ export const sasuke = {
       effects: [
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, damageType: "affliction", targets: "self", ignoreInvulnerable: true }] }
       ],
-      family: ["chakra", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     }
   ]
 };

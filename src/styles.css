@@ -555,7 +555,7 @@ label {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
   display: grid;
   gap: 18px;
-  max-width: 380px;
+  max-width: 760px;
   padding: 28px;
   text-align: center;
   width: 100%;
@@ -571,6 +571,59 @@ label {
   font-size: 16px;
   font-weight: 900;
   line-height: 1.35;
+}
+
+.result-stats-table-wrap {
+  border: 1px solid #d8e0e8;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.result-stats-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 560px;
+  text-align: left;
+  width: 100%;
+}
+
+.result-stats-table th,
+.result-stats-table td {
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  padding: 9px 10px;
+}
+
+.result-stats-table th {
+  background: #17202a;
+  color: #fff;
+  font-size: 12px;
+}
+
+.result-stats-table th button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: inline-flex;
+  font: inherit;
+  gap: 6px;
+  min-height: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.result-stats-table td:nth-child(3),
+.result-stats-table td:nth-child(4) {
+  font-weight: 900;
+  text-align: right;
+}
+
+.result-player-row {
+  background: #dbeafe;
+}
+
+.result-enemy-row {
+  background: #fee2e2;
 }
 
 .end-turn-confirm-modal {
@@ -867,6 +920,18 @@ label {
   margin: 0;
 }
 
+.selection-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.random-team-button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
 .selected-character-strip {
   align-items: center;
   display: flex;
@@ -1137,6 +1202,28 @@ label {
   color: #4e5e6e;
   font-size: 13px;
   line-height: 1.3;
+}
+
+.log-name {
+  color: #17202a;
+  font-weight: 900;
+}
+
+.log-damage {
+  color: #dc2626;
+  font-weight: 900;
+}
+
+.log-effect {
+  color: #0284c7;
+  font-weight: 900;
+}
+
+.log-separator {
+  border: 0;
+  border-top: 1px solid #cbd5e1;
+  margin: 3px 0;
+  width: 100%;
 }
 
 .chat-panel {

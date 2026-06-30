@@ -2,6 +2,7 @@ export const gaara = {
   id: "gaara",
   name: "Gaara",
   avatar: "GA",
+  bio: "Gaara es un ninja de la Arena que pasó de ser un arma temida a convertirse en un líder respetado gracias a su inquebrantable determinación. Su control absoluto de la arena, su defensa casi impenetrable y el poder del Una Cola lo convierten en un combatiente excepcional.",
   maxHp: 100,
   skills: [
     {
@@ -16,7 +17,7 @@ export const gaara = {
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] }
       ],
       cooldown: 1,
-      family:["physical","instant","offensive"]
+      family:["physical","offensive","instant"]
     },
     {
       id: "sand-shield",
@@ -29,7 +30,7 @@ export const gaara = {
         { type: "complex", duration: 2, targets: "self", effects: [{ type: "modifyChakraCost", chakra: { neutralChakra: -1 }, targets: "self", skillIds: ["sand-coffin"] }] }
       ],
       cooldown: 2,
-      family:["chakra","instant","offensive"]
+      family:["physical","strategic","instant"]
     },
     {
       id: "sand-armor",
@@ -42,7 +43,7 @@ export const gaara = {
         { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "sand-armor", skillId: "sand-storm" }
       ],
       cooldown: 1,
-      family:["chakra","instant"]
+      family:["physical","strategic", "instant"]
     },
     {
       id: "substitution-jutsu",
@@ -52,7 +53,7 @@ export const gaara = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family:["physical","instant"]
+      family:["physical","strategic","instant"]
     },
     {
       id: "sand-storm",
@@ -62,7 +63,7 @@ export const gaara = {
       description: "Gaara invoca una tormenta de arena que inflige 20 puntos de daño a todos los enemigos.",
       effects: [{ type: "damage", value: 20, targets: "enemies" }],
       isExtraSkill: true,
-      family:["chakra","instant"],
+      family:["special","offensive", "instant"],
     }
 
   ]

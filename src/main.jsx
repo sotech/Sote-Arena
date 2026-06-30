@@ -760,6 +760,22 @@ function App() {
     if (!response.ok) setError(response.error);
   }
 
+  async function confirmRandomTeam() {
+    setError("");
+    const selectedSet = new Set(selected);
+    const available = characters
+      .map((character) => character.id)
+      .filter((characterId) => !selectedSet.has(characterId));
+    const completed = [...selected];
+    while (completed.length < 3 && available.length > 0) {
+      const index = Math.floor(Math.random() * available.length);
+      completed.push(available.splice(index, 1)[0]);
+    }
+    setSelected(completed);
+    const response = await callSocket("team:select", { characterIds: completed });
+    if (!response.ok) setError(response.error);
+  }
+
   async function unconfirmTeam() {
     setError("");
     const response = await callSocket("team:unselect", {});
@@ -1014,6 +1030,7 @@ function App() {
           room={room}
           onToggle={toggleCharacter}
           onConfirm={confirmTeam}
+          onRandomTeam={confirmRandomTeam}
           onUnconfirm={unconfirmTeam}
           onSendChat={sendChatMessage}
           onToggleBotPause={toggleBotPause}
@@ -1042,7 +1059,7 @@ function App() {
         />
       )}
 
-      {matchResult && <ResultModal title={matchResult} reason={matchResultReason} onReturnHome={returnHome} />}
+      {matchResult && <ResultModal title={matchResult} reason={matchResultReason} stats={room?.resultStats || []} onReturnHome={returnHome} />}
       {optionsOpen && (
         <OptionsModal
           sfxVolume={sfxVolume}
@@ -1307,13 +1324,16 @@ function CharactersCatalog({ characters, onBack }) {
   const [search, setSearch] = useState("");
   const [inspectedCharacterId, setInspectedCharacterId] = useState("");
   const [inspectedSkillId, setInspectedSkillId] = useState("");
+  const [footerDetailType, setFooterDetailType] = useState("character");
   const filteredCharacters = filterCharacters(characters, search);
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
   const inspectedSkills = inspectableSkillsForCharacter(inspectedCharacter);
-  const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
+  const inspectedSkill = footerDetailType === "skill"
+    ? inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0]
+    : null;
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -1322,10 +1342,12 @@ function CharactersCatalog({ characters, onBack }) {
   useEffect(() => {
     if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
       setInspectedCharacterId(pageCharacters[0]?.id || "");
-      setInspectedSkillId(inspectableSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
+      setInspectedSkillId("");
+      setFooterDetailType("character");
     } else if (!inspectedCharacterId && pageCharacters[0]) {
       setInspectedCharacterId(pageCharacters[0].id);
-      setInspectedSkillId(inspectableSkillsForCharacter(pageCharacters[0])?.[0]?.id || "");
+      setInspectedSkillId("");
+      setFooterDetailType("character");
     }
   }, [filteredCharacters, inspectedCharacterId, pageCharacters]);
 
@@ -1334,9 +1356,14 @@ function CharactersCatalog({ characters, onBack }) {
   }, [search]);
 
   function inspectCharacter(characterId) {
-    const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(inspectableSkillsForCharacter(character)?.[0]?.id || "");
+    setInspectedSkillId("");
+    setFooterDetailType("character");
+  }
+
+  function inspectCatalogSkill(skillId) {
+    setInspectedSkillId(skillId);
+    setFooterDetailType("skill");
   }
 
   return (
@@ -1374,15 +1401,13 @@ function CharactersCatalog({ characters, onBack }) {
       </div>
       {inspectedCharacter && (
         <footer className="character-skill-footer">
-          <h3 className="inspected-character-name">{inspectedCharacter.name}</h3>
-          <p className="inspected-character-health">Vida: {inspectedCharacter.maxHp}</p>
           <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
             {inspectedSkills.map((skill) => (
               <button
                 type="button"
                 key={skill.id}
-                className={inspectedSkill?.id === skill.id ? "selected" : ""}
-                onClick={() => setInspectedSkillId(skill.id)}
+                className={footerDetailType === "skill" && inspectedSkill?.id === skill.id ? "selected" : ""}
+                onClick={() => inspectCatalogSkill(skill.id)}
                 aria-label={skill.name}
               >
                 <SquareImage alt={skill.name} src={skillImage(skill.id)} />
@@ -1390,26 +1415,31 @@ function CharactersCatalog({ characters, onBack }) {
             ))}
           </div>
           <CharacterChakraUsage character={inspectedCharacter} />
-          <SkillFooter skill={inspectedSkill} compact />
+          {footerDetailType === "skill" && inspectedSkill
+            ? <SkillFooter skill={inspectedSkill} compact />
+            : <CharacterFooter character={inspectedCharacter} compact />}
         </footer>
       )}
     </section>
   );
 }
 
-function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfirm, onSendChat }) {
+function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTeam, onUnconfirm, onSendChat }) {
   const pageSize = 10;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [inspectedCharacterId, setInspectedCharacterId] = useState("");
   const [inspectedSkillId, setInspectedSkillId] = useState("");
+  const [footerDetailType, setFooterDetailType] = useState("character");
   const filteredCharacters = filterCharacters(characters, search);
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
   const inspectedSkills = inspectableSkillsForCharacter(inspectedCharacter);
-  const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
+  const inspectedSkill = footerDetailType === "skill"
+    ? inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0]
+    : null;
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
     .filter(Boolean);
@@ -1426,14 +1456,20 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
     if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
       setInspectedCharacterId("");
       setInspectedSkillId("");
+      setFooterDetailType("character");
     }
   }, [filteredCharacters, inspectedCharacterId]);
 
   function clickCharacter(characterId) {
-    const character = characters.find((item) => item.id === characterId);
     setInspectedCharacterId(characterId);
-    setInspectedSkillId(inspectableSkillsForCharacter(character)?.[0]?.id || "");
+    setInspectedSkillId("");
+    setFooterDetailType("character");
     onToggle(characterId);
+  }
+
+  function inspectLobbySkill(skillId) {
+    setInspectedSkillId(skillId);
+    setFooterDetailType("skill");
   }
 
   return (
@@ -1443,7 +1479,15 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
           <div>
             <p className="eyebrow">Equipo</p>
             <div className="selection-title">
-              <h2>Elige 3 personajes</h2>
+              <div className="selection-heading">
+                <h2>Elige 3 personajes</h2>
+                {room.mode === "bot" && (
+                  <button type="button" className="secondary random-team-button" onClick={onRandomTeam} disabled={me?.ready || characters.length < 3}>
+                    <RefreshCw size={16} />
+                    Equipo Random
+                  </button>
+                )}
+              </div>
               {selectedCharacters.length > 0 && (
                 <div className="selected-character-strip" aria-label="Personajes elegidos">
                   {selectedCharacters.map((character) => (
@@ -1492,15 +1536,13 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
         </div>
         {inspectedCharacter && (
           <footer className="character-skill-footer">
-            <h3 className="inspected-character-name">{inspectedCharacter.name}</h3>
-            <p className="inspected-character-health">Vida: {inspectedCharacter.maxHp}</p>
             <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
               {inspectedSkills.map((skill) => (
                 <button
                   type="button"
                   key={skill.id}
-                  className={inspectedSkill?.id === skill.id ? "selected" : ""}
-                  onClick={() => setInspectedSkillId(skill.id)}
+                  className={footerDetailType === "skill" && inspectedSkill?.id === skill.id ? "selected" : ""}
+                  onClick={() => inspectLobbySkill(skill.id)}
                   disabled={me?.ready}
                   aria-label={skill.name}
                 >
@@ -1509,7 +1551,9 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
               ))}
             </div>
             <CharacterChakraUsage character={inspectedCharacter} />
-            <SkillFooter skill={inspectedSkill} compact />
+            {footerDetailType === "skill" && inspectedSkill
+              ? <SkillFooter skill={inspectedSkill} compact />
+              : <CharacterFooter character={inspectedCharacter} compact />}
           </footer>
         )}
       </div>
@@ -1524,9 +1568,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onUnconfir
             </div>
           ))}
           <div className="log">
-            {room.log.map((item, index) => (
-              <p key={`${item}-${index}`}>{item}</p>
-            ))}
+            <LogEntries entries={room.log} room={room} />
           </div>
         </section>
         {room.mode === "pvp" && <ChatPanel messages={room.chat || []} onSend={onSendChat} />}
@@ -1539,6 +1581,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const winner = room.players.find((player) => player.id === room.winnerId);
   const [inspectedSkillId, setInspectedSkillId] = useState("");
   const [inspectedMemberId, setInspectedMemberId] = useState("");
+  const [footerDetailType, setFooterDetailType] = useState("character");
   const [pendingSkillId, setPendingSkillId] = useState("");
   const [chakraExchangeOpen, setChakraExchangeOpen] = useState(false);
   const [neutralChakraOpen, setNeutralChakraOpen] = useState(false);
@@ -1549,7 +1592,9 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const inspectedSkills = inspectableSkillsForCharacter(inspectedMember?.character);
   const selectedActorSkills = activeSkillsForMember(selectedActor, selectedActor?.character);
   const selectedActorDisplaySkills = actionSkillsForMember(selectedActor, selectedActor?.character);
-  const inspectedSkill = inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0];
+  const inspectedSkill = footerDetailType === "skill"
+    ? inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0]
+    : null;
   const pendingSkill = selectedActorSkills.find((skill) => skill.id === pendingSkillId);
   const activePlayer = room.players.find((player) => player.id === room.activePlayerId);
   const turnLabel = room.mode === "bot-vs-bot"
@@ -1571,16 +1616,19 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNeutralChakra);
   const ownBattleShare = playerHealthShare(me, opponent);
   const enemyBattleShare = playerHealthShare(opponent, me);
+  const damageAnimationTurnKey = `${room.turn}:${room.activePlayerId}`;
 
   useEffect(() => {
     setPendingSkillId("");
     setInspectedMemberId(actorId);
     setInspectedSkillId("");
+    setFooterDetailType("character");
   }, [actorId, room.turn]);
 
   function clickSkill(skill) {
     setInspectedMemberId(selectedActor?.id || "");
     setInspectedSkillId(skill.id);
+    setFooterDetailType("skill");
     if (pendingSkillId === skill.id) {
       setPendingSkillId("");
       return;
@@ -1612,6 +1660,12 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   function inspectMember(member) {
     setInspectedMemberId(member.id);
     setInspectedSkillId("");
+    setFooterDetailType("character");
+  }
+
+  function inspectSkill(skillId) {
+    setInspectedSkillId(skillId);
+    setFooterDetailType("skill");
   }
 
   async function pickFighter(member, ownTeam) {
@@ -1662,6 +1716,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           targetId={targetId}
           eligibleTargetIds={eligibleTargetIds}
           choosingTarget={Boolean(pendingSkill)}
+          damageAnimationTurnKey={damageAnimationTurnKey}
           onInspect={inspectMember}
           onPick={pickFighter}
           ownTeam
@@ -1742,13 +1797,14 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           />
         </div>
         <Team
-          title={opponent?.name || "Rival"}
+          title={opponent?.name || "Oponente"}
           player={opponent}
           active={room.activePlayerId === opponent?.id}
           disadvantage={enemyBattleShare <= 1 - ADVANTAGE_HEALTH_SHARE}
           targetId={targetId}
           eligibleTargetIds={eligibleTargetIds}
           choosingTarget={Boolean(pendingSkill)}
+          damageAnimationTurnKey={damageAnimationTurnKey}
           onInspect={inspectMember}
           onPick={pickFighter}
           targetable
@@ -1757,14 +1813,12 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>
         <CollapsiblePanel title="Registro" className="combat-log side-main">
           <div className="log">
-            {room.log.map((item, index) => (
-              <p key={`${item}-${index}`}>{item}</p>
-            ))}
+            <LogEntries entries={room.log} room={room} />
           </div>
         </CollapsiblePanel>
         {room.mode === "pvp" && <ChatPanel messages={room.chat || []} onSend={onSendChat} collapsible />}
       </aside>
-      <BattleSkillFooter member={inspectedMember} skill={inspectedSkill} onSkill={setInspectedSkillId} />
+      <BattleSkillFooter member={inspectedMember} skill={inspectedSkill} detailType={footerDetailType} onSkill={inspectSkill} />
       {chakraExchangeOpen && (
         <ChakraExchangeModal
           chakra={me?.chakra}
@@ -1797,6 +1851,65 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       )}
     </section>
   );
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function logEntityNames(room) {
+  const names = new Set();
+  for (const player of room?.players || []) {
+    if (player.name) names.add(player.name);
+    for (const member of player.team || []) {
+      if (member.character?.name) names.add(member.character.name);
+    }
+  }
+  return [...names].sort((a, b) => b.length - a.length);
+}
+
+function RichLogText({ text, names }) {
+  const namePattern = names.length > 0 ? new RegExp(`\\b(${names.map(escapeRegExp).join("|")})\\b`, "i") : null;
+  const damagePattern = /\d+\s+de\s+dano(?:\s+(?:normal|perforante|de\s+afliccion))?/i;
+  const effectPattern = /\b(invulnerabilidad|invulnerable)\b/i;
+  const parts = [];
+  let remaining = String(text || "");
+  let index = 0;
+
+  while (remaining) {
+    const matches = [
+      { type: "log-damage", match: damagePattern.exec(remaining) },
+      { type: "log-effect", match: effectPattern.exec(remaining) },
+      { type: "log-name", match: namePattern?.exec(remaining) || null }
+    ].filter((item) => item.match);
+
+    if (matches.length === 0) {
+      parts.push(remaining);
+      break;
+    }
+
+    matches.sort((a, b) => a.match.index - b.match.index);
+    const next = matches[0];
+    if (next.match.index > 0) parts.push(remaining.slice(0, next.match.index));
+    parts.push(
+      <span className={next.type} key={`${next.type}-${index}`}>
+        {next.match[0]}
+      </span>
+    );
+    remaining = remaining.slice(next.match.index + next.match[0].length);
+    index += 1;
+  }
+
+  return <>{parts}</>;
+}
+
+function LogEntries({ entries = [], room }) {
+  const names = logEntityNames(room);
+  return entries.map((item, index) => (
+    item?.type === "separator"
+      ? <hr key={item.id || `separator-${index}`} className="log-separator" />
+      : <p key={`${item}-${index}`}><RichLogText text={item} names={names} /></p>
+  ));
 }
 
 function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
@@ -1981,7 +2094,7 @@ function PatchNotesPopup({ onClose }) {
   );
 }
 
-function BattleSkillFooter({ member, skill, onSkill }) {
+function BattleSkillFooter({ member, skill, detailType, onSkill }) {
   if (!member) return null;
   const skills = inspectableSkillsForCharacter(member.character);
   return (
@@ -1991,7 +2104,7 @@ function BattleSkillFooter({ member, skill, onSkill }) {
           <button
             type="button"
             key={item.id}
-            className={`${skill?.id === item.id ? "selected" : ""} ${item.passive ? "unavailable" : ""}`}
+            className={`${detailType === "skill" && skill?.id === item.id ? "selected" : ""} ${item.passive ? "unavailable" : ""}`}
             aria-disabled={item.passive === true}
             onClick={() => onSkill(item.id)}
             aria-label={item.name}
@@ -2000,9 +2113,37 @@ function BattleSkillFooter({ member, skill, onSkill }) {
           </button>
         ))}
       </div>
-      <SkillFooter skill={skill} />
+      {detailType === "skill" && skill ? <SkillFooter skill={skill} /> : <CharacterFooter member={member} />}
     </section>
   );
+}
+
+function CharacterFooter({ member, character: characterOverride, compact = false }) {
+  const character = member?.character || characterOverride;
+  if (!character) return null;
+  const currentHp = member?.hp ?? character.maxHp;
+  return (
+    <footer className={`skill-footer character-detail-footer ${compact ? "compact" : ""}`}>
+      <SquareImage alt={character.name} src={characterImage(character.id)} />
+      <div className="skill-footer-body">
+        <h2>{character.name}</h2>
+        <p className="skill-footer-description">{characterDescription(character)}</p>
+        <div className="skill-footer-meta">
+          <span><b>Vida:</b> {currentHp}/{character.maxHp}</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+function characterDescription(character) {
+  const explicitDescription = character.description || character.bio || character.lore || character.summary;
+  if (explicitDescription) return explicitDescription;
+  const skills = inspectableSkillsForCharacter(character).map((skill) => skill.name);
+  if (skills.length) {
+    return `Vida maxima: ${character.maxHp}. Habilidades: ${skills.join(", ")}.`;
+  }
+  return `Vida maxima: ${character.maxHp}.`;
 }
 
 function SkillFooter({ skill, compact = false }) {
@@ -2047,7 +2188,7 @@ function BalanceBar({ me, opponent }) {
       <div className="balance-labels">
         <span>{me?.name || "Tu equipo"} {Math.round(ownHealth * 100)}%</span>
         <strong>Balance</strong>
-        <span>{opponent?.name || "Rival"} {Math.round(enemyHealth * 100)}%</span>
+        <span>{opponent?.name || "Oponente"} {Math.round(enemyHealth * 100)}%</span>
       </div>
       <div className="balance-track">
         <span className="balance-half red-half" />
@@ -2107,7 +2248,7 @@ function damageSeverityClass(damage, maxHp) {
   return "damage-critical";
 }
 
-function Team({ title, player, active, disadvantage = false, actorId, targetId, eligibleTargetIds = new Set(), choosingTarget = false, onInspect, onPick, targetable = false, ownTeam = false }) {
+function Team({ title, player, active, disadvantage = false, actorId, targetId, eligibleTargetIds = new Set(), choosingTarget = false, damageAnimationTurnKey = "", onInspect, onPick, targetable = false, ownTeam = false }) {
   const previousHpRef = useRef(new Map());
   const [damageAnimations, setDamageAnimations] = useState({});
 
@@ -2137,7 +2278,7 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
       });
     }, 720);
     return () => window.clearTimeout(timeout);
-  }, [player?.team]);
+  }, [damageAnimationTurnKey]);
 
   return (
     <div className={`team ${player?.side || ""} ${active ? "active" : ""} ${disadvantage ? "disadvantage" : ""}`}>
@@ -2151,6 +2292,7 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
           const selectable = member.hp > 0 && (eligible || (!choosingTarget && ownTeam));
           const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.character.id);
           const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");
+          const fighterHint = eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : "";
           return (
             <div
               className={`fighter ${damageAnimation ? `damage-shake ${damageAnimation.severity}` : ""} ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
@@ -2178,7 +2320,7 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
                 <Shield size={14} /> {member.shield}
               </span>
               <StatusEffects member={member} effects={member.statusEffects || []} />
-              <small>{eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : ownTeam ? "Atacante" : targetable ? "Rival" : "Objetivo"}</small>
+              {fighterHint && <small>{fighterHint}</small>}
             </div>
           );
         })}

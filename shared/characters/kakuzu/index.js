@@ -2,6 +2,7 @@ export const kakuzu = {
   id: "kakuzu",
   name: "Kakuzu",
   avatar: "KZ",
+  bio:"Kakuzu es un mercenario inmortal cuya obsesión por el dinero solo es superada por su despiadada eficacia en combate. Su cuerpo compuesto por múltiples corazones y su dominio de los cinco elementos le permiten resistir heridas letales y desatar una devastadora variedad de técnicas.",
   maxHp: 100,
   skills: [
     {
@@ -15,7 +16,7 @@ export const kakuzu = {
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self" }] },
         { type: "replaceSkill", baseSkillId: "fuuton-pressure-damage", skillId: "katon-inferno-fire", targets: "self", duration: -1 }
       ],
-      family: ["chakra", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "raiton-false-lightning",
@@ -27,7 +28,7 @@ export const kakuzu = {
         { type: "damage", value: 30, damageType: "piercing", targets: "target" },
         { type: "replaceSkill", baseSkillId: "raiton-false-lightning", skillId: "suiton-suijenki", targets: "self", duration: -1, showStatusEffect: false }
       ],
-      family: ["chakra", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "heart-steal",
@@ -40,7 +41,7 @@ export const kakuzu = {
         { type: "instakill", targets: "target" },
         { type: "heal", value: 50, targets: "self" }
       ],
-      family: ["physical", "instant", "offensive"],
+      family: ["physical", "offensive", "instant"],
       cooldown: 4
     },
     {
@@ -51,7 +52,7 @@ export const kakuzu = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     },
     {
       id: "katon-inferno-fire",
@@ -63,9 +64,9 @@ export const kakuzu = {
         { type: "damage", value: 15, damageType: "affliction", targets: "target" },
         { type: "replaceSkill", baseSkillId: "fuuton-pressure-damage", skillId: "fuuton-pressure-damage", targets: "self", duration: -1 }
       ],
-      family: ["chakra", "instant", "offensive"],
       isExtraSkill: true,
-      hideUntilReplaced: true
+      hideUntilReplaced: true,
+      family: ["special", "offensive", "instant"],
     },
     {
       id: "suiton-suijenki",
@@ -77,7 +78,7 @@ export const kakuzu = {
         { type: "shield", value: 30, targets: "target", isStackable: false },
         { type: "replaceSkill", baseSkillId: "raiton-false-lightning", skillId: "raiton-false-lightning", targets: "self", duration: -1, showStatusEffect: false }
       ],
-      family: ["chakra", "instant"],
+      family: ["special", "strategic", "instant"],
       isExtraSkill: true,
       hideUntilReplaced: true
     }

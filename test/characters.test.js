@@ -34,7 +34,35 @@ test("hideSkillInInspect hides skills only from inspection lists", () => {
 });
 
 test("skill families have class labels for descriptions", () => {
-  assert.equal(skillClassesLabel(["physical", "instant"]), "fisica, instantanea");
+  assert.equal(skillClassesLabel(["physical", "offensive", "instant"]), "fisica, ofensiva, instantanea");
+  assert.equal(skillClassesLabel(["special", "strategic", "channeled"]), "especial, estrategica, canalizada");
+});
+
+test("every skill uses the current family axes", () => {
+  const familyAxes = {
+    type: ["physical", "special", "mental"],
+    nature: ["strategic", "offensive"],
+    time: ["instant", "channeled"]
+  };
+  const supportedFamilies = Object.values(familyAxes).flat();
+
+  for (const character of characters) {
+    for (const skill of character.skills) {
+      const family = skill.family || [];
+      assert.deepEqual(
+        family.filter((item) => !supportedFamilies.includes(item)),
+        [],
+        `${character.id}.${skill.id} has unsupported families`
+      );
+      for (const [axis, values] of Object.entries(familyAxes)) {
+        assert.equal(
+          family.filter((item) => values.includes(item)).length,
+          1,
+          `${character.id}.${skill.id} must have exactly one ${axis} family`
+        );
+      }
+    }
+  }
 });
 
 test("player health share uses current HP and ignores shields", () => {
@@ -299,6 +327,38 @@ test("black feather visual group counts one stack per death", () => {
   assert.equal(statusEffectGroupValue(groups[0]), 2);
 });
 
+test("reflected notices keep every reflected skill description", () => {
+  const member = { statusEffects: [] };
+  const baseNotice = {
+    type: "reflected",
+    turns: 1,
+    showStatusEffect: true,
+    sourceSkillId: "sharingan",
+    sourceSkillName: "Habilidad reflejada",
+    sourceActorName: "Kakashi Hatake",
+    createdTurn: 3
+  };
+
+  addStatus(member, {
+    ...baseNotice,
+    id: "reflected-1",
+    descriptions: ["Sharingan de Kakashi ha reflejado Patada de sombra sobre este personaje."]
+  });
+  addStatus(member, {
+    ...baseNotice,
+    id: "reflected-2",
+    descriptions: ["Sharingan de Kakashi ha reflejado Rasengan sobre este personaje."]
+  });
+
+  const groups = groupStatusEffects(member.statusEffects);
+  assert.equal(member.statusEffects.length, 1);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(member.statusEffects[0].descriptions, [
+    "Sharingan de Kakashi ha reflejado Patada de sombra sobre este personaje.",
+    "Sharingan de Kakashi ha reflejado Rasengan sobre este personaje."
+  ]);
+});
+
 test("skill ids are shown as skill names in descriptions", () => {
   assert.equal(
     effectDescription({ type: "modifyDamage", value: 10, duration: 4, targets: "self", skillIds: ["puppet-ambush"] }),
@@ -520,7 +580,7 @@ test("Aizen Hado 90 creates a cancelable channel on Aizen and a damaging stun on
   });
 
   assert.ok(aizenMember.statusEffects.some((effect) => effect.type === "complex" && effect.mode === "cancelable"));
-  assert.equal(isSkillStunned(target, { id: "rasengan", family: ["chakra", "instant"] }), true);
+  assert.equal(isSkillStunned(target, { id: "rasengan", family: ["special", "offensive", "instant"] }), true);
   assert.ok(target.statusEffects.some((effect) => effect.type === "complex" && effect.cancelIfOriginStunned === true));
 
   resolveTurn(room, "p1");
@@ -553,7 +613,7 @@ test("Aizen Hado 90 cancellation removes the channel and target status", () => {
     id: "stunned-aizen",
     type: "stun",
     turns: 1,
-    familiesAffected: ["chakra"],
+    familiesAffected: ["special"],
     sourceSkillId: "test-stun",
     sourceSkillName: "Test stun",
     createdTurn: 1
@@ -789,15 +849,15 @@ test("addEffectToBase adds effects to matching skills", () => {
 test("stun can affect specific skill families", () => {
   const member = {
     statusEffects: [{
-      id: "chakra-stun",
+      id: "special-stun",
       type: "stun",
       turns: 1,
-      familiesAffected: ["chakra"]
+      familiesAffected: ["special"]
     }]
   };
 
-  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["chakra", "instant"] }), true);
-  assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "instant"] }), false);
+  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["special", "offensive", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "offensive", "instant"] }), false);
   assert.equal(effectDescription({ type: "stun", value: 1, targets: "target", familiesAffected: ["physical", "instant"] }), "Aturde: 1 turno(s) (fisicas, instantaneas)");
 });
 
@@ -817,8 +877,8 @@ test("Cacho smoke hazard only stuns physical skills", () => {
   };
 
   assert.deepEqual(stun.familiesAffected, ["physical"]);
-  assert.equal(isSkillStunned(member, { id: "cats-blessing", family: ["chakra", "instant"] }), false);
-  assert.equal(isSkillStunned(member, { id: "shadow-kick", family: ["physical", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "cats-blessing", family: ["special", "strategic", "instant"] }), false);
+  assert.equal(isSkillStunned(member, { id: "shadow-kick", family: ["physical", "offensive", "instant"] }), true);
   assert.equal(effectDescription(stun), "Aturde: 1 turno(s) (fisicas)");
 });
 
@@ -831,8 +891,8 @@ test("stun without familiesAffected affects every skill", () => {
     }]
   };
 
-  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["chakra", "instant"] }), true);
-  assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["special", "offensive", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "offensive", "instant"] }), true);
 });
 
 test("invulnerable blocks enemy effects unless they explicitly ignore it", () => {
@@ -908,8 +968,8 @@ test("complex stun can affect specific skill families", () => {
     }]
   };
 
-  assert.equal(isSkillStunned(member, { id: "uzumaki-resolve", family: ["mental", "instant"] }), true);
-  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["chakra", "instant"] }), false);
+  assert.equal(isSkillStunned(member, { id: "uzumaki-resolve", family: ["mental", "strategic", "instant"] }), true);
+  assert.equal(isSkillStunned(member, { id: "rasengan", family: ["special", "offensive", "instant"] }), false);
 });
 
 test("replaceSkill swaps a base skill with an extra skill while active", () => {
@@ -1513,11 +1573,11 @@ test("reflected modified enemy-team skills affect the original caster allies", (
   assert.equal(kakashiMember.hp, 100);
   assert.ok(danielMember.statusEffects.some((effect) => (
     effect.type === "reflected"
-    && effect.descriptions.includes("Sharingan de Kakashi ha reflejado una habilidad sobre este personaje.")
+    && effect.descriptions.includes("Sharingan de Kakashi ha reflejado Patada de sombra sobre este personaje.")
   )));
   assert.ok(vulnerableAlly.statusEffects.some((effect) => (
     effect.type === "reflected"
-    && effect.descriptions.includes("Sharingan de Kakashi ha reflejado una habilidad sobre este personaje.")
+    && effect.descriptions.includes("Sharingan de Kakashi ha reflejado Patada de sombra sobre este personaje.")
   )));
   assert.equal(invulnerableAlly.statusEffects.some((effect) => effect.type === "reflected"), false);
   assert.match(message, /hizo 60 dano/);

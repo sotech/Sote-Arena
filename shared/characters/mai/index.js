@@ -2,6 +2,7 @@ export const mai = {
   id: "mai",
   name: "Mai",
   avatar: "MI",
+  bio: "Mai es la inseparable compañera de Daniel, una gata de apariencia serena cuya curiosidad la lleva a explorar cualquier situación sin dudarlo. Detrás de su calma esconde un temperamento feroz y una sorprendente ferocidad cuando llega el momento de defender a quienes aprecia.",
   maxHp: 70,
   skills: [
     {
@@ -14,7 +15,7 @@ export const mai = {
         { type: "damage", value: 5, damageType: "piercing", targets: "target" },
         { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
       ],
-      family: ["physical", "instant", "offensive"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "prrr",
@@ -26,7 +27,7 @@ export const mai = {
         { type: "modifyChakraCost", chakra: { neutralChakra: -1 }, duration: 2, targets: "target" }
       ],
       cooldown: 4,
-      family: ["mental", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "licks",
@@ -39,7 +40,7 @@ export const mai = {
         { type: "complex", duration: 1, targets: "target", mode: "interruptible", effects: [{ type: "heal", value: 10, targets: "self" }] }
       ],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "channeled"]
     },
     {
       id: "ally-protection",
@@ -52,7 +53,7 @@ export const mai = {
       effects: [
         { type: "allyCountStatus", duration: -1, targets: "self", excludeSelf: true, damageReductionPerAlly: 5, shieldPerAlly: 5, maxShieldPerAlly: 5, maxShield: 20 }
       ],
-      family: ["mental", "instant"]
+      family: ["special", "strategic", "instant"]
     }
   ]
 };

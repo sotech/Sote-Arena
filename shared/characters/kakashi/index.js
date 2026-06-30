@@ -2,6 +2,7 @@ export const kakashi = {
   id: "kakashi",
   name: "Kakashi Hatake",
   avatar: "KH",
+  bio:"Kakashi Hatake es un ninja prodigio reconocido por su inteligencia, serenidad y vasta experiencia en combate. Su dominio del Sharingan, su versatilidad con cientos de jutsus y su capacidad para adaptarse a cualquier situación lo convierten en uno de los shinobi más respetados de su generación.",
   maxHp: 100,
   skills: [
     {
@@ -14,7 +15,7 @@ export const kakashi = {
         { type: "damage", value: 40, damageType: "piercing", targets: "target" },
         { type: "instakill", targets: "target", when: { type: "hasStatusEffect", effectId: "ninken-trap" } }
       ],
-      family:["chakra","instant","offensive"],
+      family:["special","offensive","instant"],
       cooldown: 1
     },
     {
@@ -28,7 +29,7 @@ export const kakashi = {
         { type: "reflect", duration: 1, targets: "self", trigger: "incoming", charges: -1, reflectTo: "caster", showStatusEffect: false }
       ],
       cooldown: 3,
-      family:["mental","instant"]
+      family:["mental", "strategic", "instant"]
     },
     {
       id: "ninken-trap",
@@ -40,7 +41,7 @@ export const kakashi = {
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "stun", value: 2, targets: "self" }] }
       ],
       cooldown: 3,
-      family:["physical","instant","offensive"]
+      family:["physical","offensive","instant"]
     },
     {
       id: "substitution-jutsu",
@@ -50,7 +51,7 @@ export const kakashi = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family:["physical","instant"]
+      family:["physical","strategic","instant"]
     }
   ]
 };

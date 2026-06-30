@@ -3,6 +3,7 @@ export const joseph = {
   name: "Joseph Joestar",
   avatar: "JJ",
   maxHp: 100,
+  bio: "Joseph Joestar es un luchador ingenioso y extravagante que vence a sus enemigos combinando astucia, humor y una increíble capacidad de improvisación. Su dominio del Hamon y su talento para anticipar los movimientos del rival lo convierten en un combatiente tan impredecible como peligroso.",
   deathSound: { soundname: "joseph", shouldFadeIn: true, shouldFadeOut: true },
   skills: [
     {
@@ -26,7 +27,7 @@ export const joseph = {
         { type: "damage-reduction", value: 75, percent: true, duration: 1, targets: "self" }
       ],
       cooldown: 2,
-      family: ["strategic", "instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "your-next-line",
@@ -46,7 +47,7 @@ export const joseph = {
         ]
       }],
       cooldown: 1,
-      family: ["strategic", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "nigerundayo",
@@ -56,7 +57,7 @@ export const joseph = {
       description: "Joseph decide que la mejor estrategia es escapar. Obtiene invulnerabilidad durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     }
   ]
 };

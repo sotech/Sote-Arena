@@ -3,6 +3,7 @@ export const nagi = {
   name: "Nagi Seishiro",
   avatar: "NS",
   maxHp: 100,
+  bio: "Nagi Seishiro es un prodigio del fútbol con un talento natural incomparable que convierte las jugadas más difíciles en acciones aparentemente sencillas. Su control de balón excepcional, creatividad instintiva y capacidad para definir desde cualquier posición lo convierten en un delantero impredecible y letal.",
   deathSound: { soundname: "nagi", shouldFadeIn: true, shouldFadeOut: true },
   skills: [
     {
@@ -52,7 +53,7 @@ export const nagi = {
         descriptions: ["Remate de Cinco Etapas gana 15 de dano por cada acumulacion de La Zona."]
       }],
       cooldown: 1,
-      family: ["instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "five-stage-volley",
@@ -80,7 +81,7 @@ export const nagi = {
         { type: "modifyChakraCost", chakra: { taijutsu: -1 }, duration: 3, targets: "self", skillIds: ["volley-shot"] }
       ],
       cooldown: 3,
-      family: ["defensive", "instant"]
+      family: ["mental", "strategic", "instant"]
     }
   ]
 };

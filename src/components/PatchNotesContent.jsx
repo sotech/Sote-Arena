@@ -58,6 +58,12 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="1.3.2">
+        <New>Agregado seleccion de equipo al azar en modo vs IA</New>
+        <li>Mejoras en el sistema de registro.</li>
+        <li>Mejoras en el resumen de partida.</li>
+        <li>Estandarizadas familias de habilidades.</li>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.3.1">
         <CharacterPatch id="aizen">
           <Nerf>Dispersate, Kyouka Suijetsu hace 5 menos de daño.</Nerf>

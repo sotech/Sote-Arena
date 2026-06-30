@@ -2,6 +2,7 @@ export const sakura = {
   id: "sakura",
   name: "Sakura Haruno",
   avatar: "SH",
+  bio:"Sakura Haruno es una kunoichi de extraordinaria disciplina que combina un brillante talento médico con una fuerza física devastadora. Su control perfecto del chakra, su capacidad para curar heridas críticas y su poder para destruir con un solo golpe la convierten en una aliada invaluable y una rival temible.",
   maxHp: 100,
   skills: [
     {
@@ -13,7 +14,7 @@ export const sakura = {
       effects: [
         { type: "damage", value: 25, damageType: "piercing", targets: "target" }
       ],
-      family: ["physical", "instant", "offensive"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "medical-kunoichi",
@@ -25,7 +26,7 @@ export const sakura = {
         { type: "heal", value: 50, missingHpPercent: 50, targets: "target" }
       ],
       cooldown: 1,
-      family: ["instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "strength-seal-100",
@@ -51,7 +52,7 @@ export const sakura = {
       ],
       cooldown: 3,
       uses: 3,
-      family: ["instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "substitution-jutsu",
@@ -61,7 +62,7 @@ export const sakura = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     }
   ]
 };

@@ -2,6 +2,7 @@ export const hinata = {
   id: "hinata",
   name: "Hinata Hyuga",
   avatar: "HH",
+  bio:"Hinata Hyuga es una kunoichi de gran nobleza y determinación que supera sus inseguridades para proteger a quienes más aprecia. Su dominio del Byakugan y del Puño Suave, junto con su inquebrantable voluntad, la convierten en una combatiente precisa y formidable.",
   maxHp: 100,
   skills: [
     {
@@ -14,7 +15,7 @@ export const hinata = {
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
       ],
       cooldown: 2,
-      family: ["physical", "instant", "offensive"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "byakugan-guard",
@@ -51,7 +52,7 @@ export const hinata = {
         }
       ],
       cooldown: 4,
-      family: ["chakra", "instant", "offensive"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "chakra-seal",
@@ -62,7 +63,7 @@ export const hinata = {
       effects: [
         { type: "damage", value: 15, targets: "target" }
       ],
-      family: ["chakra", "instant"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "substitution-jutsu",
@@ -72,7 +73,7 @@ export const hinata = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     }
   ]
 };

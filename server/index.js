@@ -88,6 +88,7 @@ const skillModifierEffectTypes = [
 function publicLogEntry(entry, viewerId) {
   if (typeof entry === "string") return entry;
   if (!entry || typeof entry !== "object") return null;
+  if (entry.type === "separator") return { type: "separator", id: entry.id || "" };
   if (Array.isArray(entry.visibleTo) && (!viewerId || !entry.visibleTo.includes(viewerId))) return null;
   return entry.message || null;
 }
@@ -102,6 +103,51 @@ function publicLog(room, viewerId) {
 function skillLogEntry(player, skill, message) {
   if (!skill?.isSecret) return message;
   return { message, visibleTo: [player.id] };
+}
+
+function mergeUniqueDescriptions(...descriptionGroups) {
+  return [...new Set(descriptionGroups.flat().filter(Boolean))];
+}
+
+function damageTypeLogLabel(type = "basic") {
+  if (type === "piercing") return "dano perforante";
+  if (type === "affliction") return "dano de afliccion";
+  return "dano normal";
+}
+
+function recordDamageByType(summary, type, amount) {
+  const dealt = Math.max(0, Number(amount || 0));
+  if (dealt <= 0) return;
+  const key = ["piercing", "affliction"].includes(type) ? type : "basic";
+  summary.set(key, (summary.get(key) || 0) + dealt);
+}
+
+function formatDamageSummary(summary) {
+  const items = [...summary.entries()]
+    .filter(([, amount]) => amount > 0)
+    .map(([type, amount]) => `${amount} de ${damageTypeLogLabel(type)}`);
+  if (items.length <= 1) return items[0] || "0 de dano";
+  return `${items.slice(0, -1).join(", ")} y ${items.at(-1)}`;
+}
+
+function publicResultStats(room, viewerId) {
+  const memberStats = room.balanceStats?.members || {};
+  return (room.players || []).flatMap((player) => (
+    (player.team || []).map((member) => {
+      const character = getCharacterById(member.characterId);
+      const stats = memberStats[member.id] || {};
+      return {
+        memberId: member.id,
+        characterId: member.characterId,
+        characterName: character?.name || member.characterId,
+        playerId: player.id,
+        playerName: player.name,
+        side: player.id === viewerId ? "player" : "enemy",
+        damageDone: Math.max(0, Number(stats.damageDone || 0)),
+        healingDone: Math.max(0, Number(stats.healingDone || 0))
+      };
+    })
+  ));
 }
 
 function statusIsIgnored(effect) {
@@ -149,6 +195,7 @@ export function publicRoom(room, viewerId = null) {
     botMessage: room.botMessage || "",
     turn: room.turn,
     log: publicLog(room, viewerId),
+    resultStats: room.phase === "finished" ? publicResultStats(room, viewerId) : [],
     chat: (room.chat || []).slice(-40),
     players: room.players.map((player) => ({
       id: player.id,
@@ -375,10 +422,19 @@ function affectedPlayersForChakraEffect(room, player, targets, effect) {
 
 function recordBalanceStats(room, sourceMember, { damage = 0, healing = 0 } = {}) {
   if (!room?.balanceStats || !sourceMember?.characterId) return;
-  const stats = room.balanceStats.characters[sourceMember.characterId] || { damageDone: 0, healingDone: 0 };
-  stats.damageDone += Math.max(0, Number(damage || 0));
-  stats.healingDone += Math.max(0, Number(healing || 0));
-  room.balanceStats.characters[sourceMember.characterId] = stats;
+  const damageDone = Math.max(0, Number(damage || 0));
+  const healingDone = Math.max(0, Number(healing || 0));
+  const characterStats = room.balanceStats.characters[sourceMember.characterId] || { damageDone: 0, healingDone: 0 };
+  characterStats.damageDone += damageDone;
+  characterStats.healingDone += healingDone;
+  room.balanceStats.characters[sourceMember.characterId] = characterStats;
+  if (sourceMember.id) {
+    room.balanceStats.members ||= {};
+    const memberStats = room.balanceStats.members[sourceMember.id] || { damageDone: 0, healingDone: 0 };
+    memberStats.damageDone += damageDone;
+    memberStats.healingDone += healingDone;
+    room.balanceStats.members[sourceMember.id] = memberStats;
+  }
 }
 
 function maybeStart(room) {
@@ -387,6 +443,7 @@ function maybeStart(room) {
   }
 
   room.phase = "battle";
+  room.balanceStats = { characters: {}, members: {} };
   const startingPlayer = randomItem(room.players);
   room.activePlayerId = startingPlayer.id;
   room.turn = 1;
@@ -863,6 +920,18 @@ export function addStatus(member, status) {
   }
   if (status.type === "complex") {
     status.descriptions = hasCustomDescriptions(status) ? status.descriptions : complexDescriptions(status);
+    member.statusEffects = [...(member.statusEffects || []), status];
+    return;
+  }
+  if (status.type === "reflected") {
+    if (existing) {
+      existing.turns = mergeStatusTurns(existing.turns, status.turns);
+      existing.descriptions = mergeUniqueDescriptions(existing.descriptions || [], status.descriptions || []);
+      existing.createdTurn = status.createdTurn;
+      existing.originActorId = status.originActorId;
+      existing.originCharacterId = status.originCharacterId;
+      return;
+    }
     member.statusEffects = [...(member.statusEffects || []), status];
     return;
   }
@@ -1520,14 +1589,18 @@ function applyComplexStatusEffects(room, player) {
 
       if (effect.type === "damage") {
         let totalDamage = 0;
+        const damageByType = new Map();
+        const damageType = effect.damageType || "basic";
         for (const target of targets) {
           if (!effectAppliesToTarget(effect, target, member)) continue;
-          totalDamage += applyDamage(target, positiveEffectValue(effect), effect.damageType || "basic");
+          const dealt = applyDamage(target, positiveEffectValue(effect), damageType);
+          totalDamage += dealt;
+          recordDamageByType(damageByType, damageType, dealt);
         }
         status.lastDamageDealt = totalDamage;
         status.damageAppliedThisTick = totalDamage > 0;
         recordBalanceStats(room, getRoomMember(room, status.originActorId), { damage: totalDamage });
-        if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano continuo.`);
+        if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${formatDamageSummary(damageByType)} continuo.`);
         continue;
       }
 
@@ -1732,8 +1805,9 @@ function addCounteredNotice(member, status, currentTurn, counteredSkill = null) 
   });
 }
 
-function addReflectedNotice(member, status, currentTurn) {
+function addReflectedNotice(member, status, currentTurn, reflectedSkill = null) {
   const sourceSkillName = status.sourceSkillName || "Una habilidad";
+  const reflectedSkillName = reflectedSkill?.name || "una habilidad";
   addStatus(member, {
     id: randomUUID(),
     type: "reflected",
@@ -1743,7 +1817,7 @@ function addReflectedNotice(member, status, currentTurn) {
     sourceSkillName: "Habilidad reflejada",
     sourceActorName: status.sourceActorName,
     createdTurn: currentTurn,
-    descriptions: [`${sourceSkillName} ha reflejado una habilidad sobre este personaje.`]
+    descriptions: [`${sourceSkillName} ha reflejado ${reflectedSkillName} sobre este personaje.`]
   });
 }
 
@@ -1783,14 +1857,17 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
 
     if (effect.type === "damage") {
       let totalDamage = 0;
+      const damageByType = new Map();
+      const damageType = effect.damageType || "basic";
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, sourceMember)) continue;
-        const dealt = applyDamage(target, positiveEffectValue(effect), effect.damageType || "basic");
+        const dealt = applyDamage(target, positiveEffectValue(effect), damageType);
         totalDamage += dealt;
+        recordDamageByType(damageByType, damageType, dealt);
         if (dealt > 0) addTriggeredEffectNotice(target, status, effect, currentTurn);
       }
       recordBalanceStats(room, sourceMember, { damage: totalDamage });
-      if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${totalDamage} dano.`);
+      if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${formatDamageSummary(damageByType)}.`);
       continue;
     }
 
@@ -2116,6 +2193,7 @@ export function applyQueuedSkill(room, player, action) {
   let totalAddedBaseEffects = 0;
   let totalSkillReplacements = 0;
   let totalChakraCostModifiers = 0;
+  const damageByType = new Map();
   let gainedChakra = emptyChakra();
   let removedChakra = emptyChakra();
   const reflectedNoticeTargetIds = new Set();
@@ -2137,7 +2215,7 @@ export function applyQueuedSkill(room, player, action) {
     if (reflect) {
       for (const target of targets) {
         if (reflectedNoticeTargetIds.has(target.id)) continue;
-        addReflectedNotice(target, reflect.status, room.turn);
+        addReflectedNotice(target, reflect.status, room.turn, skill);
         reflectedNoticeTargetIds.add(target.id);
       }
     }
@@ -2197,6 +2275,7 @@ export function applyQueuedSkill(room, player, action) {
         const targetDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier);
         const dealt = applyDamage(target, targetDamage, damageType);
         totalDamage += dealt;
+        recordDamageByType(damageByType, damageType, dealt);
       }
       continue;
     }
@@ -2624,7 +2703,7 @@ export function applyQueuedSkill(room, player, action) {
     }
   }
 
-  if (totalDamage > 0) events.push(`${actorCharacter.name} uso ${skill.name} e hizo ${totalDamage} dano.`);
+  if (totalDamage > 0) events.push(`${actorCharacter.name} uso ${skill.name} e hizo ${formatDamageSummary(damageByType)}.`);
   recordBalanceStats(room, actor, { damage: totalDamage, healing: totalHeal });
   if (totalLifePaid > 0) events.push(`${actorCharacter.name} pago ${totalLifePaid} de vida.`);
   if (totalInstakill > 0) events.push(`${actorCharacter.name} elimino ${totalInstakill} objetivo(s).`);
@@ -2673,6 +2752,7 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
     payChakra(player, neutralPayment);
   }
 
+  room.log.unshift({ type: "separator", id: `turn-${room.turn}-${playerId}-${Date.now()}` });
   reduceCooldowns(player);
 
   const queue = player.queue.splice(0);

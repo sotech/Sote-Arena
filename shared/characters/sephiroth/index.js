@@ -3,6 +3,7 @@ export const sephiroth = {
   name: "Sephiroth",
   avatar: "SP",
   maxHp: 100,
+  bio: "Sephiroth es un legendario espadachín de habilidad incomparable cuya fría determinación oculta una ambición capaz de poner en peligro al mundo entero. Su dominio absoluto de la Masamune, su inmenso poder sobrenatural y la influencia de Jenova lo convierten en uno de los enemigos más temibles jamás conocidos.",
   deathSound: { soundname: "sephiroth", shouldFadeIn: true, shouldFadeOut: true },
   skills: [
     {
@@ -33,7 +34,7 @@ export const sephiroth = {
         }
       ],
       cooldown: 3,
-      family: ["physical", "channeled", "offensive"]
+      family: ["physical", "offensive", "channeled"]
     },
     {
       id: "supernova",
@@ -46,7 +47,7 @@ export const sephiroth = {
         { type: "modifyDamage", value: -10, duration: 2, targets: "target" }
       ],
       cooldown: 1,
-      family: ["special", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "black-feather",
@@ -105,7 +106,7 @@ export const sephiroth = {
           }
         ]
       }],
-      family: ["strategic", "instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "jenova-cells",
@@ -115,7 +116,7 @@ export const sephiroth = {
       description: "Sephiroth se vuelve invulnerable durante 1 turno. Pasiva: la primera vez que llega a 0 HP, queda en 1 HP, limpia efectos negativos y obtiene invulnerabilidad durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["strategic", "instant"]
+      family: ["physical", "strategic", "instant"]
     },
     {
       id: "jenova-cells-passive",
@@ -128,7 +129,7 @@ export const sephiroth = {
       effects: [{ type: "reviveOnDeath", value: 1, hp: 1, duration: -1, targets: "self", invulnerableTurns: 1 }],
       hideUntilReplaced: true,
       hideSkillInInspect: true,
-      family: ["strategic", "instant"]
+      family: ["special", "strategic", "instant"]
     }
   ]
 };

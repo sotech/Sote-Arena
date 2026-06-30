@@ -2,6 +2,7 @@ export const kankuro = {
   id: "kankuro",
   name: "Kankuro",
   avatar: "KA",
+  bio:"Kankurō es un maestro titiritero que combate desde la distancia utilizando marionetas repletas de armas ocultas y venenos letales. Su ingenio táctico, el control preciso de sus puppets y su habilidad para tender emboscadas lo convierten en un oponente tan impredecible como peligroso.",
   maxHp: 100,
   skills: [
     {
@@ -18,7 +19,7 @@ export const kankuro = {
           bonusWhen: [{ bonus: 10, require: { type: "hasStatusEffect", effectId: "stun" } }]
         }
       ],
-      family:["physical","instant","offensive"]
+      family:["physical","offensive","instant"]
     },
     {
       id: "iron-puppet-barrage",
@@ -30,7 +31,7 @@ export const kankuro = {
         { type: "complex", duration: 2, targets: "enemies", effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }] }
       ],
       cooldown: 3,
-      family:["physical","instant","offensive"]
+      family:["physical","offensive","instant"]
     },
     {
       id: "puppet-preparation",
@@ -50,7 +51,7 @@ export const kankuro = {
           ]
         }
       ],
-      family:["physical","instant"]
+      family:["physical","strategic","instant"]
     },
     {
       id: "puppet-substitution",
@@ -61,7 +62,7 @@ export const kankuro = {
       description: "Coloca una trampa de marionetas en un objetivo. Durante el siguiente turno, la primera habilidad ofensiva usada por ese objetivo sera countereada.",
       effects: [{ type: "counter", duration: 1, targets: "target", trigger: "outgoing", charges: 1, familiesAffected: ["offensive"] }],
       cooldown: 4,
-      family:["physical","instant"]
+      family:["physical", "strategic", "instant"]
     }
   ]
 };

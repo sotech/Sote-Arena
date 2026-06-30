@@ -2,6 +2,10 @@ export const aizen = {
   id: "aizen",
   name: "Aizen Sosuke",
   avatar: "AS",
+  bio: `Aizen Sosuke es uno de los antagonistas más inteligentes y manipuladores, 
+  un estratega brillante que oculta sus verdaderas intenciones tras una apariencia serena y confiable. 
+  Su inmenso poder espiritual, el dominio absoluto de su hipnosis perfecta y su ambición de trascender 
+  los límites de los Shinigami lo convierten en una de las mayores amenazas.`,
   maxHp: 100,
   skills: [
     {
@@ -9,7 +13,7 @@ export const aizen = {
       name: "Masacre paso flash",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Aizen marca a un enemigo. Durante 1 turno Aizen sera invulnerable. En el siguiente turno ese enemigo recibira 30 de dano perforante que ignora invulnerabilidad.",
+      description: "Aizen marca a un enemigo. Durante 1 turno Aizen sera invulnerable. En el siguiente turno ese enemigo recibira 30 de daño perforante que ignora invulnerabilidad.",
       effects: [
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
         {
@@ -24,7 +28,7 @@ export const aizen = {
         }
       ],
       cooldown: 2,
-      family: ["physical", "instant", "offensive"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "kyouka-suijetsu-scatter",
@@ -32,7 +36,7 @@ export const aizen = {
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 20 de dano perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
+      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 20 de daño perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
       effects: [
         { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] },
         {
@@ -53,21 +57,21 @@ export const aizen = {
         }
       ],
       cooldown: 2,
-      family: ["mental", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "hado-90-black-coffin",
       name: "Hado 90: Cofre negro",
       chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Aizen aturde a un objetivo por 2 turnos. Por 2 turnos, el objetivo recibe 20 de dano. Esta habilidad puede ser cancelada si Aizen es aturdido.",
+      description: "Aizen aturde a un objetivo por 2 turnos. Por 2 turnos, el objetivo recibe 20 de daño. Esta habilidad puede ser cancelada si Aizen es aturdido.",
       effects: [
         {
           type: "complex",
           duration: 2,
           targets: "self",
           mode: "cancelable",
-          interruptFamilies: ["chakra", "instant"],
+          interruptFamilies: ["special", "instant"],
           statusLinkId: "hado-90-black-coffin",
           showStatusEffect: true,
           descriptions: ["Hado 90: Cofre negro puede ser cancelado si Aizen es aturdido."],
@@ -77,7 +81,7 @@ export const aizen = {
           type: "complex",
           duration: 2,
           targets: "target",
-          interruptFamilies: ["chakra", "instant"],
+          interruptFamilies: ["special", "instant"],
           cancelIfOriginStunned: true,
           statusLinkId: "hado-90-black-coffin",
           effects: [
@@ -87,7 +91,7 @@ export const aizen = {
         }
       ],
       cooldown: 4,
-      family: ["chakra", "instant", "offensive"]
+      family: ["special", "offensive", "channeled"]
     },
     {
       id: "false-corpse",
@@ -97,7 +101,7 @@ export const aizen = {
       description: "Aizen se vuelve invulnerable por 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["mental", "instant"]
+      family: ["mental", "strategic", "instant"]
     }
   ]
 };

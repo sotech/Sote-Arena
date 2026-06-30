@@ -2,6 +2,7 @@ export const cacho = {
   id: "cacho",
   name: "Cacho",
   avatar: "CH",
+  bio:"Cacho es un peleador impulsivo y feroz que siempre está dispuesto a lanzarse de cabeza al combate para proteger a quienes considera sus amigos. Su carácter carismático, su inagotable pasión por los cigarrillos y su brutal estilo de pelea lo convierten en un aliado inolvidable y un rival peligroso.",
   maxHp: 150,
   skills: [
     {
@@ -13,7 +14,7 @@ export const cacho = {
       effects: [
         { type: "damage", value: 20, targets: "target" }
         ],
-      family:["physical","instant","offensive"],
+      family:["physical","offensive","instant"],
     },
     {
       id: "smoke-hazard",
@@ -27,7 +28,7 @@ export const cacho = {
         { type: "damage", value: 10, damageType: "affliction", targets: "self" }
         ],
       cooldown: 3,
-      family:["chakra","instant","offensive"]
+      family:["special","offensive","instant"]
     },
     {
       id: "cigarrette-care",
@@ -40,7 +41,7 @@ export const cacho = {
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage-reduction", value: 15, targets: "self" }] }
       ],
       cooldown: 3,
-      family:["chakra","instant"]
+      family:["special","strategic","instant"]
     },
     {
       id: "cacho-bloodlust",
@@ -53,7 +54,7 @@ export const cacho = {
       effects: [
         { type: "modifyDamageByMissingHp", amountPerStep: 5, hpStep: 20, duration: -1, targets: "self", skillIds: ["cacho-lariat"] }
       ],
-      family:["physical","instant"]
+      family:["physical","strategic","instant"]
     }
   ]
 };

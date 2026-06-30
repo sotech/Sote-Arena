@@ -3,6 +3,7 @@ export const jotaro = {
   name: "Jotaro Kujo",
   avatar: "JK",
   maxHp: 100,
+  bio: "Jotaro Kujo es un joven de carácter frío e inquebrantable que enfrenta cualquier amenaza con una calma absoluta. La fuerza descomunal, la velocidad y la precisión de su Stand Star Platinum, junto con su excepcional instinto de combate, lo convierten en uno de los guerreros más temibles.",
   deathSound: { soundname: "jotaro", shouldFadeIn: true, shouldFadeOut: true },
   skills: [
     {
@@ -36,7 +37,7 @@ export const jotaro = {
         }
       ],
       cooldown: 3,
-      family: ["physical", "channeled", "offensive"]
+      family: ["physical", "offensive", "channeled"]
     },
     {
       id: "star-finger",
@@ -64,7 +65,7 @@ export const jotaro = {
         { type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "stand-star-platinum", skillId: "star-platinum-the-world" }
       ],
       cooldown: 3,
-      family: ["strategic", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "star-platinum-block",
@@ -74,7 +75,7 @@ export const jotaro = {
       description: "Star Platinum intercepta ataques y vuelve invulnerable a Jotaro durante 1 turno. Pasiva: Jotaro es inmune al aturdimiento provocado por The World de Dio Brando.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["strategic", "instant"]
+      family: ["physical", "strategic", "instant"]
     },
     {
       id: "jotaro-time-stop-immunity",
@@ -87,7 +88,7 @@ export const jotaro = {
       effects: [{ type: "stunImmunity", value: 1, duration: -1, targets: "self", skillIds: ["the-world", "star-platinum-the-world"], showStatusEffect: false }],
       hideUntilReplaced: true,
       hideSkillInInspect: true,
-      family: ["strategic", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "star-platinum-the-world",
@@ -114,7 +115,7 @@ export const jotaro = {
       isExtraSkill: true,
       hideUntilReplaced: true,
       cooldown: 4,
-      family: ["instant"]
+      family: ["special", "offensive", "instant"]
     }
   ]
 };

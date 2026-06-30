@@ -2,6 +2,7 @@ export const daniel = {
   id: "daniel",
   name: "Daniel-san",
   avatar: "DA",
+  bio:"Daniel es un maestro de taekwondo de 5.º dan que enfrenta cada combate con disciplina, precisión y una serenidad inquebrantable. Su amor por los gatos, especialmente por su inseparable gata Mai, refleja el equilibrio entre la calma de su carácter y la contundencia de sus poderosas patadas.",
   maxHp: 100,
   skills: [
     {
@@ -13,7 +14,7 @@ export const daniel = {
       effects: [
         { type: "damage", value: 25, targets: "target" }
       ],
-      family: ["physical","instant","offensive"]
+      family: ["physical","offensive","instant"]
     },
     {
       id: "cats-blessing",
@@ -31,7 +32,7 @@ export const daniel = {
           ] 
       },
       ],
-      family:["chakra","instant"],
+      family:["special", "strategic", "instant"],
       cooldown: 4
     },
     {
@@ -45,7 +46,7 @@ export const daniel = {
         { type: "shield", value: 15, targets: "allies", isStackable: false }
       ],
       cooldown: 1,
-      family:["physical","instant","offensive"]
+      family:["physical","offensive","instant"]
     },
     {
       id: "nine-lives",
@@ -57,7 +58,7 @@ export const daniel = {
         { type: "heal", value: 40, targets: "self" },
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family:["chakra","instant"]
+      family:["special","strategic","instant"]
     },
   ]
 };

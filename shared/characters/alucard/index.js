@@ -3,6 +3,7 @@ export const alucard = {
   name: "Alucard",
   avatar: "AL",
   maxHp: 100,
+  bio: "Alucard es un vampiro inmortal de poder abrumador que disfruta enfrentarse a los enemigos más peligrosos con una confianza inquebrantable. Su capacidad para regenerarse, controlar legiones de almas y liberar su aterrador Nivel de Restricción 0 lo convierten en una fuerza prácticamente imparable.",
   deathSound: { soundname: "alucard", shouldFadeIn: true, shouldFadeOut: true },
   skills: [
     {
@@ -10,7 +11,7 @@ export const alucard = {
       name: "Casull & Jackal",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Alucard dispara sus pistolas. Inflige 20 de dano a un enemigo durante 2 turnos y recupera 10 de vida al final de cada turno. Puede ser interrumpida.",
+      description: "Alucard dispara sus pistolas hacia un enemigo. Inflige 20 de daño a un enemigo durante 2 turnos y recupera 10 de vida al final de cada turno. Puede ser interrumpida.",
       effects: [
         {
           type: "complex",
@@ -36,21 +37,21 @@ export const alucard = {
         }
       ],
       cooldown: 3,
-      family: ["physical", "channeled", "offensive"]
+      family: ["physical", "offensive", "channeled"]
     },
     {
       id: "mist-form",
       name: "Forma de Niebla",
       chakra: { bloodline: 2 },
       targetType: "enemies",
-      description: "Alucard se disuelve en niebla y atraviesa a sus enemigos. Inflige 15 de dano a todos, obtiene invulnerabilidad 1 turno y recupera 15 de vida.",
+      description: "Alucard se disuelve en niebla y atraviesa a sus enemigos. Inflige 15 de daño de afliccion a todos los enemigos, obtiene invulnerabilidad 1 turno y recupera 15 de vida.",
       effects: [
-        { type: "damage", value: 15, targets: "target" },
+        { type: "damage", value: 15, targets: "target", damageType: "affliction" },
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
         { type: "self-heal", value: 15, targets: "self" }
       ],
       cooldown: 4,
-      family: ["special", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "restriction-level-zero",
@@ -84,7 +85,7 @@ export const alucard = {
       ],
       uses: 1,
       cooldown: 0,
-      family: ["strategic", "instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "undead-king",
@@ -94,7 +95,7 @@ export const alucard = {
       description: "Alucard obtiene invulnerabilidad durante 1 turno. La primera vez que Alucard llega a 0 HP, revive con 50 HP. Si revive, Nivel de Restriccion 0 queda deshabilitado.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "undead-king-passive",
@@ -107,7 +108,7 @@ export const alucard = {
       effects: [{ type: "reviveOnDeath", value: 50, hp: 50, duration: -1, targets: "self", disableSkillIds: ["restriction-level-zero"] }],
       hideUntilReplaced: true,
       hideSkillInInspect: true,
-      family: ["instant"]
+      family: ["special", "strategic", "instant"]
     }
   ]
 };

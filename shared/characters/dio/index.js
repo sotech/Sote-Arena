@@ -3,6 +3,7 @@ export const dio = {
   name: "Dio Brando",
   avatar: "DB",
   maxHp: 100,
+  bio: "Dio Brando es un enemigo despiadado y carismático cuya ambición desmedida lo impulsa a dominar a cualquiera que se cruce en su camino. Su naturaleza vampírica, el poder de su Stand The World y su capacidad para detener el tiempo lo convierten en uno de los adversarios más temibles.",
   deathSound: { soundname: "dio", shouldFadeIn: true, shouldFadeOut: true },
   skills: [
     {
@@ -33,7 +34,7 @@ export const dio = {
         }
       ],
       cooldown: 1,
-      family: ["physical", "channeled", "offensive"]
+      family: ["physical", "offensive", "channeled"]
     },
     {
       id: "blood-transfer",
@@ -69,7 +70,7 @@ export const dio = {
         ]
       }],
       cooldown: 2,
-      family: ["strategic", "offensive", "instant"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "stand-the-world",
@@ -83,7 +84,7 @@ export const dio = {
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-the-world", skillId: "the-world" }
       ],
       cooldown: 4,
-      family: ["strategic", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "defense-the-world",
@@ -93,7 +94,7 @@ export const dio = {
       description: "The World intercepta ataques y vuelve invulnerable a Dio durante 1 turno. Dio es inmune al aturdimiento provocado por Star Platinum: The World.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     },
     {
       id: "dio-time-stop-immunity",
@@ -106,7 +107,7 @@ export const dio = {
       effects: [{ type: "stunImmunity", value: 1, duration: -1, targets: "self", skillIds: ["star-platinum-the-world", "the-world"], showStatusEffect: false }],
       hideUntilReplaced: true,
       hideSkillInInspect: true,
-      family: ["strategic", "instant"]
+      family: ["mental", "strategic", "instant"]
     },
     {
       id: "the-world",
@@ -133,7 +134,7 @@ export const dio = {
       isExtraSkill: true,
       hideUntilReplaced: true,
       cooldown: 3,
-      family: ["strategic", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "abdomen-pierce",

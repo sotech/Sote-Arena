@@ -2,6 +2,7 @@ export const naruto = {
   id: "naruto",
   name: "Naruto Uzumaki",
   avatar: "NU",
+  bio:"Naruto Uzumaki es un ninja de voluntad inquebrantable que jamás abandona a sus amigos, sin importar cuán imposible parezca la batalla. Su inmensa reserva de chakra, el poder del Nueve Colas y su dominio del Modo Sabio lo convierten en uno de los shinobi más poderosos de su era.",
   maxHp: 100,
   skills: [
     {
@@ -15,7 +16,7 @@ export const naruto = {
         { type: "stun", value: 1, targets: "target", require: { scope: "self", type: "hasStatusEffect", effectId: "kyuubi-chakra" } }
       ],
       cooldown: 1,
-      family: ["chakra", "instant", "offensive"]
+      family: ["special", "offensive", "instant"]
     },
     {
       id: "multi-shadow-clones",
@@ -58,7 +59,7 @@ export const naruto = {
         }
       ],
       cooldown: 2,
-      family: ["physical", "instant", "offensive"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "kyuubi-chakra",
@@ -80,7 +81,7 @@ export const naruto = {
         }
       ],
       cooldown: 2,
-      family: ["mental", "instant"]
+      family: ["special", "strategic", "instant"]
     },
     {
       id: "substitution-jutsu",
@@ -90,7 +91,7 @@ export const naruto = {
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
-      family: ["physical", "instant"]
+      family: ["physical", "strategic", "instant"]
     }
   ]
 };
