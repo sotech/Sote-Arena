@@ -11,7 +11,9 @@ export const alucard = {
       name: "Casull & Jackal",
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Alucard dispara sus pistolas hacia un enemigo. Inflige 20 de daño a un enemigo durante 2 turnos y recupera 10 de vida al final de cada turno. Esta habilidad puede ser interrumpida.",
+      description: `Alucard dispara ambas pistolas insignia hacia un enemigo. 
+        Inflige 20 de daño a un enemigo durante 2 turnos y recupera 10 de vida si inflingieron daño. 
+        Esta habilidad puede ser interrumpida si Alucard es aturdido.`,
       effects: [
         {
           type: "complex",
@@ -44,7 +46,8 @@ export const alucard = {
       name: "Forma de Niebla",
       chakra: { bloodline: 2 },
       targetType: "enemies",
-      description: "Alucard se disuelve en niebla y atraviesa a sus enemigos. Inflige 15 de daño de afliccion a todos los enemigos, obtiene invulnerabilidad 1 turno y recupera 15 de vida.",
+      description: `Alucard se disuelve en niebla y atraviesa a sus enemigos. 
+        Inflige 15 de daño de afliccion a todos los enemigos, obtiene invulnerabilidad por 1 turno y recupera 15 de vida.`,
       effects: [
         { type: "damage", value: 15, targets: "target", damageType: "affliction" },
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
@@ -58,7 +61,9 @@ export const alucard = {
       name: "Nivel de Restriccion 0",
       chakra: { bloodline: 2 },
       targetType: "self",
-      description: "Casull & Jackal y Forma de niebla hacen el doble de dano. Durante este tiempo Alucard recibe 25% mas de dano. Solo puede utilizarse una vez por combate.",
+      description: `Teniendo la aprobación, Alucard despliega su forma final, sin restricciones pero quedando expuesto.
+        Casull & Jackal y Forma de niebla hacen el doble de daño. 
+        Durante este tiempo Alucard recibe 25% mas de daño. Esta habilidad solo puede utilizarse una vez por combate.`,
       effects: [
         {
           type: "modifyDamage",
@@ -92,7 +97,7 @@ export const alucard = {
       name: "Rey sin vida",
       chakra: { neutralChakra: 1 },
       targetType: "self",
-      description: "Alucard obtiene invulnerabilidad durante 1 turno. La primera vez que Alucard llega a 0 HP, revive con 50 HP. Si revive, Nivel de Restriccion 0 queda deshabilitado.",
+      description: "Alucard obtiene invulnerabilidad durante 1 turno. PASIVA: La primera vez que Alucard llega a 0 HP, revive con 50 HP. Si revive, Nivel de Restriccion 0 queda deshabilitado permanentemente.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
       family: ["special", "strategic", "instant"]

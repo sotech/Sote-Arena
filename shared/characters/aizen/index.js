@@ -13,7 +13,9 @@ export const aizen = {
       name: "Masacre paso flash",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Aizen marca a un enemigo. Durante 1 turno Aizen sera invulnerable. En el siguiente turno ese enemigo recibira 30 de daño perforante que ignora invulnerabilidad.",
+      description: `Aizen marca a un enemigo. 
+        Durante 1 turno Aizen sera invulnerable. 
+        En el siguiente turno, ese enemigo recibira 30 de daño perforante que ignora invulnerabilidad.`,
       effects: [
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] },
         {
@@ -36,7 +38,10 @@ export const aizen = {
       chakra: { bloodline: 1, neutralChakra: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Aizen marca a un enemigo. Durante 1 turno, la siguiente habilidad que use ese enemigo sera contrarrestada y un enemigo al azar recibira 20 de daño perforante que ignora invulnerabilidad. Esta habilidad es secreta.",
+      description: `Usando su Zanpakutou, Aizen crea una ilusion para un enemigo. 
+        Durante 1 turno, la siguiente habilidad ofensiva que use ese enemigo sera contrarrestada y 
+        un enemigo al azar recibira 20 de daño perforante que ignora invulnerabilidad. 
+        Esta habilidad es secreta.`,
       effects: [
         { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] },
         {
@@ -65,7 +70,9 @@ export const aizen = {
       name: "Hado 90: Cofre negro",
       chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
-      description: "Aizen aturde a un objetivo por 2 turnos. Por 2 turnos, el objetivo recibe 20 de daño. Esta habilidad puede ser cancelada si Aizen es aturdido.",
+      description: `Aizen conjura un Hado sin encantamientos, aturdiendo a un objetivo por 2 turnos. 
+        Por 2 turnos, el objetivo recibe 20 de daño. 
+        Esta habilidad puede ser cancelada si Aizen es aturdido.`,
       effects: [
         {
           type: "complex",
