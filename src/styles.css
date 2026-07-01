@@ -4355,9 +4355,9 @@ main.mobile-preview .skill-footer-meta {
     min-height: 100vh;
     overflow: visible;
     padding: 16px 20px;
-    transform: scale(calc(100vw / 1080px));
+    transform: scale(calc(100vw / 900px));
     transform-origin: top left;
-    width: 1080px;
+    width: 900px;
   }
 
   button,
@@ -4427,8 +4427,8 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .entry,
   main.mobile-preview .lobby,
   main.mobile-preview .battle {
-    grid-template-columns: minmax(0, 1fr) 280px;
-    max-width: 1160px;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 900px;
   }
 
   .battle,
@@ -4494,14 +4494,21 @@ main.mobile-preview .skill-footer-meta {
   .battle > .side-stack,
   main.mobile-preview .battle > .side-stack {
     align-self: start;
-    grid-column: 2;
-    grid-row: 1 / 3;
+    grid-column: 1;
+    grid-row: auto;
     grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
-    height: calc(100% - 8px);
+    height: auto;
     max-height: none;
     min-height: 0;
     order: initial;
     overflow: hidden;
+  }
+
+  .combat-log,
+  main.mobile-preview .combat-log,
+  .side-stack.single-panel,
+  main.mobile-preview .side-stack.single-panel {
+    display: none;
   }
 
   .battle > .battle-skill-footer,
