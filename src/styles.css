@@ -4355,9 +4355,9 @@ main.mobile-preview .skill-footer-meta {
     min-height: 100vh;
     overflow: visible;
     padding: 16px 20px;
-    transform: scale(calc(100vw / 900px));
+    transform: scale(calc(100vw / 750px));
     transform-origin: top left;
-    width: 900px;
+    width: 750px;
   }
 
   button,
@@ -4428,7 +4428,7 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .lobby,
   main.mobile-preview .battle {
     grid-template-columns: minmax(0, 1fr);
-    max-width: 900px;
+    max-width: 750px;
   }
 
   .battle,
