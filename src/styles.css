@@ -4474,7 +4474,7 @@ main.mobile-preview .skill-footer-meta {
 
   .battle-turn-strip {
     grid-column: 1;
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, 1fr) 174px;
     order: initial;
   }
 
@@ -4509,17 +4509,18 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .battle-turn-resources .chakra-pool {
-    gap: 6px;
-    grid-template-columns: 1fr;
+    gap: 2px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
 
   .battle-turn-resources .chakra-chip {
-    font-size: 22px;
+    border-radius: 0;
+    font-size: 20px;
     gap: 8px;
     justify-content: center;
-    min-height: 40px;
-    padding: 7px 8px;
+    min-height: 44px;
+    padding: 7px 6px;
   }
 
   .battle-turn-resources .chakra-chip span {
@@ -4535,7 +4536,8 @@ main.mobile-preview .skill-footer-meta {
     flex-direction: column;
     font-size: 13px;
     line-height: 1.1;
-    min-height: 66px;
+    min-height: 58px;
+    width: 100%;
   }
 
   .arena,
@@ -4545,7 +4547,7 @@ main.mobile-preview .skill-footer-meta {
     gap: 12px;
     grid-column: 1;
     grid-row: 2;
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, 1fr) 174px;
     order: initial;
     overflow: hidden;
   }
@@ -4630,15 +4632,15 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .enemy-team .fighter {
-    grid-template-columns: 118px;
+    grid-template-columns: 140px;
     justify-content: end;
-    width: min(100%, 150px);
+    width: min(100%, 174px);
   }
 
   .enemy-team .fighter-card-main {
-    grid-template-columns: minmax(0, 1fr) 42px;
+    grid-template-columns: minmax(0, 1fr) 46px;
     text-align: right;
-    width: 118px;
+    width: 140px;
   }
 
   .fighter-top,
@@ -4654,7 +4656,7 @@ main.mobile-preview .skill-footer-meta {
 
   .enemy-team .fighter-card-main strong {
     justify-self: end;
-    max-width: 118px;
+    max-width: 140px;
     text-align: right;
   }
 
@@ -4677,7 +4679,7 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .enemy-team .health {
-    width: 108px;
+    width: 126px;
   }
 
   .fighter .stats,
