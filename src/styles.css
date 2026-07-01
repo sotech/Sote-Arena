@@ -4355,9 +4355,9 @@ main.mobile-preview .skill-footer-meta {
     min-height: 100vh;
     overflow: visible;
     padding: 16px 20px;
-    transform: scale(calc(100vw / 750px));
+    transform: scale(calc(100vw / 575px));
     transform-origin: top left;
-    width: 750px;
+    width: 575px;
   }
 
   button,
@@ -4428,7 +4428,27 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .lobby,
   main.mobile-preview .battle {
     grid-template-columns: minmax(0, 1fr);
-    max-width: 750px;
+    max-width: 575px;
+  }
+
+  .main-menu,
+  main.mobile-preview .main-menu {
+    gap: 12px;
+    max-width: 460px;
+    padding: 24px;
+  }
+
+  .main-menu button,
+  main.mobile-preview .main-menu button {
+    font-size: 18px;
+    min-height: 64px;
+    padding: 14px 18px;
+  }
+
+  .main-menu button svg,
+  main.mobile-preview .main-menu button svg {
+    height: 22px;
+    width: 22px;
   }
 
   .battle,
@@ -4567,19 +4587,19 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .fighter-card-main {
-    width: 126px;
+    width: 118px;
   }
 
   .enemy-team .fighter {
-    grid-template-columns: 168px;
+    grid-template-columns: 154px;
     justify-content: end;
-    width: min(100%, 272px);
+    width: min(100%, 246px);
   }
 
   .enemy-team .fighter-card-main {
-    grid-template-columns: minmax(0, 1fr) 60px;
+    grid-template-columns: minmax(0, 1fr) 52px;
     text-align: right;
-    width: 168px;
+    width: 154px;
   }
 
   .fighter-top,
@@ -4595,8 +4615,8 @@ main.mobile-preview .skill-footer-meta {
 
   .fighter .square-img,
   main.mobile-preview .fighter .square-img {
-    height: 60px;
-    width: 60px;
+    height: 52px;
+    width: 52px;
   }
 
   .fighter strong,
@@ -4608,11 +4628,11 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .fighter .health {
     height: 8px;
     margin: 0;
-    width: 112px;
+    width: 104px;
   }
 
   .enemy-team .health {
-    width: 150px;
+    width: 136px;
   }
 
   .fighter .stats,
@@ -4635,7 +4655,7 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .fighter-action-lane {
-    grid-template-columns: repeat(4, 60px) 1px 60px;
+    grid-template-columns: repeat(4, 52px) 1px 52px;
   }
 
   .status-row,
@@ -4710,8 +4730,8 @@ main.mobile-preview .skill-footer-meta {
 
   .character-card .square-img,
   main.mobile-preview .character-card .square-img {
-    height: 92px;
-    width: 92px;
+    height: 76px;
+    width: 76px;
   }
 
   .skill-footer,
@@ -4725,8 +4745,20 @@ main.mobile-preview .skill-footer-meta {
 
   .skill-footer .square-img,
   main.mobile-preview .skill-footer .square-img {
-    height: 90px;
-    width: 90px;
+    height: 74px;
+    width: 74px;
+  }
+
+  .battle-skill-strip button,
+  main.mobile-preview .battle-skill-strip button {
+    min-height: 48px;
+    padding: 4px;
+  }
+
+  .battle-skill-strip .square-img,
+  main.mobile-preview .battle-skill-strip .square-img {
+    height: 36px;
+    width: 36px;
   }
 
   .skill-footer h2,
