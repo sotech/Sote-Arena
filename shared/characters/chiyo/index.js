@@ -12,7 +12,7 @@ export const chiyo = {
       targetType: "enemy",
       description: "Chiyo dirige sus marionetas contra un enemigo e inflige 20 de dano normal. Otro enemigo aleatorio recibe 20 de dano normal al comienzo del segundo turno enemigo siguiente si esta disponible. El siguiente Sanbou Kyuukai de Chiyo consume las acumulaciones de esta habilidad para infligir 5 de dano adicional por acumulacion.",
       effects: [
-        { type: "damage", value: 20, targets: "target" },
+        { type: "damage", value: 20, targets: "target", selectedTargetOnly: true },
         {
           type: "complex",
           duration: 1,
@@ -116,6 +116,7 @@ export const chiyo = {
       chakra: { neutralChakra: 4 },
       targetType: "anyOtherAlly",
       description: "Chiyo selecciona un aliado vivo o caido, lo cura por la vida actual de Chiyo y luego muere. El aliado elegido gana 1 recurso aleatorio al comienzo de sus turnos por el resto de la partida.",
+      requires: [{ scope: "otherAlly", type: "hp", operator: "gt", value: 0, message: "Reencarnacion de vida propia requiere al menos un aliado vivo de Chiyo." }],
       effects: [
         { type: "heal", targets: "target", affectsDead: true, sourceCurrentHp: true },
         {

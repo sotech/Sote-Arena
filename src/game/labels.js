@@ -273,6 +273,7 @@ export function requirementDescription(requirement) {
   const scopeLabel = {
     self: "Propio",
     anyAlly: "Algun aliado",
+    otherAlly: "Otro aliado",
     anyEnemy: "Algun enemigo"
   }[scope] || scope;
 

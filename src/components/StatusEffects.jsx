@@ -6,12 +6,15 @@ import { groupStatusEffects, statusEffectGroupMeta, statusEffectGroupValue } fro
 
 const MOBILE_QUERY = "(max-width: 768px)";
 
-export function StatusEffects({ member, effects }) {
+export function StatusEffects({ member, effects, className = "" }) {
   const [openEffectId, setOpenEffectId] = useState("");
   const [hoverEffectId, setHoverEffectId] = useState("");
   const [tooltipPosition, setTooltipPosition] = useState(null);
+  const [dragging, setDragging] = useState(false);
   const rowRef = useRef(null);
   const tooltipRef = useRef(null);
+  const dragRef = useRef(null);
+  const isScrollableRow = className.includes("ally-status-row");
 
   useEffect(() => {
     if (!openEffectId) return undefined;
@@ -23,6 +26,25 @@ export function StatusEffects({ member, effects }) {
     document.addEventListener("click", closeOnOutsideClick);
     return () => document.removeEventListener("click", closeOnOutsideClick);
   }, [openEffectId]);
+
+  useEffect(() => {
+    if (!dragging) return undefined;
+    function move(event) {
+      if (!dragRef.current || !rowRef.current) return;
+      const delta = event.clientX - dragRef.current.x;
+      rowRef.current.scrollLeft = dragRef.current.scrollLeft - delta;
+    }
+    function stop() {
+      setDragging(false);
+      dragRef.current = null;
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+  }, [dragging]);
 
   const groups = groupStatusEffects(effects);
   const activeEffectId = openEffectId || hoverEffectId;
@@ -135,10 +157,19 @@ export function StatusEffects({ member, effects }) {
     return null;
   }
 
-  if (!effects.length) return <span className="status-row" aria-label="Sin efectos" />;
+  const rowClassName = `status-row ${className} ${dragging ? "dragging" : ""}`;
+  const dragHandlers = {
+    onPointerDown(event) {
+      if (!isScrollableRow || !rowRef.current || rowRef.current.scrollWidth <= rowRef.current.clientWidth) return;
+      dragRef.current = { x: event.clientX, scrollLeft: rowRef.current.scrollLeft };
+      setDragging(true);
+    }
+  };
+
+  if (!effects.length) return <span className={rowClassName} aria-label="Sin efectos" />;
 
   return (
-    <span className="status-row" ref={rowRef}>
+    <span className={rowClassName} ref={rowRef} {...dragHandlers}>
       {groups.map((group) => {
         const value = badgeValue(group);
         return (

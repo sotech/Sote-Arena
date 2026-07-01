@@ -70,7 +70,7 @@ Para efectos multiobjetivo puedes limitar aleatoriamente con `pickRandom: 1` o `
 
 `requires` en una habilidad bloquea el uso si no se cumple. `require` o `when` en un efecto bloquea solo ese efecto.
 
-Scopes validos: `self`, `target`, `anyTarget`, `anyAlly`, `anyEnemy`.
+Scopes validos: `self`, `target`, `anyTarget`, `anyAlly`, `otherAlly`, `anyEnemy`.
 
 Tipos validos: `hasStatusEffect`, `hasSkill`, `hasMinHp`, `hasMaxHp`, `hp`, `characterId`.
 
@@ -306,7 +306,8 @@ Ejemplo de pasivo por muerte enemiga:
     targets: "self",
     effects: [{
       type: "damage-reduction",
-      value: 10,
+      value: 25,
+      percent: true,
       duration: 2,
       targets: "self",
       isStackable: true,

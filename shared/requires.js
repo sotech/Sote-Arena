@@ -1,4 +1,4 @@
-export const requireScopes = ["self", "target", "anyTarget", "anyAlly", "anyEnemy"];
+export const requireScopes = ["self", "target", "anyTarget", "anyAlly", "otherAlly", "anyEnemy"];
 export const requireTypes = ["hasStatusEffect", "hasSkill", "hasMinHp", "hasMaxHp", "hp", "characterId"];
 
 export function normalizeRequireScope(scope = "self") {
@@ -6,6 +6,7 @@ export function normalizeRequireScope(scope = "self") {
   if (value === "target" || value === "objective") return "target";
   if (value === "anytarget" || value === "targets") return "anyTarget";
   if (value === "anyally" || value === "ally") return "anyAlly";
+  if (value === "otherally" || value === "otroaliado") return "otherAlly";
   if (value === "anyenemy" || value === "enemy") return "anyEnemy";
   return "self";
 }

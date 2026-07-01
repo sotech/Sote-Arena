@@ -164,6 +164,7 @@ function requireCandidates(requirement, me, opponent, actor, selectedTargets = [
   if (scope === "target") return selectedTargets.slice(0, 1);
   if (scope === "anyTarget") return selectedTargets;
   if (scope === "anyAlly") return allies;
+  if (scope === "otherAlly") return allies.filter((member) => member.id !== actor?.id);
   if (scope === "anyEnemy") return enemies;
   return actor ? [actor] : [];
 }

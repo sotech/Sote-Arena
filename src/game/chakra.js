@@ -1,8 +1,8 @@
 export const chakraTypes = [
-  { id: "taijutsu", label: "Fisico", shortLabel: "Fis", className: "tai" },
-  { id: "ninjutsu", label: "Energetico", shortLabel: "Ene", className: "nin" },
-  { id: "bloodline", label: "Especial", shortLabel: "Esp", className: "blood" },
-  { id: "genjutsu", label: "Mental", shortLabel: "Men", className: "gen" }
+  { id: "taijutsu", label: "", shortLabel: "", className: "tai" },
+  { id: "ninjutsu", label: "", shortLabel: "", className: "nin" },
+  { id: "bloodline", label: "", shortLabel: "", className: "blood" },
+  { id: "genjutsu", label: "", shortLabel: "", className: "gen" }
 ];
 
 export function emptyChakra() {

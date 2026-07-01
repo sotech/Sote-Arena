@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { io } from "socket.io-client";
-import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, ListChecks, LoaderCircle, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Smartphone, Swords, Trash2, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeftRight, ArrowUp, CheckCircle2, ChevronLeft, ChevronRight, Copy, LoaderCircle, Minus, Monitor, Plus, RefreshCw, RotateCcw, Search, Smartphone, Swords, Users, Shield, HeartPulse, X, Zap } from "lucide-react";
 import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
@@ -14,8 +14,8 @@ import { PatchNotesView } from "./components/PatchNotesView.jsx";
 import { StatusEffects } from "./components/StatusEffects.jsx";
 import { allAssetUrls, backgroundImages, characterImage, characterSound, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
-import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillOutOfUses, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
-import { targetTypeLabel } from "./game/labels.js";
+import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillOutOfUses, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor } from "./game/battleRules.js";
+import { groupStatusEffects, targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
 import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, inspectableSkillsForCharacter } from "../shared/skillReplacements.js";
@@ -835,9 +835,9 @@ function App() {
     return response.ok;
   }
 
-  async function endTurn(neutralChakra = emptyChakra()) {
+  async function endTurn(neutralChakra = emptyChakra(), resolveOrder = []) {
     setError("");
-    const response = await callSocket("battle:endTurn", { neutralChakra });
+    const response = await callSocket("battle:endTurn", { neutralChakra, resolveOrder });
     if (!response.ok) setError(response.error);
     return response.ok;
   }
@@ -1629,6 +1629,9 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const [inspectedMemberId, setInspectedMemberId] = useState("");
   const [footerDetailType, setFooterDetailType] = useState("character");
   const [pendingSkillId, setPendingSkillId] = useState("");
+  const skillActorChangeRef = useRef("");
+  const [visibleBotMessage, setVisibleBotMessage] = useState("");
+  const [visibleChatBubble, setVisibleChatBubble] = useState(null);
   const [chakraExchangeOpen, setChakraExchangeOpen] = useState(false);
   const [neutralChakraOpen, setNeutralChakraOpen] = useState(false);
   const [emptyQueueConfirmOpen, setEmptyQueueConfirmOpen] = useState(false);
@@ -1637,7 +1640,6 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
     .find((member) => member.id === inspectedMemberId) || selectedActor;
   const inspectedSkills = inspectableSkillsForCharacter(inspectedMember?.character);
   const selectedActorSkills = activeSkillsForMember(selectedActor, selectedActor?.character);
-  const selectedActorDisplaySkills = actionSkillsForMember(selectedActor, selectedActor?.character);
   const inspectedSkill = footerDetailType === "skill"
     ? inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0]
     : null;
@@ -1660,46 +1662,83 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
   const chakraTotal = totalChakra(me?.chakra);
   const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNeutralChakra);
+  const defaultResolveOrder = useMemo(() => skillResolveItems(room, me, opponent), [room, me, opponent]);
   const ownBattleShare = playerHealthShare(me, opponent);
   const enemyBattleShare = playerHealthShare(opponent, me);
   const damageAnimationTurnKey = `${room.turn}:${room.activePlayerId}`;
 
   useEffect(() => {
+    if (skillActorChangeRef.current === actorId) {
+      skillActorChangeRef.current = "";
+      return;
+    }
+    skillActorChangeRef.current = "";
     setPendingSkillId("");
     setInspectedMemberId(actorId);
     setInspectedSkillId("");
     setFooterDetailType("character");
   }, [actorId, room.turn]);
 
-  function clickSkill(skill) {
-    setInspectedMemberId(selectedActor?.id || "");
+  useEffect(() => {
+    if (room.mode !== "bot" || !room.botMessage) {
+      setVisibleBotMessage("");
+      return undefined;
+    }
+    setVisibleBotMessage(room.botMessage);
+    const timeout = window.setTimeout(() => setVisibleBotMessage(""), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [room.mode, room.botMessage]);
+
+  useEffect(() => {
+    if (room.mode !== "pvp") {
+      setVisibleChatBubble(null);
+      return undefined;
+    }
+    const messages = room.chat || [];
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) {
+      setVisibleChatBubble(null);
+      return undefined;
+    }
+    setVisibleChatBubble(lastMessage);
+    const timeout = window.setTimeout(() => setVisibleChatBubble(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [room.mode, room.chat]);
+
+  function clickMemberSkill(actor, skill) {
+    if (!actor) return;
+    setInspectedMemberId(actor.id || "");
     setInspectedSkillId(skill.id);
     setFooterDetailType("skill");
-    if (pendingSkillId === skill.id) {
+    if (actor.id !== selectedActor?.id) {
+      skillActorChangeRef.current = actor.id;
+      onActor(actor.id);
+    }
+    if (pendingSkillId === skill.id && actor.id === selectedActor?.id) {
       setPendingSkillId("");
       return;
     }
     if (pendingSkillId) {
       setPendingSkillId("");
     }
-    if (canPrepareSkill(skill)) {
+    if (canPrepareSkill(skill, actor)) {
       setPendingSkillId(skill.id);
     }
   }
 
-  function canPrepareSkill(skill) {
-    if (!skill || skill.passive === true) return false;
-    const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
-    const validTargets = eligibleTargetsForSkill(skill, me, opponent, selectedActor)
-      .filter((member) => meetsSkillRequirements(skill, me, opponent, selectedActor, [member]));
+  function canPrepareSkill(skill, actor = selectedActor) {
+    if (!actor || actor.hp <= 0 || !skill || skill.passive === true) return false;
+    const chakraCost = modifiedSkillChakraCost(actor, skill);
+    const validTargets = eligibleTargetsForSkill(skill, me, opponent, actor)
+      .filter((member) => meetsSkillRequirements(skill, me, opponent, actor, [member]));
     return isMyTurn
       && room.phase !== "finished"
-      && !isSkillStunned(selectedActor, skill)
-      && !isSkillOutOfUses(selectedActor, skill)
-      && skillCooldownFor(selectedActor, skill.id) <= 0
-      && !isQueuedActor(me, selectedActor?.id)
-      && !isQueuedSkill(me, selectedActor?.id, skill.id)
-      && meetsSkillRequirements(skill, me, opponent, selectedActor)
+      && !isSkillStunned(actor, skill)
+      && !isSkillOutOfUses(actor, skill)
+      && skillCooldownFor(actor, skill.id) <= 0
+      && !isQueuedActor(me, actor?.id)
+      && !isQueuedSkill(me, actor?.id, skill.id)
+      && meetsSkillRequirements(skill, me, opponent, actor)
       && canPaySkillChakra(me?.chakra, chakraCost, queuedNeutralChakra)
       && validTargets.length > 0;
   }
@@ -1739,11 +1778,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
 
   function clickEndTurn() {
     if (!isMyTurn || room.phase === "finished") return;
-    if ((me?.queue || []).length === 0) {
-      setEmptyQueueConfirmOpen(true);
-      return;
-    }
-    if (queuedNeutralChakra > 0) {
+    if (defaultResolveOrder.length > 0 || queuedNeutralChakra > 0) {
       setNeutralChakraOpen(true);
       return;
     }
@@ -1752,7 +1787,42 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
 
   return (
     <section className="battle">
-      <BalanceBar me={me} opponent={opponent} />
+      <div className="battle-turn-strip">
+        <div className="battle-turn-left">
+          <div className="battle-turn-summary">
+            <span className="turn-pill">Turno {room.turn}</span>
+            <span className="resource-pill" title="Chakra disponible ajustado por cola">
+              Recursos {queuedNeutralChakra > 0 ? `${adjustedChakraTotal}/${chakraTotal}` : chakraTotal}
+            </span>
+            {room.phase === "finished" ? (
+              <span className="turn-pill active winner">Gano {winner?.name}</span>
+            ) : (
+              <span className={`turn-pill ${isMyTurn ? "active" : ""}`}>{turnLabel}</span>
+            )}
+            {room.mode === "bot-vs-bot" && (
+              <button type="button" className="icon-button bot-pause-button" onClick={onToggleBotPause} title={room.botPaused ? "Reanudar bots" : "Pausar bots"}>
+                {room.botPaused ? <Zap size={16} /> : <Minus size={16} />}
+              </button>
+            )}
+          </div>
+          <button className="end-turn" disabled={!isMyTurn || room.phase === "finished"} onClick={clickEndTurn}>
+            <CheckCircle2 size={18} />
+            Finalizar turno
+          </button>
+        </div>
+        <div className="battle-turn-resources">
+          <ChakraPool chakra={me?.chakra} />
+          <button
+            className={`chakra-exchange-button ${exchange ? "undo" : ""}`}
+            disabled={exchange ? !isMyTurn || room.phase === "finished" || !canUndoExchange : !canOpenExchange}
+            onClick={clickChakraExchange}
+          >
+            <ArrowLeftRight size={18} />
+            {exchangeButtonLabel}
+          </button>
+          {exchange && hasQueuedSkills && <small className="chakra-exchange-hint">Hay habilidades en cola</small>}
+        </div>
+      </div>
       <div className="arena">
         <Team
           title={me?.name || "Tu equipo"}
@@ -1767,87 +1837,16 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           onInspect={inspectMember}
           onPick={pickFighter}
           ownTeam
+          selectedActorId={selectedActor?.id}
+          pendingSkillId={pendingSkillId}
+          queue={me?.queue || []}
+          removableQueue={isMyTurn}
+          onSkillClick={clickMemberSkill}
+          canPrepareSkill={canPrepareSkill}
+          onRemoveQueuedSkill={onRemoveQueuedSkill}
+          onMoveQueuedSkill={onMoveQueuedSkill}
+          speechMessage={visibleChatBubble?.playerId === me?.id ? visibleChatBubble.message : ""}
         />
-        <div className="turn-panel card-combate" id="card-combate">
-          <header className="turn-panel-header">
-            <p className="eyebrow">Turno {room.turn}</p>
-            {room.mode === "bot-vs-bot" && (
-              <button type="button" className="icon-button bot-pause-button" onClick={onToggleBotPause} title={room.botPaused ? "Reanudar bots" : "Pausar bots"}>
-                {room.botPaused ? <Zap size={16} /> : <Minus size={16} />}
-              </button>
-            )}
-            {room.phase === "finished" ? (
-              <h2>Gano {winner?.name}</h2>
-            ) : (
-              <h2 className={isMyTurn ? "turn-title active-turn-title" : "turn-title"}>
-                <span>{turnLabel}</span>
-              </h2>
-            )}
-          </header>
-          {room.mode === "bot" && room.botMessage && <p className="bot-speech">{room.botMessage}</p>}
-          <div className="turn-chakra-column">
-            <div className="chakra">
-              <Zap size={18} />
-              <span>Recursos</span>
-              <b className="chakra-total" title="Chakra disponible ajustado por cola">
-                {queuedNeutralChakra > 0 ? `${adjustedChakraTotal}/${chakraTotal}` : chakraTotal}
-              </b>
-            </div>
-            <ChakraPool chakra={me?.chakra} />
-            <button
-              className={`chakra-exchange-button ${exchange ? "undo" : ""}`}
-              disabled={exchange ? !isMyTurn || room.phase === "finished" || !canUndoExchange : !canOpenExchange}
-              onClick={clickChakraExchange}
-            >
-              <ArrowLeftRight size={18} />
-              {exchangeButtonLabel}
-            </button>
-            {exchange && hasQueuedSkills && <small className="chakra-exchange-hint">Hay habilidades en cola</small>}
-          </div>
-          <div className="skill-list">
-            {selectedActorDisplaySkills.map((skill) => {
-              const isPending = pendingSkillId === skill.id;
-              const disabled = !isPending && !canPrepareSkill(skill);
-              const cooldown = skillCooldownFor(selectedActor, skill.id);
-              const outOfUses = isSkillOutOfUses(selectedActor, skill);
-              const chakraCost = modifiedSkillChakraCost(selectedActor, skill);
-              return (
-                <button
-                  key={skill.id}
-                  className={`${disabled ? "unavailable" : ""} ${isPending ? "pending" : ""}`}
-                  aria-disabled={disabled}
-                  onClick={() => clickSkill(skill)}
-                >
-                  <span className="skill-icon">
-                    <SquareImage alt={skill.name} src={skillImage(skill.id)} />
-                    {cooldown > 0 && <b className="cooldown-count">{cooldown}</b>}
-                  </span>
-                  <span className="skill-copy">
-                    <strong>{skill.name}</strong>
-                    <small>
-                      {outOfUses
-                        ? "Sin usos disponibles"
-                        : skill.passive
-                          ? "Pasiva - no usable"
-                          : <>{targetTypeLabel(skill.targetType)} - <ChakraCost chakra={chakraCost} /></>}
-                    </small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <button className="end-turn" disabled={!isMyTurn || room.phase === "finished"} onClick={clickEndTurn}>
-            <CheckCircle2 size={18} />
-            Finalizar turno
-          </button>
-          <QueuePanel
-            title="Tu cola"
-            queue={me?.queue || []}
-            removable={isMyTurn}
-            onRemove={onRemoveQueuedSkill}
-            onMove={onMoveQueuedSkill}
-          />
-        </div>
         <Team
           title={opponent?.name || "Oponente"}
           player={opponent}
@@ -1860,6 +1859,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           onInspect={inspectMember}
           onPick={pickFighter}
           targetable
+          speechMessage={visibleBotMessage || (visibleChatBubble?.playerId === opponent?.id ? visibleChatBubble.message : "")}
         />
       </div>
       <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>
@@ -1885,9 +1885,10 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
         <NeutralChakraModal
           chakra={me?.chakra}
           required={queuedNeutralChakra}
+          resolveItems={defaultResolveOrder}
           onClose={() => setNeutralChakraOpen(false)}
-          onConfirm={async (spent) => {
-            const ok = await onEndTurn(spent);
+          onConfirm={async (spent, resolveOrder) => {
+            const ok = await onEndTurn(spent, resolveOrder);
             if (ok) setNeutralChakraOpen(false);
           }}
         />
@@ -1962,6 +1963,40 @@ function LogEntries({ entries = [], room }) {
       ? <hr key={item.id || `separator-${index}`} className="log-separator" />
       : <p key={`${item}-${index}`}><RichLogText text={item} names={names} /></p>
   ));
+}
+
+function skillResolveItems(room, me, opponent) {
+  const ownedMemberIds = new Set((me?.team || []).map((member) => member.id));
+  const resolvingPlayer = room?.activePlayerId === me?.id ? opponent : me;
+  const effectItems = (resolvingPlayer?.team || []).flatMap((member) => (
+    (member.statusEffects || [])
+      .filter((effect) => (
+        effect.type === "complex"
+        && (effect.turns > 0 || effect.turns === -1)
+        && effect.originActorId
+        && ownedMemberIds.has(effect.originActorId)
+        && effect.createdTurn !== room.turn
+      ))
+      .map((effect) => ({
+        id: `status:${effect.id}`,
+        type: "status",
+        statusId: effect.id,
+        iconSkillId: groupStatusEffects([effect])[0]?.sourceSkillId || effect.statusIconSkillId || effect.sourceSkillId,
+        title: effect.sourceSkillName || "Efecto",
+        subtitle: member.character?.name || member.characterId || "Objetivo",
+        owner: effect.sourceActorName || "Efecto propio"
+      }))
+  ));
+  const skillItems = (me?.queue || []).map((action) => ({
+    id: `skill:${action.id}`,
+    type: "skill",
+    actionId: action.id,
+    skillId: action.skillId,
+    title: action.skillName,
+    subtitle: `${action.actorName} a ${action.targetName}`,
+    owner: action.actorName
+  }));
+  return [...effectItems, ...skillItems];
 }
 
 function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
@@ -2048,9 +2083,14 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
   );
 }
 
-function NeutralChakraModal({ chakra, required, onClose, onConfirm }) {
+function NeutralChakraModal({ chakra, required, resolveItems = [], onClose, onConfirm }) {
   const [spent, setSpent] = useState(() => emptyChakra());
+  const [orderedItems, setOrderedItems] = useState(resolveItems);
   const spentTotal = totalChakra(spent);
+
+  useEffect(() => {
+    setOrderedItems(resolveItems);
+  }, [resolveItems]);
 
   function addPayment(type) {
     setSpent((current) => {
@@ -2067,48 +2107,88 @@ function NeutralChakraModal({ chakra, required, onClose, onConfirm }) {
     });
   }
 
+  function moveResolveItem(index, direction) {
+    const nextIndex = direction === "left" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= orderedItems.length) return;
+    setOrderedItems((current) => {
+      const next = [...current];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next;
+    });
+  }
+
+  const resolveOrder = orderedItems.map((item) => ({
+    type: item.type,
+    actionId: item.actionId,
+    statusId: item.statusId
+  }));
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="neutral-chakra-title">
       <div className="chakra-exchange-modal neutral-chakra-modal">
         <header>
           <div>
             <p className="eyebrow">Finalizar turno</p>
-            <h2 id="neutral-chakra-title">Pagar recurso neutral</h2>
-            <p className="modal-copy">Completa {required} recurso neutral con tus recursos disponibles.</p>
+            <h2 id="neutral-chakra-title">Orden de resolucion</h2>
+            <p className="modal-copy">{required > 0 ? `Completa ${required} recurso neutral con tus recursos disponibles.` : "No hay recurso neutral pendiente."}</p>
           </div>
           <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar pago neutral">
             <X size={18} />
           </button>
         </header>
-        <section className="exchange-payment-list" aria-label="Recursos que estas pagando">
-          <h3>Recursos que pagas</h3>
-          {chakraTypes.map((type) => {
-            const paid = spent[type.id] || 0;
-            const remaining = (chakra?.[type.id] || 0) - paid;
-            return (
-              <div className="exchange-payment-row" key={type.id}>
-                <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={paid <= 0} aria-label={`Quitar ${type.label} del pago neutral`}>
-                  <Minus size={16} />
-                </button>
-                <span className={`chakra-dot ${type.className}`} />
-                <strong className="exchange-chakra-name">
-                  <span>{type.label}</span>
-                  <small>Tienes {remaining}</small>
-                </strong>
-                <span className="exchange-paid-count">
-                  <b>{paid}</b>
-                  <small>pagando</small>
-                </span>
-                <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || remaining <= 0} aria-label={`Agregar ${type.label} al pago neutral`}>
-                  <Plus size={16} />
-                </button>
-              </div>
-            );
-          })}
+        {required > 0 && (
+          <section className="exchange-payment-list" aria-label="Recursos que estas pagando">
+            <h3>Recursos que pagas</h3>
+            {chakraTypes.map((type) => {
+              const paid = spent[type.id] || 0;
+              const remaining = (chakra?.[type.id] || 0) - paid;
+              return (
+                <div className="exchange-payment-row" key={type.id}>
+                  <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={paid <= 0} aria-label={`Quitar ${type.label} del pago neutral`}>
+                    <Minus size={16} />
+                  </button>
+                  <span className={`chakra-dot ${type.className}`} />
+                  <strong className="exchange-chakra-name">
+                    <span>{type.label}</span>
+                    <small>Tienes {remaining}</small>
+                  </strong>
+                  <span className="exchange-paid-count">
+                    <b>{paid}</b>
+                    <small>pagando</small>
+                  </span>
+                  <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || remaining <= 0} aria-label={`Agregar ${type.label} al pago neutral`}>
+                    <Plus size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </section>
+        )}
+        <section className="resolve-order-panel" aria-label="Orden de resolucion">
+          <h3>Se resolvera en este orden</h3>
+          <div className="resolve-order-list">
+            {orderedItems.map((item, index) => (
+              <article className={`resolve-order-card ${item.type}`} key={item.id}>
+                <div className="resolve-order-controls">
+                  <button type="button" className="icon-button" disabled={index === 0} onClick={() => moveResolveItem(index, "left")} aria-label={`Mover ${item.title} a la izquierda`}>
+                    <ChevronLeft size={15} />
+                  </button>
+                  <button type="button" className="icon-button" disabled={index === orderedItems.length - 1} onClick={() => moveResolveItem(index, "right")} aria-label={`Mover ${item.title} a la derecha`}>
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+                {item.type === "skill" && <SquareImage alt={item.title} src={skillImage(item.skillId)} />}
+                {item.type === "status" && <SquareImage alt={item.title} src={skillImage(item.iconSkillId || item.skillId)} />}
+                <strong>{item.title}</strong>
+                <small>{item.subtitle}</small>
+              </article>
+            ))}
+          </div>
         </section>
         <footer>
           <strong>{spentTotal} / {required}</strong>
-          <button type="button" disabled={spentTotal !== required} onClick={() => onConfirm(spent)}>
+          <button type="button" disabled={spentTotal !== required} onClick={() => onConfirm(spent, resolveOrder)}>
             <CheckCircle2 size={18} />
             Pagar y finalizar
           </button>
@@ -2231,69 +2311,6 @@ function footerTargetTypeLabel(type) {
   return targetTypeLabel(type);
 }
 
-function BalanceBar({ me, opponent }) {
-  const ownHealth = teamHealthPercent(me);
-  const enemyHealth = teamHealthPercent(opponent);
-  const arrow = Math.max(6, Math.min(94, 50 + (enemyHealth - ownHealth) * 50));
-  const ownFill = Math.min(50, arrow);
-  const enemyFill = Math.max(0, 100 - Math.max(50, arrow));
-
-  return (
-    <div className="balance-panel">
-      <div className="balance-labels">
-        <span>{me?.name || "Tu equipo"} {Math.round(ownHealth * 100)}%</span>
-        <strong>Balance</strong>
-        <span>{opponent?.name || "Oponente"} {Math.round(enemyHealth * 100)}%</span>
-      </div>
-      <div className="balance-track">
-        <span className="balance-half red-half" />
-        <span className="balance-half blue-half" />
-        <span className="balance-fill red-fill" style={{ width: `${ownFill}%` }} />
-        <span className="balance-fill blue-fill" style={{ width: `${enemyFill}%` }} />
-        <span className="balance-arrow" style={{ left: `${arrow}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function QueuePanel({ title, queue, removable, onRemove, onMove }) {
-  return (
-    <div className="queue-panel">
-      <h3>
-        <ListChecks size={16} />
-        {title}
-      </h3>
-      {queue.length === 0 ? (
-        <p>No hay habilidades en cola.</p>
-      ) : (
-        <ol>
-          {queue.map((item, index) => (
-            <li key={item.id}>
-              <div className="queue-reorder" aria-label={`Orden de ${item.skillName}`}>
-                <button type="button" className="queue-order-button" disabled={!removable || index === 0} onClick={() => onMove(item.id, "up")} aria-label={`Subir ${item.skillName}`}>
-                  <ArrowUp size={14} />
-                </button>
-                <button type="button" className="queue-order-button" disabled={!removable || index === queue.length - 1} onClick={() => onMove(item.id, "down")} aria-label={`Bajar ${item.skillName}`}>
-                  <ArrowDown size={14} />
-                </button>
-              </div>
-              <button className="queue-action" disabled={!removable} onClick={() => onRemove(item.id)}>
-                <SquareImage alt={item.skillName} src={skillImage(item.skillId)} />
-                <span>
-                  <strong>{item.skillName}</strong>
-                  <span>{item.actorName} a {item.targetName}</span>
-                  <small><ChakraCost chakra={item.chakra} /> gastado</small>
-                </span>
-                {removable && <Trash2 size={16} />}
-              </button>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
 function damageSeverityClass(damage, maxHp) {
   const percent = maxHp > 0 ? (damage / maxHp) * 100 : 0;
   if (percent <= 0) return "";
@@ -2314,9 +2331,97 @@ function injurySeverityClass(member) {
   return "injury-severe";
 }
 
-function Team({ title, player, active, disadvantage = false, actorId, targetId, eligibleTargetIds = new Set(), choosingTarget = false, damageAnimationTurnKey = "", onInspect, onPick, targetable = false, ownTeam = false }) {
+function FighterSkillRail({ member, selectedActorId, pendingSkillId, queuedActions = [], removable, onSkillClick, canPrepareSkill, onRemove, onMove }) {
+  const skills = actionSkillsForMember(member, member?.character);
+  const queuedAction = queuedActions[0];
+
+  return (
+    <div className="fighter-action-lane" aria-label={`Habilidades de ${member.character.name}`}>
+      {skills.map((skill) => {
+        const isPending = selectedActorId === member.id && pendingSkillId === skill.id;
+        const disabled = !isPending && !canPrepareSkill(skill, member);
+        const cooldown = skillCooldownFor(member, skill.id);
+        const outOfUses = isSkillOutOfUses(member, skill);
+        const chakraCost = modifiedSkillChakraCost(member, skill);
+        return (
+          <button
+            type="button"
+            key={skill.id}
+            className={`fighter-skill-button ${disabled ? "unavailable" : ""} ${isPending ? "pending" : ""}`}
+            aria-disabled={disabled}
+            title={`${skill.name}${outOfUses ? " - Sin usos disponibles" : ""}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSkillClick(member, skill);
+            }}
+          >
+            <span className="skill-icon">
+              <SquareImage alt={skill.name} src={skillImage(skill.id)} />
+              {cooldown > 0 && <b className="cooldown-count">{cooldown}</b>}
+            </span>
+            {!skill.passive && <small><ChakraCost chakra={chakraCost} /></small>}
+          </button>
+        );
+      })}
+      <span className="fighter-queue-separator" aria-hidden="true" />
+      <div className={`fighter-queue-slot ${queuedAction ? "" : "empty"}`} aria-label="Habilidad en cola">
+        {queuedAction && (
+          <FighterQueuedSkill
+            item={queuedAction}
+            removable={removable}
+            onRemove={onRemove}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FighterQueuedSkill({ item, removable, onRemove }) {
+  return (
+    <div className="fighter-queued-skill">
+      <button
+        type="button"
+        disabled={!removable}
+        title={`${item.skillName}: ${item.actorName} a ${item.targetName}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove(item.id);
+        }}
+      >
+        <SquareImage alt={item.skillName} src={skillImage(item.skillId)} />
+      </button>
+    </div>
+  );
+}
+
+function Team({
+  title,
+  player,
+  active,
+  disadvantage = false,
+  actorId,
+  targetId,
+  eligibleTargetIds = new Set(),
+  choosingTarget = false,
+  damageAnimationTurnKey = "",
+  onInspect,
+  onPick,
+  targetable = false,
+  ownTeam = false,
+  selectedActorId = "",
+  pendingSkillId = "",
+  queue = [],
+  removableQueue = false,
+  onSkillClick = () => {},
+  canPrepareSkill = () => false,
+  onRemoveQueuedSkill = () => {},
+  onMoveQueuedSkill = () => {},
+  speechMessage = ""
+}) {
   const previousHpRef = useRef(new Map());
   const [damageAnimations, setDamageAnimations] = useState({});
+  const queueLength = queue.length;
 
   useEffect(() => {
     previousHpRef.current = new Map((player?.team || []).map((member) => [member.id, member.hp]));
@@ -2347,7 +2452,8 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
   }, [damageAnimationTurnKey]);
 
   return (
-    <div className={`team ${player?.side || ""} ${active ? "active" : ""} ${disadvantage ? "disadvantage" : ""}`}>
+    <div className={`team ${ownTeam ? "own-team" : "enemy-team"} ${player?.side || ""} ${active ? "active" : ""} ${disadvantage ? "disadvantage" : ""}`}>
+      {speechMessage && <SpeechBubble message={speechMessage} align={ownTeam ? "left" : "right"} />}
       <h2>{title}</h2>
       <div className="fighters">
         {player?.team.map((member) => {
@@ -2355,43 +2461,100 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
           const eligible = choosingTarget && eligibleTargetIds.has(member.id);
           const invulnerable = targetable && hasStatus(member, "invulnerable");
           const untargetable = invulnerable && !eligible;
-          const selectable = member.hp > 0 && (eligible || (!choosingTarget && ownTeam));
+          const selectable = member.hp > 0 && eligible;
           const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.avatarImageId || member.character.id);
           const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");
-          const fighterHint = eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : "";
+          const fighterHint = !choosingTarget && untargetable ? "Invulnerable" : "";
           const injuryClass = injurySeverityClass(member);
+          const queuedActions = ownTeam
+            ? queue
+              .map((item, index) => ({ ...item, queueIndex: index, queueLength }))
+              .filter((item) => item.actorId === member.id)
+            : [];
           return (
             <div
-              className={`fighter ${injuryClass} ${damageAnimation ? `damage-shake ${damageAnimation.severity}` : ""} ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
+              className={`fighter ${ownTeam ? "fighter-with-actions" : ""} ${injuryClass} ${damageAnimation ? `damage-shake ${damageAnimation.severity}` : ""} ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
               key={member.id}
               data-damage-token={damageAnimation?.token}
               onClick={() => {
-                onInspect?.(member);
-                if (selectable) onPick?.(member, ownTeam);
+                if (!selectable) return;
+                onPick?.(member, ownTeam);
               }}
               role="button"
               tabIndex={0}
               aria-disabled={!selectable}
             >
-              <div className="fighter-top">
-                <SquareImage
-                  alt={member.hp <= 0 ? `${member.character.name} derrotado` : member.character.name}
-                  className={mirrorEnemyPortrait ? "enemy-combat-portrait" : ""}
-                  src={portraitSrc}
-                />
+              <div className="fighter-card-main">
+                {!ownTeam && (
+                  <div className="fighter-opponent-status">
+                    <StatusEffects member={member} effects={member.statusEffects || []} className="enemy-status-row" />
+                  </div>
+                )}
+                <div
+                  className="fighter-top"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (selectable) {
+                      onPick?.(member, ownTeam);
+                      return;
+                    }
+                    onInspect?.(member);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (selectable) {
+                      onPick?.(member, ownTeam);
+                      return;
+                    }
+                    onInspect?.(member);
+                  }}
+                >
+                  <SquareImage
+                    alt={member.hp <= 0 ? `${member.character.name} derrotado` : member.character.name}
+                    className={mirrorEnemyPortrait ? "enemy-combat-portrait" : ""}
+                    src={portraitSrc}
+                  />
+                </div>
+                <strong>{member.character.name}</strong>
+                <Health current={member.hp} max={member.character.maxHp} />
+                <span className="stats">
+                  <HeartPulse size={14} /> {member.hp}
+                  <Shield size={14} /> {member.shield}
+                </span>
+                {fighterHint && <small>{fighterHint}</small>}
               </div>
-              <strong>{member.character.name}</strong>
-              <Health current={member.hp} max={member.character.maxHp} />
-              <span className="stats">
-                <HeartPulse size={14} /> {member.hp}
-                <Shield size={14} /> {member.shield}
-              </span>
-              <StatusEffects member={member} effects={member.statusEffects || []} />
-              {fighterHint && <small>{fighterHint}</small>}
+              {ownTeam && (
+                <div className="fighter-rail">
+                  <StatusEffects member={member} effects={member.statusEffects || []} className="ally-status-row" />
+                  <FighterSkillRail
+                    member={member}
+                    selectedActorId={selectedActorId}
+                    pendingSkillId={pendingSkillId}
+                    queuedActions={queuedActions}
+                    removable={removableQueue}
+                    onSkillClick={onSkillClick}
+                    canPrepareSkill={canPrepareSkill}
+                    onRemove={onRemoveQueuedSkill}
+                    onMove={onMoveQueuedSkill}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SpeechBubble({ message, align = "left" }) {
+  return (
+    <div className={`speech-bubble ${align}`} role="status" aria-live="polite">
+      {message}
     </div>
   );
 }

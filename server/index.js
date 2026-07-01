@@ -685,10 +685,10 @@ function advanceTurn(room) {
   room.turn += 1;
 }
 
-function applyStartTurnEffects(room) {
+function applyStartTurnEffects(room, resolveOrder = []) {
   const activePlayer = findPlayer(room, room.activePlayerId);
   if (!activePlayer) return;
-  for (const event of applyComplexStatusEffects(room, activePlayer)) {
+  for (const event of applyComplexStatusEffects(room, activePlayer, resolveOrder)) {
     room.log.unshift(event);
   }
   clearDefeatedStatusEffects(room);
@@ -1562,6 +1562,7 @@ function requireCandidates(requirement, player, opponent, actor, selectedTargets
   if (scope === "target") return selectedTargets.slice(0, 1);
   if (scope === "anyTarget") return selectedTargets;
   if (scope === "anyAlly") return aliveMembers(player);
+  if (scope === "otherAlly") return aliveMembers(player).filter((member) => member.id !== actor?.id);
   if (scope === "anyEnemy") return aliveMembers(opponent);
   return actor ? [actor] : [];
 }
@@ -1709,6 +1710,11 @@ function resolveEffectTargets(room, player, actor, targetId, skill, effect) {
       continue;
     }
     if (requestedTarget === "target") {
+      if (effect.selectedTargetOnly === true) {
+        const selectedTarget = getMember(player, targetId) || getMember(opponent, targetId);
+        if (selectedTarget) members.push(selectedTarget);
+        continue;
+      }
       members.push(...targetsForSkill(room, player, actor, targetId, skill));
       continue;
     }
@@ -1771,12 +1777,27 @@ function targetNameForSkill(room, player, actor, targetId, skill) {
   return targets[0] ? getCharacterById(targets[0].characterId).name : "objetivo invalido";
 }
 
-function applyComplexStatusEffects(room, player) {
+function resolveOrderIndex(resolveOrder, type, id) {
+  const index = (resolveOrder || []).findIndex((item) => item?.type === type && (item.statusId === id || item.actionId === id));
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function orderedQueuedActions(queue, resolveOrder = []) {
+  return [...queue].sort((a, b) => resolveOrderIndex(resolveOrder, "skill", a.id) - resolveOrderIndex(resolveOrder, "skill", b.id));
+}
+
+function applyComplexStatusEffects(room, player, resolveOrder = [], allowedStatusIds = null, effectiveTurn = room.turn) {
   const events = [];
-  for (const member of aliveMembers(player)) {
+  const statusEntries = aliveMembers(player)
+    .flatMap((member) => (member.statusEffects || []).map((status, statusIndex) => ({ member, status, statusIndex })))
+    .sort((a, b) => {
+      const byOrder = resolveOrderIndex(resolveOrder, "status", a.status.id) - resolveOrderIndex(resolveOrder, "status", b.status.id);
+      return byOrder || a.statusIndex - b.statusIndex;
+    });
+  for (const { member, status } of statusEntries) {
     const memberCharacter = getCharacterById(member.characterId);
-    for (const status of member.statusEffects || []) {
-      if (status.type !== "complex" || (status.turns <= 0 && status.turns !== -1) || status.createdTurn === room.turn) continue;
+      if (allowedStatusIds && !allowedStatusIds.has(status.id)) continue;
+      if (status.type !== "complex" || (status.turns <= 0 && status.turns !== -1) || status.createdTurn === effectiveTurn || status.resolvedTurn === effectiveTurn) continue;
       if (statusIsIgnored(status)) continue;
       if (status.mode === "pauseOnStun" || status.mode === "interruptible") {
         if (isSkillStunned(member, { id: status.sourceSkillId, family: status.interruptFamilies || [] })) {
@@ -1799,7 +1820,7 @@ function applyComplexStatusEffects(room, player) {
           continue;
         }
       }
-      if (room.turn <= status.createdTurn + Number(status.activationDelayTurns || 0)) {
+      if (effectiveTurn <= status.createdTurn + Number(status.activationDelayTurns || 0)) {
         status.pausedThisTurn = true;
         continue;
       }
@@ -1915,7 +1936,7 @@ function applyComplexStatusEffects(room, player) {
               sourceActorName: status.sourceActorName,
               originActorId: status.originActorId,
               originCharacterId: status.originCharacterId,
-              createdTurn: room.turn,
+              createdTurn: effectiveTurn,
               descriptions: [statusDescription({ ...effect, remainingShield: value }, memberCharacter)],
               tooltipDescription: tooltipDescriptionForEffect(effect)
             });
@@ -1947,8 +1968,8 @@ function applyComplexStatusEffects(room, player) {
           for (const target of targets) removeMatchingStatuses(target, effect);
         }
       }
+      status.resolvedTurn = effectiveTurn;
     }
-  }
   return events;
 }
 
@@ -3348,10 +3369,11 @@ export function applyQueuedSkill(room, player, action) {
   return skillLogEntry(player, skill, events.join(" ") || `${actorCharacter.name} uso ${skill.name}.`);
 }
 
-export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
+export function resolveTurn(room, playerId, neutralChakraPayment = {}, resolveOrder = []) {
   if (room.phase !== "battle") return "La batalla todavia no esta activa.";
   if (room.activePlayerId !== playerId) return "No es tu turno.";
   const beforeDeathsByPlayerId = deathSnapshotsForRoom(room);
+  const requestedResolveOrder = Array.isArray(resolveOrder) ? resolveOrder : [];
 
   const player = findPlayer(room, playerId);
   const opponent = opponentOf(room, playerId);
@@ -3372,19 +3394,52 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
   reduceCooldowns(player);
 
   const queue = player.queue.splice(0);
+  const queuedActionsById = new Map(queue.map((action) => [action.id, action]));
+  const resolvedActionIds = new Set();
+  const resolvedStatusIds = new Set();
+  const nextTurn = room.turn + 1;
 
   if (queue.length === 0) {
     room.log.unshift(`${player.name} finalizo su turno.`);
   }
 
-  for (const action of queue) {
+  const resolveAction = (action) => {
     const beforeActionDeathsByPlayerId = deathSnapshotsForRoom(room);
     room.log.unshift(applyQueuedSkill(room, player, action));
+    resolvedActionIds.add(action.id);
     clearDefeatedStatusEffects(room);
     for (const event of applyEnemyDeathTriggers(room, beforeActionDeathsByPlayerId)) {
       room.log.unshift(event);
     }
+  };
+
+  const resolveStatus = (statusId) => {
+    const beforeStatusDeathsByPlayerId = deathSnapshotsForRoom(room);
+    const events = applyComplexStatusEffects(room, opponent, requestedResolveOrder, new Set([statusId]), nextTurn);
+    if (events.length > 0) resolvedStatusIds.add(statusId);
+    for (const event of events) room.log.unshift(event);
+    clearDefeatedStatusEffects(room);
+    for (const event of [...resolveTriggerSkillStatuses(room, "reachHp"), ...resolveTriggerSkillStatuses(room)]) {
+      room.log.unshift(event);
+    }
+    for (const event of applyEnemyDeathTriggers(room, beforeStatusDeathsByPlayerId)) {
+      room.log.unshift(event);
+    }
+  };
+
+  for (const item of requestedResolveOrder) {
+    if (item?.type === "status" && item.statusId && teamAlive(opponent)) {
+      resolveStatus(item.statusId);
+      continue;
+    }
+    if (item?.type === "skill" && item.actionId && queuedActionsById.has(item.actionId) && teamAlive(opponent)) {
+      resolveAction(queuedActionsById.get(item.actionId));
+    }
+  }
+
+  for (const action of orderedQueuedActions(queue.filter((action) => !resolvedActionIds.has(action.id)), requestedResolveOrder)) {
     if (!teamAlive(opponent)) break;
+    resolveAction(action);
   }
 
   if (!teamAlive(opponent)) {
@@ -3397,7 +3452,7 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
     advanceTurn(room);
     expireStartTurnSecretEffects(findPlayer(room, room.activePlayerId), room.turn, room);
     const beforeStartTurnDeathsByPlayerId = deathSnapshotsForRoom(room);
-    applyStartTurnEffects(room);
+    applyStartTurnEffects(room, requestedResolveOrder);
     for (const event of [...resolveTriggerSkillStatuses(room, "reachHp"), ...resolveTriggerSkillStatuses(room)]) {
       room.log.unshift(event);
     }
