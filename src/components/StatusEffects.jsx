@@ -68,8 +68,18 @@ export function StatusEffects({ member, effects, className = "" }) {
     return typeof window !== "undefined" && !window.matchMedia(MOBILE_QUERY).matches;
   }
 
-  function positionDesktopTooltip(element) {
-    if (!isDesktopTooltip()) return;
+  function positionTooltip(element) {
+    if (!isDesktopTooltip()) {
+      const viewportWidth = window.innerWidth;
+      setTooltipPosition({
+        left: 16,
+        top: 0,
+        width: Math.max(0, viewportWidth - 32),
+        placement: "mobile"
+      });
+      return;
+    }
+
     const rect = element.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -180,7 +190,7 @@ export function StatusEffects({ member, effects, className = "" }) {
             onMouseEnter={(event) => {
               if (!isDesktopTooltip()) return;
               setHoverEffectId(group.id);
-              positionDesktopTooltip(event.currentTarget);
+              positionTooltip(event.currentTarget);
             }}
             onMouseLeave={() => {
               setHoverEffectId("");
@@ -188,14 +198,14 @@ export function StatusEffects({ member, effects, className = "" }) {
             onFocus={(event) => {
               if (!isDesktopTooltip()) return;
               setHoverEffectId(group.id);
-              positionDesktopTooltip(event.currentTarget);
+              positionTooltip(event.currentTarget);
             }}
             onBlur={() => {
               setHoverEffectId("");
             }}
             onClick={(event) => {
               event.stopPropagation();
-              positionDesktopTooltip(event.currentTarget);
+              positionTooltip(event.currentTarget);
               setOpenEffectId((current) => (current === group.id ? "" : group.id));
             }}
           >

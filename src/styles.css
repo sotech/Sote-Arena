@@ -2253,8 +2253,23 @@ label {
 }
 
 @media (max-width: 768px) {
-  .status-tooltip-portal {
+  .inline-status-tooltip {
     display: none;
+  }
+
+  .status-tooltip-portal {
+    bottom: 16px;
+    display: grid;
+    left: 16px;
+    max-height: 48vh;
+    min-width: 0;
+    overflow: auto;
+    position: fixed;
+    right: 16px;
+    top: auto;
+    transform: translateY(0);
+    width: auto;
+    z-index: 10000;
   }
 }
 
@@ -4459,7 +4474,7 @@ main.mobile-preview .skill-footer-meta {
 
   .battle-turn-strip {
     grid-column: 1;
-    grid-template-columns: minmax(0, 1.75fr) minmax(272px, 0.72fr);
+    grid-template-columns: minmax(0, 1.75fr) minmax(220px, 0.72fr);
     order: initial;
   }
 
@@ -4506,7 +4521,7 @@ main.mobile-preview .skill-footer-meta {
     gap: 12px;
     grid-column: 1;
     grid-row: 2;
-    grid-template-columns: minmax(0, 1.75fr) minmax(272px, 0.72fr);
+    grid-template-columns: minmax(0, 1.75fr) minmax(220px, 0.72fr);
     order: initial;
     overflow: hidden;
   }
@@ -4582,24 +4597,24 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .fighter-with-actions {
-    grid-template-columns: 126px minmax(0, 1fr);
+    grid-template-columns: 104px minmax(0, 1fr);
     padding: 12px;
   }
 
   .fighter-card-main {
-    width: 118px;
+    width: 104px;
   }
 
   .enemy-team .fighter {
-    grid-template-columns: 154px;
+    grid-template-columns: 136px;
     justify-content: end;
-    width: min(100%, 246px);
+    width: min(100%, 208px);
   }
 
   .enemy-team .fighter-card-main {
-    grid-template-columns: minmax(0, 1fr) 52px;
+    grid-template-columns: minmax(0, 1fr) 46px;
     text-align: right;
-    width: 154px;
+    width: 136px;
   }
 
   .fighter-top,
@@ -4615,8 +4630,8 @@ main.mobile-preview .skill-footer-meta {
 
   .fighter .square-img,
   main.mobile-preview .fighter .square-img {
-    height: 52px;
-    width: 52px;
+    height: 46px;
+    width: 46px;
   }
 
   .fighter strong,
@@ -4628,11 +4643,11 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .fighter .health {
     height: 8px;
     margin: 0;
-    width: 104px;
+    width: 96px;
   }
 
   .enemy-team .health {
-    width: 136px;
+    width: 118px;
   }
 
   .fighter .stats,
@@ -4655,7 +4670,42 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .fighter-action-lane {
-    grid-template-columns: repeat(4, 52px) 1px 52px;
+    gap: 4px;
+    grid-template-columns: repeat(4, 34px) 1px 34px;
+    min-height: 46px;
+  }
+
+  .fighter-queue-separator,
+  main.mobile-preview .fighter-queue-separator {
+    height: 34px;
+  }
+
+  .fighter-queue-slot,
+  main.mobile-preview .fighter-queue-slot,
+  .fighter-queued-skill,
+  main.mobile-preview .fighter-queued-skill {
+    height: 34px;
+    min-height: 34px;
+    min-width: 34px;
+    width: 34px;
+  }
+
+  .fighter-skill-button,
+  main.mobile-preview .fighter-skill-button,
+  .fighter-queued-skill > button,
+  main.mobile-preview .fighter-queued-skill > button {
+    height: 34px;
+    min-height: 34px;
+    padding: 3px;
+    width: 34px;
+  }
+
+  .fighter-skill-button .skill-icon .square-img,
+  main.mobile-preview .fighter-skill-button .skill-icon .square-img,
+  .fighter-queued-skill .square-img,
+  main.mobile-preview .fighter-queued-skill .square-img {
+    height: 26px;
+    width: 26px;
   }
 
   .status-row,
@@ -4751,14 +4801,26 @@ main.mobile-preview .skill-footer-meta {
 
   .battle-skill-strip button,
   main.mobile-preview .battle-skill-strip button {
-    min-height: 48px;
+    min-height: 42px;
     padding: 4px;
   }
 
   .battle-skill-strip .square-img,
   main.mobile-preview .battle-skill-strip .square-img {
-    height: 36px;
-    width: 36px;
+    height: 30px;
+    width: 30px;
+  }
+
+  .status-tooltip-portal.mobile {
+    bottom: 16px;
+    left: 16px;
+    max-height: 48vh;
+    min-width: 0;
+    overflow: auto;
+    right: 16px;
+    top: auto;
+    transform: none;
+    width: auto;
   }
 
   .skill-footer h2,
