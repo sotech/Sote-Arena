@@ -1,6 +1,6 @@
 :root {
   color: #17202a;
-  background: #eef2f7 url("./assets/bgs/background.png") center / cover fixed no-repeat;
+  background: #eef2f7;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -49,6 +49,41 @@ input {
 main {
   min-height: 100vh;
   padding: 16px 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.app-background {
+  background: #eef2f7;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+}
+
+.app-background::after {
+  background: rgba(238, 242, 247, 0.18);
+  content: "";
+  inset: 0;
+  position: absolute;
+  z-index: 2;
+}
+
+.app-background-layer {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 1400ms ease-in-out;
+  will-change: opacity;
+  z-index: 1;
+}
+
+.app-background-layer.active {
+  opacity: 1;
 }
 
 .topbar {
@@ -283,7 +318,7 @@ h2 {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(160px, 1fr) repeat(6, minmax(76px, auto));
+  grid-template-columns: minmax(160px, 1fr) repeat(7, minmax(76px, auto));
   min-height: 42px;
   padding: 8px 12px;
 }
@@ -1077,6 +1112,11 @@ label {
   outline: 3px solid #f05d23;
 }
 
+.lobby-skill-strip .square-img {
+  height: 52px;
+  width: 52px;
+}
+
 .character-chakra-usage {
   align-items: center;
   display: flex;
@@ -1456,7 +1496,76 @@ label {
   justify-items: start;
   min-height: 124px;
   padding: 10px;
+  position: relative;
   text-align: left;
+}
+
+.fighter::before,
+.fighter::after {
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 180ms ease;
+  z-index: 2;
+}
+
+.fighter::before {
+  background:
+    linear-gradient(118deg, transparent 0 40%, rgba(17, 24, 39, 0.36) 40.5%, transparent 41.4% 100%),
+    linear-gradient(66deg, transparent 0 57%, rgba(17, 24, 39, 0.28) 57.6%, transparent 58.5% 100%),
+    linear-gradient(154deg, transparent 0 67%, rgba(255, 255, 255, 0.45) 67.4%, transparent 68.2% 100%);
+  mix-blend-mode: multiply;
+}
+
+.fighter::after {
+  background:
+    linear-gradient(22deg, transparent 0 16%, rgba(127, 29, 29, 0.48) 16.5%, transparent 17.4% 100%),
+    linear-gradient(145deg, transparent 0 72%, rgba(127, 29, 29, 0.5) 72.5%, transparent 73.2% 100%),
+    radial-gradient(circle at 82% 28%, rgba(185, 28, 28, 0.54) 0 3px, rgba(185, 28, 28, 0.24) 4px, transparent 10px);
+}
+
+.fighter.injury-light::before {
+  opacity: 0.28;
+}
+
+.fighter.injury-light::after {
+  opacity: 0.18;
+}
+
+.fighter.injury-moderate::before {
+  background:
+    linear-gradient(118deg, transparent 0 36%, rgba(17, 24, 39, 0.42) 36.5%, transparent 37.4% 100%),
+    linear-gradient(66deg, transparent 0 52%, rgba(17, 24, 39, 0.34) 52.6%, transparent 53.5% 100%),
+    linear-gradient(154deg, transparent 0 67%, rgba(17, 24, 39, 0.3) 67.4%, transparent 68.2% 100%),
+    linear-gradient(24deg, transparent 0 78%, rgba(255, 255, 255, 0.42) 78.4%, transparent 79.2% 100%);
+  opacity: 0.45;
+}
+
+.fighter.injury-moderate::after {
+  opacity: 0.34;
+}
+
+.fighter.injury-severe::before {
+  background:
+    linear-gradient(118deg, transparent 0 30%, rgba(17, 24, 39, 0.48) 30.5%, transparent 31.5% 100%),
+    linear-gradient(66deg, transparent 0 47%, rgba(17, 24, 39, 0.42) 47.6%, transparent 48.6% 100%),
+    linear-gradient(154deg, transparent 0 61%, rgba(17, 24, 39, 0.36) 61.4%, transparent 62.4% 100%),
+    linear-gradient(24deg, transparent 0 75%, rgba(17, 24, 39, 0.34) 75.4%, transparent 76.3% 100%),
+    linear-gradient(96deg, transparent 0 84%, rgba(255, 255, 255, 0.5) 84.4%, transparent 85.2% 100%);
+  opacity: 0.62;
+}
+
+.fighter.injury-severe::after {
+  background:
+    linear-gradient(22deg, transparent 0 14%, rgba(127, 29, 29, 0.62) 14.5%, transparent 15.6% 100%),
+    linear-gradient(145deg, transparent 0 68%, rgba(127, 29, 29, 0.62) 68.5%, transparent 69.6% 100%),
+    linear-gradient(104deg, transparent 0 42%, rgba(153, 27, 27, 0.5) 42.5%, transparent 43.4% 100%),
+    radial-gradient(circle at 82% 28%, rgba(185, 28, 28, 0.68) 0 5px, rgba(185, 28, 28, 0.3) 6px, transparent 14px),
+    radial-gradient(circle at 24% 74%, rgba(185, 28, 28, 0.52) 0 4px, transparent 11px);
+  opacity: 0.48;
 }
 
 .fighter[aria-disabled="true"] {
@@ -1824,9 +1933,14 @@ main.mobile-preview .chat-panel {
 }
 
 main.mobile-preview .skill-footer {
-  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-columns: 68px minmax(0, 1fr);
   height: 260px;
   min-height: 260px;
+}
+
+main.mobile-preview .skill-footer .square-img {
+  height: 68px;
+  width: 68px;
 }
 
 main.mobile-preview .skill-footer-meta {
@@ -1860,13 +1974,13 @@ main.mobile-preview .lobby-skill-strip {
 }
 
 main.mobile-preview .lobby-skill-strip button {
-  min-height: 44px;
+  min-height: 52px;
   padding: 4px;
 }
 
 main.mobile-preview .lobby-skill-strip .square-img {
-  height: 34px;
-  width: 34px;
+  height: 42px;
+  width: 42px;
 }
 
 main.mobile-preview .skill-footer.compact {
@@ -2234,13 +2348,13 @@ main.mobile-preview .battle-skill-strip {
 }
 
 main.mobile-preview .battle-skill-strip button {
-  min-height: 46px;
+  min-height: 52px;
   padding: 4px;
 }
 
 main.mobile-preview .battle-skill-strip .square-img {
-  height: 36px;
-  width: 36px;
+  height: 42px;
+  width: 42px;
 }
 
 main.mobile-preview .battle-skill-footer .skill-footer {
@@ -2599,10 +2713,10 @@ main.mobile-preview .skill-footer-meta {
   display: grid;
   gap: 14px;
   grid-column: 1 / -1;
-  grid-template-columns: 56px minmax(0, 1fr);
-  height: 128px;
+  grid-template-columns: 76px minmax(0, 1fr);
+  height: 148px;
   margin-top: 0;
-  min-height: 128px;
+  min-height: 148px;
   overflow: hidden;
   padding: 12px;
 }
@@ -2627,12 +2741,17 @@ main.mobile-preview .skill-footer-meta {
 
 .battle-skill-strip button {
   background: #17202a;
-  min-height: 48px;
-  padding: 4px;
+  min-height: 58px;
+  padding: 5px;
 }
 
 .battle-skill-strip button.selected {
   outline: 3px solid #f05d23;
+}
+
+.battle-skill-strip .square-img {
+  height: 52px;
+  width: 52px;
 }
 
 .battle-skill-strip button.unavailable {
@@ -2651,8 +2770,8 @@ main.mobile-preview .skill-footer-meta {
 }
 
 .skill-footer .square-img {
-  height: 56px;
-  width: 56px;
+  height: 76px;
+  width: 76px;
 }
 
 .skill-footer-body {
@@ -2856,9 +2975,14 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .skill-footer {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 68px minmax(0, 1fr);
     height: 260px;
     min-height: 260px;
+  }
+
+  .skill-footer .square-img {
+    height: 68px;
+    width: 68px;
   }
 
   .skill-footer-meta {
@@ -3069,13 +3193,13 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .lobby-skill-strip button {
-    min-height: 44px;
+    min-height: 52px;
     padding: 4px;
   }
 
   .lobby-skill-strip .square-img {
-    height: 34px;
-    width: 34px;
+    height: 42px;
+    width: 42px;
   }
 
   .skill-footer.compact {
@@ -3528,13 +3652,13 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .battle-skill-strip button {
-    min-height: 46px;
+    min-height: 52px;
     padding: 4px;
   }
 
   .battle-skill-strip .square-img {
-    height: 36px;
-    width: 36px;
+    height: 42px;
+    width: 42px;
   }
 
   .battle-skill-footer .skill-footer {

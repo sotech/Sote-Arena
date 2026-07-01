@@ -190,23 +190,41 @@ export function restoreDamageReduction(player) {
   });
 }
 
-export function applyDamage(target, value, damageType = "basic") {
-  const type = damageType === "normal" ? "basic" : (["basic", "piercing", "affliction"].includes(damageType) ? damageType : "basic");
+export function applyDamageDetailed(target, value, damageType = "basic") {
+  const type = damageType === "normal" ? "basic" : (["basic", "piercing", "affliction", "special"].includes(damageType) ? damageType : "basic");
+  const incomingDamage = Math.max(0, value);
   let remainingDamage = Math.max(0, value);
+  let shieldMitigated = 0;
+  let reductionMitigated = 0;
 
-  if (type === "basic" || type === "piercing") {
-    remainingDamage -= absorbShield(target, remainingDamage);
+  if (type === "basic" || type === "piercing" || type === "special") {
+    shieldMitigated = absorbShield(target, remainingDamage);
+    remainingDamage -= shieldMitigated;
   }
 
-  if (type === "basic") {
+  if (type === "basic" || type === "special") {
     const percentReduction = percentDamageReductionValue(target);
     if (percentReduction > 0) {
+      const beforePercentReduction = remainingDamage;
       remainingDamage = Math.ceil(Math.max(0, remainingDamage) * ((100 - percentReduction) / 100));
+      reductionMitigated += Math.max(0, beforePercentReduction - remainingDamage);
     }
-    remainingDamage -= absorbDamageReduction(target, remainingDamage);
+    const flatMitigated = absorbDamageReduction(target, remainingDamage);
+    reductionMitigated += flatMitigated;
+    remainingDamage -= flatMitigated;
   }
 
   const dealt = Math.max(0, remainingDamage);
   target.hp = Math.max(0, target.hp - dealt);
+  return {
+    dealt,
+    mitigated: Math.max(0, incomingDamage - dealt),
+    shieldMitigated,
+    reductionMitigated
+  };
+}
+
+export function applyDamage(target, value, damageType = "basic") {
+  const { dealt } = applyDamageDetailed(target, value, damageType);
   return dealt;
 }

@@ -103,11 +103,34 @@ export function skillIgnoresInvulnerability(skill) {
   return (skill?.effects || []).some((effect) => effectIgnoresInvulnerability(effect));
 }
 
+function replaceEffectsApplies(effect, skill) {
+  if (effect?.type !== "replaceEffects" || effect.ignoredByEffectImmunity === true) return false;
+  if (effect.turns <= 0 && effect.turns !== -1) return false;
+  const skillIds = Array.isArray(effect.skillIds) ? effect.skillIds : [];
+  return skillIds.length === 0 || skillIds.includes(skill.id) || skillIds.includes(skill.name);
+}
+
+function replacementEffectsForActiveSkill(member, skill) {
+  return (member?.statusEffects || [])
+    .flatMap((effect) => {
+      if (replaceEffectsApplies(effect, skill)) return [effect];
+      if (effect.type !== "complex" || (effect.turns <= 0 && effect.turns !== -1)) return [];
+      return (effect.effects || [])
+        .filter((childEffect) => replaceEffectsApplies({ ...childEffect, turns: 1 }, skill));
+    })
+    .at(-1)?.effects || null;
+}
+
+export function activeSkillIgnoresInvulnerability(member, skill) {
+  return (replacementEffectsForActiveSkill(member, skill) || skill?.effects || [])
+    .some((effect) => effectIgnoresInvulnerability(effect));
+}
+
 export function eligibleTargetsForSkill(skill, me, opponent, actor) {
   if (!skill || !actor || actor.hp <= 0) return [];
 
   const allies = (me?.team || []).filter((member) => member.hp > 0);
-  const canTargetInvulnerableEnemies = skillIgnoresInvulnerability(skill);
+  const canTargetInvulnerableEnemies = activeSkillIgnoresInvulnerability(actor, skill);
   const enemies = (opponent?.team || []).filter((member) => (
     member.hp > 0 && (canTargetInvulnerableEnemies || !isInvulnerableAgainstSkill(member, skill))
   ));

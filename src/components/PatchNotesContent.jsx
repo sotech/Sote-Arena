@@ -58,6 +58,14 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="1.5.0">
+        <CharacterPatch id="zoro">
+          <New>Agregado Roronoa Zoro</New>
+        </CharacterPatch>
+        <ul>
+          <li>Agregado nuevos fondos de pantalla</li>
+        </ul>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.4.1">
         <CharacterPatch id="dio">
           <Buff>Stand: The World ahora reduce 50% el daño recibido</Buff>

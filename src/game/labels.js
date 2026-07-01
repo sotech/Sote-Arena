@@ -127,6 +127,7 @@ export function effectDescription(effect) {
   if (effect.type === "instakill") return "Muerte instantanea";
   if (effect.type === "breakShield") return "Rompe escudo";
   if (effect.type === "shieldDamage") return `Dano a escudo: ${effect.value}`;
+  if (effect.type === "spike") return `Devuelve dano: ${effect.value}`;
   if (effect.type === "heal") return `Cura: ${effect.value}`;
   if (effect.type === "self-heal") return `Auto-curacion: ${effect.value}`;
   if (effect.type === "shield") return `Escudo: ${effect.value}${effect.isStackable ? " (acumulable)" : " (renovable)"}`;
@@ -248,6 +249,7 @@ export function chakraEffectTypeLabel(type) {
 export function damageTypeLabel(type = "basic") {
   if (type === "piercing") return "Dano perforante";
   if (type === "affliction") return "Dano afliccion";
+  if (type === "special") return "Dano especial";
   return "Dano normal";
 }
 

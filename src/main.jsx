@@ -12,7 +12,7 @@ import { MainMenu } from "./components/MainMenu.jsx";
 import { OptionsModal, ResultModal } from "./components/Overlays.jsx";
 import { PatchNotesView } from "./components/PatchNotesView.jsx";
 import { StatusEffects } from "./components/StatusEffects.jsx";
-import { allAssetUrls, characterImage, characterSound, skillImage, skullImage } from "./game/assets.js";
+import { allAssetUrls, backgroundImages, characterImage, characterSound, skillImage, skullImage } from "./game/assets.js";
 import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
 import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillOutOfUses, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor, teamHealthPercent } from "./game/battleRules.js";
 import { targetTypeLabel } from "./game/labels.js";
@@ -43,6 +43,48 @@ const socket = io(SOCKET_URL, { path: SOCKET_PATH });
 const bgmTracks = Object.values(import.meta.glob("./assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" }));
 const advantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" }));
 const disadvantageBgmTracks = Object.values(import.meta.glob("./assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" }));
+
+function randomBackground(exclude = "") {
+  const candidates = backgroundImages.filter((url) => url && url !== exclude);
+  const pool = candidates.length > 0 ? candidates : backgroundImages;
+  return pool[Math.floor(Math.random() * pool.length)] || "";
+}
+
+function RotatingBackground() {
+  const [backgroundState, setBackgroundState] = useState(() => ({
+    activeLayer: 0,
+    layers: [randomBackground(), ""]
+  }));
+
+  useEffect(() => {
+    if (backgroundImages.length <= 1) return;
+    const interval = window.setInterval(() => {
+      setBackgroundState((current) => {
+        const activeImage = current.layers[current.activeLayer];
+        const nextLayer = current.activeLayer === 0 ? 1 : 0;
+        const nextLayers = [...current.layers];
+        nextLayers[nextLayer] = randomBackground(activeImage);
+        return { activeLayer: nextLayer, layers: nextLayers };
+      });
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  if (backgroundImages.length === 0) return null;
+
+  return (
+    <div className="app-background" aria-hidden="true">
+      {backgroundState.layers.map((image, index) => (
+        <span
+          key={index}
+          className={`app-background-layer ${backgroundState.activeLayer === index ? "active" : ""}`}
+          style={image ? { backgroundImage: `url(${image})` } : undefined}
+        />
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [characters, setCharacters] = useState([]);
   const [room, setRoom] = useState(null);
@@ -889,6 +931,8 @@ function App() {
   }
 
   return (
+    <>
+    <RotatingBackground />
     <main className={mobilePreview ? "mobile-preview" : ""}>
       <section className="topbar">
         <div className="topbar-brand">
@@ -1082,6 +1126,7 @@ function App() {
         />
       )}
     </main>
+    </>
   );
 }
 
@@ -1236,6 +1281,7 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
               <span><SortHeader sortKey="winrate">Winrate</SortHeader></span>
               <span><SortHeader sortKey="damageDone">Daño</SortHeader></span>
               <span><SortHeader sortKey="healingDone">Curación</SortHeader></span>
+              <span><SortHeader sortKey="damageMitigated">Mitigado</SortHeader></span>
             </div>
             {sortedResults.map((item) => {
               const total = item.wins + item.losses;
@@ -1249,6 +1295,7 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
                   <span>{winrate}%</span>
                   <span>{item.damageDone || 0}</span>
                   <span>{item.healingDone || 0}</span>
+                  <span>{item.damageMitigated || 0}</span>
                 </div>
               );
             })}
@@ -1371,7 +1418,7 @@ function CharactersCatalog({ characters, onBack }) {
       <div className="section-head">
         <div>
           <p className="eyebrow">Personajes</p>
-          <h2>Lista de personajes</h2>
+          <h2>Lista de personajes ({characters.length})</h2>
         </div>
         <button type="button" className="secondary" onClick={onBack}>
           Atras
@@ -2254,6 +2301,16 @@ function damageSeverityClass(damage, maxHp) {
   return "damage-critical";
 }
 
+function injurySeverityClass(member) {
+  const maxHp = Math.max(1, Number(member?.character?.maxHp || 0));
+  const hp = Math.max(0, Number(member?.hp || 0));
+  if (hp <= 0 || hp >= maxHp) return "";
+  const missingPercent = ((maxHp - hp) / maxHp) * 100;
+  if (missingPercent < 34) return "injury-light";
+  if (missingPercent < 67) return "injury-moderate";
+  return "injury-severe";
+}
+
 function Team({ title, player, active, disadvantage = false, actorId, targetId, eligibleTargetIds = new Set(), choosingTarget = false, damageAnimationTurnKey = "", onInspect, onPick, targetable = false, ownTeam = false }) {
   const previousHpRef = useRef(new Map());
   const [damageAnimations, setDamageAnimations] = useState({});
@@ -2299,9 +2356,10 @@ function Team({ title, player, active, disadvantage = false, actorId, targetId, 
           const portraitSrc = member.hp <= 0 ? skullImage : characterImage(member.avatarImageId || member.character.id);
           const mirrorEnemyPortrait = targetable && member.hp > 0 && !String(portraitSrc).startsWith("data:image/svg+xml");
           const fighterHint = eligible ? "Objetivo elegible" : untargetable ? "Invulnerable" : "";
+          const injuryClass = injurySeverityClass(member);
           return (
             <div
-              className={`fighter ${damageAnimation ? `damage-shake ${damageAnimation.severity}` : ""} ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
+              className={`fighter ${injuryClass} ${damageAnimation ? `damage-shake ${damageAnimation.severity}` : ""} ${actorId === member.id ? "actor-picked" : ""} ${ownTeam && targetId === member.id ? "target-picked" : ""} ${eligible ? "target-eligible" : ""} ${member.hp <= 0 ? "down" : ""} ${untargetable && !eligible ? "untargetable" : ""}`}
               key={member.id}
               data-damage-token={damageAnimation?.token}
               onClick={() => {

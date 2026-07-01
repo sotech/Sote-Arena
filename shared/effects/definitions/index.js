@@ -34,6 +34,7 @@ import { reviveOnDeathEffect } from "./reviveOnDeath.js";
 import { selfHealEffect } from "./selfHeal.js";
 import { shieldEffect } from "./shield.js";
 import { shieldDamageEffect } from "./shieldDamage.js";
+import { spikeEffect } from "./spike.js";
 import { stunEffect } from "./stun.js";
 import { stunImmunityEffect } from "./stunImmunity.js";
 import { substituteChakraCostEffect } from "./substituteChakraCost.js";
@@ -48,6 +49,7 @@ export const effectTypes = {
   breakShield: breakShieldEffect,
   shieldDamage: shieldDamageEffect,
   shield: shieldEffect,
+  spike: spikeEffect,
   changeAvatarImage: changeAvatarImageEffect,
   "damage-reduction": damageReductionEffect,
   "effect-immunity": effectImmunityEffect,

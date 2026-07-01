@@ -17,6 +17,7 @@ import { jotaro } from "./characters/jotaro/index.js";
 import { dio } from "./characters/dio/index.js";
 import { joseph } from "./characters/joseph/index.js";
 import { ichigo } from "./characters/ichigo/index.js";
+import { zoro } from "./characters/zoro/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -33,6 +34,7 @@ function effectBotDescription(effect) {
   if (effect.type === "instakill") return "instakill";
   if (effect.type === "heal" || effect.type === "self-heal") return `heal-${effect.value}`;
   if (effect.type === "shield") return `shield-${effect.value}`;
+  if (effect.type === "spike") return `spike-${effect.value}`;
   if (effect.type === "damage-reduction") return `damageReduction-${effect.value}`;
   if (effect.type === "ignoreEffects") return `ignoreEffects-${(effect.ignoreEffects || []).join(",")}`;
   if (effect.type === "allyCountStatus") return `allyCountStatus-dr${effect.damageReductionPerAlly || 0}-shield${effect.shieldPerAlly || 0}`;
@@ -105,5 +107,6 @@ export const characters = [
   jotaro,
   dio,
   joseph,
-  ichigo
+  ichigo,
+  zoro
 ].map(withSkillDefaults);

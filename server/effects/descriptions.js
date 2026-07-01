@@ -20,6 +20,7 @@ export function statusDescription(effect, actorCharacter) {
   if (effect.type === "instakill") return `${actorCharacter.name} ha ejecutado a este personaje.`;
   if (effect.type === "breakShield") return `${actorCharacter.name} destruyo los escudos de este personaje.`;
   if (effect.type === "shieldDamage") return `${actorCharacter.name} dano el escudo de este personaje.`;
+  if (effect.type === "spike") return `${actorCharacter.name} devuelve dano al recibir dano.`;
   if (effect.type === "damage-reduction") return `${actorCharacter.name} ha obtenido ${effect.value}${effect.percent ? "%" : ""} de reduccion de dano.`;
   if (effect.type === "allyCountStatus") return `${actorCharacter.name} ha ganado proteccion por sus aliados vivos.`;
   if (effect.type === "modifyDamage") {
@@ -63,6 +64,7 @@ export function damageReductionDescriptions(effect) {
 export function damageTypeLabel(type = "basic") {
   if (type === "piercing") return "dano perforante";
   if (type === "affliction") return "dano afliccion";
+  if (type === "special") return "dano especial";
   return "dano normal";
 }
 
@@ -148,6 +150,7 @@ export function simpleEffectDescription(effect) {
   if (effect.type === "payLife") return `Paga ${effect.value} de vida${effect.notKill ? " sin poder morir" : ""}.`;
   if (effect.type === "breakShield") return "Destruye todo el escudo.";
   if (effect.type === "shieldDamage") return `Inflige ${effect.value} de dano solo al escudo.`;
+  if (effect.type === "spike") return `Devuelve ${effect.value} de ${damageTypeLabel(effect.damageType)} al atacante.`;
   if (effect.type === "instakill") return "Mata instantaneamente.";
   if (effect.type === "heal" || effect.type === "self-heal") return `Cura ${effect.value} de vida.`;
   if (effect.type === "shield") return `Otorga ${effect.value} de escudo.`;

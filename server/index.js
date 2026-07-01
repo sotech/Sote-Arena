@@ -17,7 +17,7 @@ import {
   statusDescription
 } from "./effects/descriptions.js";
 import {
-  applyDamage,
+  applyDamageDetailed,
   restoreDamageReduction,
   shieldValue
 } from "./effects/damage.js";
@@ -112,6 +112,7 @@ function mergeUniqueDescriptions(...descriptionGroups) {
 function damageTypeLogLabel(type = "basic") {
   if (type === "piercing") return "dano perforante";
   if (type === "affliction") return "dano de afliccion";
+  if (type === "special") return "dano especial";
   return "dano normal";
 }
 
@@ -144,7 +145,8 @@ function publicResultStats(room, viewerId) {
         playerName: player.name,
         side: player.id === viewerId ? "player" : "enemy",
         damageDone: Math.max(0, Number(stats.damageDone || 0)),
-        healingDone: Math.max(0, Number(stats.healingDone || 0))
+        healingDone: Math.max(0, Number(stats.healingDone || 0)),
+        damageMitigated: Math.max(0, Number(stats.damageMitigated || 0))
       };
     })
   ));
@@ -515,19 +517,22 @@ function affectedPlayersForChakraEffect(room, player, targets, effect) {
   return [...new Set(targets.map((target) => ownerOfMember(room, target)).filter(Boolean))];
 }
 
-function recordBalanceStats(room, sourceMember, { damage = 0, healing = 0 } = {}) {
+function recordBalanceStats(room, sourceMember, { damage = 0, healing = 0, mitigated = 0 } = {}) {
   if (!room?.balanceStats || !sourceMember?.characterId) return;
   const damageDone = Math.max(0, Number(damage || 0));
   const healingDone = Math.max(0, Number(healing || 0));
-  const characterStats = room.balanceStats.characters[sourceMember.characterId] || { damageDone: 0, healingDone: 0 };
+  const damageMitigated = Math.max(0, Number(mitigated || 0));
+  const characterStats = room.balanceStats.characters[sourceMember.characterId] || { damageDone: 0, healingDone: 0, damageMitigated: 0 };
   characterStats.damageDone += damageDone;
   characterStats.healingDone += healingDone;
+  characterStats.damageMitigated += damageMitigated;
   room.balanceStats.characters[sourceMember.characterId] = characterStats;
   if (sourceMember.id) {
     room.balanceStats.members ||= {};
-    const memberStats = room.balanceStats.members[sourceMember.id] || { damageDone: 0, healingDone: 0 };
+    const memberStats = room.balanceStats.members[sourceMember.id] || { damageDone: 0, healingDone: 0, damageMitigated: 0 };
     memberStats.damageDone += damageDone;
     memberStats.healingDone += healingDone;
+    memberStats.damageMitigated += damageMitigated;
     room.balanceStats.members[sourceMember.id] = memberStats;
   }
 }
@@ -845,7 +850,8 @@ export function runBalanceTest(fightCount = BALANCE_TEST_DEFAULT_FIGHT_COUNT) {
     wins: 0,
     losses: 0,
     damageDone: 0,
-    healingDone: 0
+    healingDone: 0,
+    damageMitigated: 0
   }]));
   const fights = [];
   const engine = botEngine();
@@ -897,6 +903,7 @@ export function runBalanceTest(fightCount = BALANCE_TEST_DEFAULT_FIGHT_COUNT) {
       if (!result) continue;
       result.damageDone += Math.round(Number(stats.damageDone || 0));
       result.healingDone += Math.round(Number(stats.healingDone || 0));
+      result.damageMitigated += Math.round(Number(stats.damageMitigated || 0));
     }
 
     fights.push({
@@ -1172,7 +1179,7 @@ function appliesToDamageMultiplierSkill(effect, skill) {
 
 function appliesToDamageTypeModifiedSkill(effect, skill) {
   if (effect.type !== "modifyDamageType" || (effect.turns <= 0 && effect.turns !== -1)) return false;
-  if (!["basic", "normal", "piercing", "affliction"].includes(effect.damageType)) return false;
+  if (!["basic", "normal", "piercing", "affliction", "special"].includes(effect.damageType)) return false;
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }
@@ -1269,6 +1276,45 @@ function targetMatchesDamageMultiplier(effect, target) {
   return activeStatusEffects(target).some((status) => statusMatchesTargetCondition(status, effect.targetStatus));
 }
 
+function activeSpikeEffects(member) {
+  return activeStatusEffects(member).flatMap((effect) => {
+    if (effect.type === "spike") return [effect];
+    if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
+      return (effect.effects || [])
+        .filter((childEffect) => !statusIsIgnored(childEffect))
+        .filter((childEffect) => childEffect.type === "spike")
+        .map((childEffect) => ({
+          ...childEffect,
+          sourceSkillId: effect.sourceSkillId,
+          sourceSkillName: effect.sourceSkillName,
+          sourceActorName: effect.sourceActorName,
+          originActorId: effect.originActorId,
+          originCharacterId: effect.originCharacterId
+        }));
+    }
+    return [];
+  });
+}
+
+function applySpikeDamage(room, defender, attacker, events = []) {
+  if (!attacker || attacker.hp <= 0 || !defender || defender.id === attacker.id) return 0;
+  let totalSpikeDamage = 0;
+  for (const spike of activeSpikeEffects(defender)) {
+    const value = Math.max(0, Number(spike.value || 0));
+    if (value <= 0) continue;
+    const damageType = spike.damageType || "basic";
+    const result = applyDamageDetailed(attacker, value, damageType);
+    totalSpikeDamage += result.dealt;
+    recordBalanceStats(room, defender, { damage: result.dealt });
+    recordBalanceStats(room, attacker, { mitigated: result.mitigated });
+    if (result.dealt > 0) {
+      const source = spike.sourceSkillName || "Spike";
+      events.push(`${source} devolvio ${result.dealt} de ${damageTypeLogLabel(damageType)}.`);
+    }
+  }
+  return totalSpikeDamage;
+}
+
 export function damageMultiplierValue(actor, skill, target, currentTurn) {
   const multiplierForEffect = (effect) => (
     appliesToDamageMultiplierSkill(effect, skill) && targetMatchesDamageMultiplier(effect, target)
@@ -1299,7 +1345,7 @@ export function isSkillReflectable(actor, skill, currentTurn) {
 }
 
 export function modifiedDamageType(actor, skill, baseDamageType = "basic", currentTurn) {
-  let type = ["basic", "normal", "piercing", "affliction"].includes(baseDamageType) ? baseDamageType : "basic";
+  let type = ["basic", "normal", "piercing", "affliction", "special"].includes(baseDamageType) ? baseDamageType : "basic";
   for (const effect of activeStatusEffects(actor)) {
     if (effect.sourceSkillId === skill.id && effect.createdTurn === currentTurn) continue;
     if (appliesToDamageTypeModifiedSkill(effect, skill)) {
@@ -1346,6 +1392,15 @@ function ignoresInvulnerability(effect) {
 
 function skillIgnoresInvulnerability(skill) {
   return (skill?.effects || []).some((effect) => ignoresInvulnerability(effect));
+}
+
+function targetingSourceForSkill(actor, skill, currentTurn) {
+  const replacementEffects = replacementEffectsForSkill(actor, skill, currentTurn);
+  const effects = replacementEffects || skill?.effects || [];
+  return {
+    ...skill,
+    effects: [...effects, ...addedEffectsForSkill(actor, skill, currentTurn)]
+  };
 }
 
 function canBeTargetedBy(player, candidate, source = null) {
@@ -1595,21 +1650,22 @@ function limitTargets(targets, targetLimit) {
 
 function targetsForSkill(room, player, actor, targetId, skill, currentTurn = room.turn) {
   const opponent = opponentOf(room, player.id);
+  const targetingSource = targetingSourceForSkill(actor, skill, currentTurn);
   const targetType = skill.ignoreTargetTypeModifiers
     ? skill.targetType
     : modifiedTargetType(actor, skill, skill.targetType, currentTurn);
   let targets = [];
   if (targetType === "self") targets = [actor];
-  if (targetType === "enemy") targets = [getMember(opponent, targetId)].filter(Boolean).filter((member) => canBeTargetedBy(player, member, skill));
+  if (targetType === "enemy") targets = [getMember(opponent, targetId)].filter(Boolean).filter((member) => canBeTargetedBy(player, member, targetingSource));
   if (targetType === "ally") targets = [getMember(player, targetId)].filter(Boolean);
   if (targetType === "otherAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.id !== actor.id);
   if (targetType === "anyCharacter") targets = [
     getMember(player, targetId),
     getMember(opponent, targetId)
-  ].filter(Boolean).filter((member) => player.team.includes(member) || canBeTargetedBy(player, member, skill));
-  if (targetType === "enemies") targets = aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, skill));
+  ].filter(Boolean).filter((member) => player.team.includes(member) || canBeTargetedBy(player, member, targetingSource));
+  if (targetType === "enemies") targets = aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, targetingSource));
   if (targetType === "allies") targets = aliveMembers(player);
-  if (targetType === "allPlayers") targets = [...aliveMembers(player), ...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, skill))];
+  if (targetType === "allPlayers") targets = [...aliveMembers(player), ...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, targetingSource))];
   return limitTargets(targets, modifiedTargetCount(actor, skill, currentTurn));
 }
 
@@ -1717,7 +1773,7 @@ function applyComplexStatusEffects(room, player) {
       status.damageAppliedThisTick = false;
       for (const effect of status.effects || []) {
         if (statusIsIgnored(effect)) continue;
-        if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "effect-immunity" || effect.type === "ignoreEffects" || effect.type === "stun" || effect.type === "stunImmunity") {
+        if (skillModifierEffectTypes.includes(effect.type) || effect.type === "counter" || effect.type === "reflect" || effect.type === "spike" || effect.type === "damage-reduction" || effect.type === "invulnerable" || effect.type === "effect-immunity" || effect.type === "ignoreEffects" || effect.type === "stun" || effect.type === "stunImmunity") {
           continue;
         }
 
@@ -1754,9 +1810,11 @@ function applyComplexStatusEffects(room, player) {
         const damageType = effect.damageType || "basic";
         for (const target of targets) {
           if (!effectAppliesToTarget(effect, target, member)) continue;
-          const dealt = applyDamage(target, positiveEffectValue(effect), damageType);
-          totalDamage += dealt;
-          recordDamageByType(damageByType, damageType, dealt);
+          const result = applyDamageDetailed(target, positiveEffectValue(effect), damageType);
+          totalDamage += result.dealt;
+          recordDamageByType(damageByType, damageType, result.dealt);
+          recordBalanceStats(room, target, { mitigated: result.mitigated });
+          if (result.dealt > 0) applySpikeDamage(room, target, getRoomMember(room, status.originActorId), events);
         }
         status.lastDamageDealt = totalDamage;
         status.damageAppliedThisTick = totalDamage > 0;
@@ -1877,11 +1935,23 @@ function relationForTarget(room, player, target) {
   return owner.id === player.id ? "ally" : "enemy";
 }
 
-function expandConditionalEffects(effects, room, player, selectedTargets) {
+function conditionalCaseMatches(item, room, player, actor, selectedTargets) {
+  const relation = relationForTarget(room, player, selectedTargets[0]);
+  if (item.relation === relation || item.when === relation) return true;
+  if (item.default === true || item.when === "default") return true;
+  const condition = item.condition || item.when;
+  if (!condition || typeof condition !== "object") return false;
+  const scope = normalizeRequireScope(condition.scope || condition.target || "actor");
+  const candidates = scope === "self" || scope === "actor"
+    ? [actor]
+    : requireCandidates({ ...condition, scope }, player, opponentOf(room, player?.id), actor, selectedTargets);
+  return candidates.some((member) => member && memberMeetsRequirement(member, condition));
+}
+
+function expandConditionalEffects(effects, room, player, actor, selectedTargets) {
   return effects.flatMap((effect) => {
     if (effect.type !== "conditionalEffects") return [effect];
-    const relation = relationForTarget(room, player, selectedTargets[0]);
-    const matchedCase = (effect.cases || []).find((item) => item.relation === relation || item.when === relation);
+    const matchedCase = (effect.cases || []).find((item) => conditionalCaseMatches(item, room, player, actor, selectedTargets));
     return matchedCase?.effects || [];
   });
 }
@@ -2040,10 +2110,12 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       const damageType = effect.damageType || "basic";
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, sourceMember)) continue;
-        const dealt = applyDamage(target, positiveEffectValue(effect), damageType);
-        totalDamage += dealt;
-        recordDamageByType(damageByType, damageType, dealt);
-        if (dealt > 0) addTriggeredEffectNotice(target, status, effect, currentTurn);
+        const result = applyDamageDetailed(target, positiveEffectValue(effect), damageType);
+        totalDamage += result.dealt;
+        recordDamageByType(damageByType, damageType, result.dealt);
+        recordBalanceStats(room, target, { mitigated: result.mitigated });
+        if (result.dealt > 0) applySpikeDamage(room, target, sourceMember, events);
+        if (result.dealt > 0) addTriggeredEffectNotice(target, status, effect, currentTurn);
       }
       recordBalanceStats(room, sourceMember, { damage: totalDamage });
       if (totalDamage > 0) events.push(`${status.sourceSkillName} hizo ${formatDamageSummary(damageByType)}.`);
@@ -2054,7 +2126,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       for (const target of targets) {
         const statusEffects = effectsAllowedByTargetImmunity(Array.isArray(effect.effects) ? effect.effects : [], target);
         if (statusEffects.length === 0 && effect.showStatusEffect !== true && !hasCustomDescriptions(effect)) continue;
-        const presentation = secretOpponentStatusPresentation(room, player, target, skill, effect, effect.descriptions);
+        const presentation = secretOpponentStatusPresentation(room, sourcePlayer, target, triggeredSkill, effect, effect.descriptions);
         addStatus(target, {
           id: randomUUID(),
           type: "complex",
@@ -2506,7 +2578,7 @@ export function applyQueuedSkill(room, player, action) {
   const reflectedNoticeTargetIds = new Set();
 
   const baseEffects = replacementEffectsForSkill(actor, skill, room.turn) || (skill.effects || []);
-  const activeEffects = expandConditionalEffects([...baseEffects, ...addedEffectsForSkill(actor, skill, room.turn)], room, player, selectedTargets)
+  const activeEffects = expandConditionalEffects([...baseEffects, ...addedEffectsForSkill(actor, skill, room.turn)], room, player, actor, selectedTargets)
     .map((effect) => (reflect ? reflectedEffect(effect, effectiveSkill, reflect.status) : effect));
 
   for (const effect of activeEffects) {
@@ -2591,9 +2663,11 @@ export function applyQueuedSkill(room, player, action) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
         const multiplier = damageMultiplierValue(actor, skill, target, room.turn);
         const targetDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier);
-        const dealt = applyDamage(target, targetDamage, damageType);
-        totalDamage += dealt;
-        recordDamageByType(damageByType, damageType, dealt);
+        const result = applyDamageDetailed(target, targetDamage, damageType);
+        totalDamage += result.dealt;
+        recordDamageByType(damageByType, damageType, result.dealt);
+        recordBalanceStats(room, target, { mitigated: result.mitigated });
+        if (result.dealt > 0) applySpikeDamage(room, target, actor, events);
       }
       continue;
     }
@@ -2788,6 +2862,30 @@ export function applyQueuedSkill(room, player, action) {
           tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
         if (appliedEffect.ignoredByEffectImmunity !== true) totalDamageTypeModifiers += 1;
+      }
+      continue;
+    }
+
+    if (effect.type === "spike") {
+      for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        const presentation = secretOpponentStatusPresentation(room, player, target, skill, appliedEffect, [statusDescription(appliedEffect, actorCharacter)]);
+        addStatus(target, {
+          id: randomUUID(),
+          type: "spike",
+          turns: statusTurnsFromDuration(appliedEffect.duration),
+          value: positiveEffectValue(appliedEffect),
+          damageType: appliedEffect.damageType || "basic",
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
+          showStatusEffect: presentation.showStatusEffect,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
+          sourceActorName: actorCharacter.name,
+          ...statusOrigin(actor),
+          createdTurn: room.turn,
+          descriptions: presentation.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
+        });
       }
       continue;
     }

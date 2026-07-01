@@ -61,7 +61,8 @@ const resultColumns = [
   { id: "characterName", label: "Personaje", type: "text" },
   { id: "playerName", label: "Equipo", type: "text" },
   { id: "damageDone", label: "Dano hecho", type: "number" },
-  { id: "healingDone", label: "Sanacion hecha", type: "number" }
+  { id: "healingDone", label: "Sanacion hecha", type: "number" },
+  { id: "damageMitigated", label: "Dano mitigado", type: "number" }
 ];
 
 export function ResultModal({ title, reason, stats = [], onReturnHome }) {
@@ -115,6 +116,7 @@ export function ResultModal({ title, reason, stats = [], onReturnHome }) {
                     <td>{item.playerName}</td>
                     <td>{item.damageDone}</td>
                     <td>{item.healingDone}</td>
+                    <td>{item.damageMitigated}</td>
                   </tr>
                 ))}
               </tbody>

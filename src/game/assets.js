@@ -5,6 +5,9 @@ const characterSoundAssets = import.meta.glob("../assets/character-sounds/*.mp3"
 const bgmAssets = import.meta.glob("../assets/bgm/*.mp3", { eager: true, query: "?url", import: "default" });
 const advantageBgmAssets = import.meta.glob("../assets/bgm-advantage/*.mp3", { eager: true, query: "?url", import: "default" });
 const disadvantageBgmAssets = import.meta.glob("../assets/bgm-disadvantage/*.mp3", { eager: true, query: "?url", import: "default" });
+const backgroundAssets = import.meta.glob("../assets/bgs/*.png", { eager: true, query: "?url", import: "default" });
+
+export const backgroundImages = Object.values(backgroundAssets);
 
 export const skullImage = `data:image/svg+xml;utf8,${encodeURIComponent(`
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">
@@ -32,7 +35,8 @@ export const allAssetUrls = [
   ...Object.values(characterSoundAssets),
   ...Object.values(bgmAssets),
   ...Object.values(advantageBgmAssets),
-  ...Object.values(disadvantageBgmAssets)
+  ...Object.values(disadvantageBgmAssets),
+  ...backgroundImages
 ];
 
 export function characterSound(soundName) {
