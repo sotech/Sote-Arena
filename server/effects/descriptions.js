@@ -1,6 +1,6 @@
 import { getSkillNameById } from "../../shared/characters.js";
 import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
-import { skillFamiliesLabel, stunFamiliesAffected } from "../../shared/effects.js";
+import { skillFamiliesLabel, stunFamiliesAffected, stunScopeLabel } from "../../shared/effects.js";
 
 const resourceLabels = {
   taijutsu: "Fisico",
@@ -29,19 +29,21 @@ export function statusDescription(effect, actorCharacter) {
   }
   if (effect.type === "modifyDamageByMissingHp") return `${actorCharacter.name} ha modificado el dano de este personaje segun su vida faltante.`;
   if (effect.type === "modifyDamageMultiplier") return `${actorCharacter.name} ha multiplicado el dano de este personaje.`;
+  if (effect.type === "modifyReceivedDamage") return `${actorCharacter.name} ha modificado el dano recibido por este personaje.`;
   if (effect.type === "modifyDamageType") return `${actorCharacter.name} ha modificado el tipo de dano de este personaje.`;
   if (effect.type === "modifyTargetType") return `${actorCharacter.name} ha modificado los objetivos de este personaje.`;
   if (effect.type === "modifyTargetCount") return `${actorCharacter.name} ha modificado la cantidad de objetivos de este personaje.`;
   if (effect.type === "addEffectToBase") return `${actorCharacter.name} ha agregado efectos a las habilidades de este personaje.`;
   if (effect.type === "addUncountereable") return `${actorCharacter.name} ha hecho habilidades de este personaje no contrarestables.`;
   if (effect.type === "addNonReflectable") return `${actorCharacter.name} ha hecho habilidades de este personaje no reflejables.`;
+  if (effect.type === "nullifyNextIncoming") return `${actorCharacter.name} anulara la proxima habilidad recibida.`;
   if (effect.type === "replaceEffects") return `${actorCharacter.name} ha reemplazado los efectos de habilidades de este personaje.`;
   if (effect.type === "replaceSkill") return `${actorCharacter.name} reemplazo ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;
   if (effect.type === "counter") return `${actorCharacter.name} ha preparado un counter.`;
   if (effect.type === "reflect") return `${actorCharacter.name} ha preparado un reflejo.`;
   if (chakraCostModifierTypes.includes(effect.type)) return `${actorCharacter.name} ha modificado el coste de chakra de este personaje.`;
   if (effect.type === "complex") return `${actorCharacter.name} ha aplicado un efecto complejo.`;
-  if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje.`;
+  if (effect.type === "stun") return `${actorCharacter.name} ha aturdido a este personaje. ${stunScopeLabel(stunFamiliesAffected(effect))}`;
   if (effect.type === "invulnerable") {
     const affectedFamilies = Array.isArray(effect.familiesAffected) ? effect.familiesAffected : [];
     const scope = affectedFamilies.length ? ` contra habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";
@@ -87,6 +89,12 @@ function modifyDamageMultiplierDescriptions(effect) {
   return [`${effect.sourceActorName || "Un personaje"} multiplica el dano x${Number(effect.multiplier ?? effect.value ?? 1)}${scope}.`];
 }
 
+function modifyReceivedDamageDescriptions(effect) {
+  const amount = Math.abs(Number(effect.value || 0));
+  const verb = Number(effect.value || 0) < 0 ? "reduce" : "aumenta";
+  return [`${effect.sourceActorName || "Un personaje"} ${verb} el dano recibido en ${amount}.`];
+}
+
 function modifyDamageTypeDescriptions(effect) {
   const scope = effect.skillIds?.length ? ` para ${effect.skillIds.map(getSkillNameById).join(", ")}` : " para todas sus habilidades";
   return [`${effect.sourceActorName || "Un personaje"} cambio el tipo de dano a ${damageTypeLabel(effect.damageType)}${scope}.`];
@@ -117,12 +125,14 @@ export function modifierDescriptions(effect) {
   if (effect.type === "modifyDamage") return modifyDamageDescriptions(effect);
   if (effect.type === "modifyDamageByMissingHp") return modifyDamageByMissingHpDescriptions(effect);
   if (effect.type === "modifyDamageMultiplier") return modifyDamageMultiplierDescriptions(effect);
+  if (effect.type === "modifyReceivedDamage") return modifyReceivedDamageDescriptions(effect);
   if (effect.type === "modifyDamageType") return modifyDamageTypeDescriptions(effect);
   if (effect.type === "modifyTargetType") return [`${effect.sourceActorName || "Un personaje"} cambio los objetivos de habilidades.`];
   if (effect.type === "modifyTargetCount") return [`${effect.sourceActorName || "Un personaje"} limito la cantidad de objetivos de habilidades.`];
   if (effect.type === "addEffectToBase") return addEffectToBaseDescriptions(effect);
   if (effect.type === "addUncountereable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades no contrarestables.`];
   if (effect.type === "addNonReflectable") return [`${effect.sourceActorName || "Un personaje"} hizo habilidades no reflejables.`];
+  if (effect.type === "nullifyNextIncoming") return [`${effect.sourceActorName || "Un personaje"} anula la proxima habilidad recibida cada turno.`];
   if (effect.type === "replaceEffects") return replaceEffectsDescriptions(effect);
   if (effect.type === "replaceSkill") return replaceSkillDescriptions(effect);
   if (effect.type === "counter") return [`${effect.sourceActorName || "Un personaje"} preparo un counter.`];
@@ -178,6 +188,10 @@ export function simpleEffectDescription(effect) {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
     return `Multiplica x${Number(effect.multiplier ?? effect.value ?? 1)} el dano${scope}.`;
   }
+  if (effect.type === "modifyReceivedDamage") {
+    const amount = Math.abs(Number(effect.value || 0));
+    return `${Number(effect.value || 0) < 0 ? "Reduce" : "Aumenta"} ${amount} el dano recibido.`;
+  }
   if (effect.type === "modifyDamageType") {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";
     return `Cambia el tipo de dano a ${damageTypeLabel(effect.damageType)}${scope}.`;
@@ -192,6 +206,7 @@ export function simpleEffectDescription(effect) {
   }
   if (effect.type === "addUncountereable") return "Hace que habilidades no puedan ser contrarestadas.";
   if (effect.type === "addNonReflectable") return "Hace que habilidades no puedan ser reflejadas.";
+  if (effect.type === "nullifyNextIncoming") return "Anula la proxima habilidad recibida cada turno.";
   if (effect.type === "replaceSkill") {
     const duration = effect.duration === -1 || effect.turns === -1 ? " permanentemente" : "";
     return `Reemplaza${duration} ${getSkillNameById(effect.baseSkillId)} por ${getSkillNameById(effect.skillId)}.`;
@@ -220,8 +235,7 @@ export function simpleEffectDescription(effect) {
   if (effect.type === "changeAvatarImage") return "Cambia la imagen del personaje.";
   if (effect.type === "stun") {
     const affectedFamilies = stunFamiliesAffected(effect);
-    const scope = affectedFamilies.length ? ` a las habilidades ${skillFamiliesLabel(affectedFamilies)}` : "";
-    return `Aplica aturdimiento${scope}.`;
+    return `Aplica aturdimiento. ${stunScopeLabel(affectedFamilies)}`;
   }
   if (effect.type === "gain-chakra") return `Otorga ${effect.value} recurso.`;
   if (effect.type === "remove-chakra") return `Elimina ${effect.value} recurso.`;

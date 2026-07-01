@@ -191,6 +191,8 @@ test("skill effects use the documented effect system", () => {
           assert.ok(effect.duration > 0);
         } else if (effect.type === "instakill") {
           assert.equal(effect.value, undefined);
+        } else if (effect.type === "heal" || effect.type === "self-heal") {
+          assert.ok(effect.sourceCurrentHp === true || effect.value > 0);
         } else if (effect.type === "modifyDamage") {
           assert.notEqual(effect.value, 0);
           if (effect.isStackable !== undefined) assert.equal(typeof effect.isStackable, "boolean");
@@ -911,7 +913,7 @@ test("addEffectToBase adds effects to matching skills", () => {
   );
   assert.equal(
     effectDescription({ type: "addEffectToBase", duration: 3, targets: "self", skillIds: ["shadow-kick"], effects: [{ type: "stun", value: 1, targets: "target" }] }),
-    "Agrega efecto por 3 turno(s) (Patada de sombra): Aturde: 1 turno(s)"
+    "Agrega efecto por 3 turno(s) (Patada de sombra): Aturde: 1 turno(s). Aturde todas las habilidades."
   );
 });
 
@@ -927,7 +929,10 @@ test("stun can affect specific skill families", () => {
 
   assert.equal(isSkillStunned(member, { id: "rasengan", family: ["special", "offensive", "instant"] }), true);
   assert.equal(isSkillStunned(member, { id: "shadow-clones", family: ["physical", "offensive", "instant"] }), false);
-  assert.equal(effectDescription({ type: "stun", value: 1, targets: "target", familiesAffected: ["physical", "instant"] }), "Aturde: 1 turno(s) (fisicas, instantaneas)");
+  assert.equal(
+    effectDescription({ type: "stun", value: 1, targets: "target", familiesAffected: ["physical", "instant"] }),
+    "Aturde: 1 turno(s). Aturde habilidades fisicas, instantaneas. No aturde habilidades especiales ni de tipo mental."
+  );
 });
 
 test("offensive-only counters ignore strategic skills", () => {
@@ -1215,7 +1220,7 @@ test("Cacho smoke hazard only stuns physical skills", () => {
   assert.deepEqual(stun.familiesAffected, ["physical"]);
   assert.equal(isSkillStunned(member, { id: "cats-blessing", family: ["special", "strategic", "instant"] }), false);
   assert.equal(isSkillStunned(member, { id: "shadow-kick", family: ["physical", "offensive", "instant"] }), true);
-  assert.equal(effectDescription(stun), "Aturde: 1 turno(s) (fisicas)");
+  assert.equal(effectDescription(stun), "Aturde: 1 turno(s). Aturde habilidades fisicas. No aturde habilidades especiales ni de tipo mental.");
 });
 
 test("stun without familiesAffected affects every skill", () => {
@@ -1388,6 +1393,167 @@ test("replaceSkill swaps a base skill with an extra skill while active", () => {
     effectDescription({ type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "sand-armor", skillId: "sand-storm" }),
     "Reemplaza habilidad por 2 turno(s): Armadura de arena -> Tormenta de arena"
   );
+});
+
+test("Chiyo hides Life Reincarnation until Ally Puppetry replaces it", () => {
+  const chiyo = getCharacterById("chiyo");
+  const member = { id: "chiyo", characterId: "chiyo", hp: 100, statusEffects: [], skillCooldowns: {}, character: chiyo };
+  const ally = { id: "ally", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [member, ally] };
+  const opponent = { id: "p2", name: "P2", team: [{ id: "enemy", characterId: "sasuke", hp: 100, statusEffects: [], skillCooldowns: {} }] };
+  const room = { players: [player, opponent], turn: 1 };
+
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "white-secret-attack-rampage").chakra), ["neutralChakra"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "sanbou-kyuukai").chakra), ["neutralChakra"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "ally-puppetry").chakra), ["neutralChakra"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "chakra-shield").chakra), ["neutralChakra"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "ones-own-life-reincarnation").chakra), ["neutralChakra"]);
+  assert.equal(chiyo.skills.find((skill) => skill.id === "ones-own-life-reincarnation").hideUntilReplaced, true);
+  assert.equal(inspectableSkillsForCharacter(chiyo).some((skill) => skill.id === "ones-own-life-reincarnation"), false);
+  assert.equal(visibleSkillsForMember(member, chiyo).some((skill) => skill.id === "ones-own-life-reincarnation"), false);
+
+  applyQueuedSkill(room, player, {
+    actorId: "chiyo",
+    targetId: "ally",
+    skillId: "ally-puppetry",
+    actorName: "Abuela Chiyo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Manipulacion aliada"
+  });
+
+  assert.deepEqual(activeSkillsForMember(member, chiyo).map((skill) => skill.id), [
+    "white-secret-attack-rampage",
+    "sanbou-kyuukai",
+    "ones-own-life-reincarnation",
+    "chakra-shield"
+  ]);
+});
+
+test("Chiyo White Secret Attack delays secret damage on another available enemy", () => {
+  const chiyoMember = { id: "chiyo", characterId: "chiyo", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const sasukeMember = { id: "sasuke", characterId: "sasuke", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", side: "red", ready: true, connected: true, chakra: {}, queue: [], team: [chiyoMember] };
+  const opponent = { id: "p2", name: "P2", side: "blue", ready: true, connected: true, chakra: {}, queue: [], team: [narutoMember, sasukeMember] };
+  const room = {
+    code: "TEST",
+    mode: "pvp",
+    phase: "battle",
+    activePlayerId: "p1",
+    winnerId: null,
+    finishReason: null,
+    turn: 1,
+    chat: [],
+    log: [],
+    players: [player, opponent]
+  };
+
+  applyQueuedSkill(room, player, {
+    actorId: "chiyo",
+    targetId: "naruto",
+    skillId: "white-secret-attack-rampage",
+    actorName: "Abuela Chiyo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Ataque secreto blanco"
+  });
+
+  assert.equal(narutoMember.hp, 80);
+  assert.equal(sasukeMember.hp, 100);
+  assert.equal(chiyoMember.statusEffects.some((effect) => effect.type === "modifyDamage" && effect.turns === -1 && effect.isStackable === true), true);
+  assert.equal(sasukeMember.statusEffects.length, 1);
+  assert.equal(sasukeMember.statusEffects[0].isSecret, true);
+  assert.equal(publicRoom(room, "p1").players[1].team[1].statusEffects.length, 1);
+  assert.equal(publicRoom(room, "p2").players[1].team[1].statusEffects.length, 0);
+
+  resolveTurn(room, "p1");
+
+  assert.equal(room.activePlayerId, "p2");
+  assert.equal(sasukeMember.hp, 100);
+
+  resolveTurn(room, "p2");
+
+  assert.equal(room.activePlayerId, "p1");
+  assert.equal(sasukeMember.hp, 100);
+
+  resolveTurn(room, "p1");
+
+  assert.equal(room.activePlayerId, "p2");
+  assert.equal(sasukeMember.hp, 80);
+});
+
+test("Chiyo Sanbou consumes White Secret Attack stacks and stuns physical and special only", () => {
+  const chiyoMember = { id: "chiyo", characterId: "chiyo", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const target = { id: "target", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [chiyoMember] };
+  const opponent = { id: "p2", name: "P2", team: [target] };
+  const room = { players: [player, opponent], turn: 3 };
+
+  addStatus(chiyoMember, {
+    id: "white-stack",
+    type: "modifyDamage",
+    turns: -1,
+    value: 5,
+    sourceSkillId: "white-secret-attack-bonus",
+    sourceSkillName: "Ataque secreto blanco",
+    sourceActorName: "Abuela Chiyo",
+    skillIds: ["sanbou-kyuukai"],
+    isStackable: true,
+    createdTurn: 2
+  });
+
+  const log = applyQueuedSkill(room, player, {
+    actorId: "chiyo",
+    targetId: "target",
+    skillId: "sanbou-kyuukai",
+    actorName: "Abuela Chiyo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Sanbou Kyuukai"
+  });
+
+  assert.match(log, /25 de dano perforante/);
+  assert.equal(target.hp, 75);
+  assert.equal(chiyoMember.statusEffects.some((effect) => effect.sourceSkillId === "white-secret-attack-bonus"), false);
+  assert.ok(target.statusEffects.some((effect) => (
+    effect.type === "stun"
+    && effect.descriptions.some((description) => description.includes("No aturde habilidades de tipo mental."))
+  )));
+  assert.equal(isSkillStunned(target, { id: "physical", family: ["physical", "offensive", "instant"] }), true);
+  assert.equal(isSkillStunned(target, { id: "special", family: ["special", "offensive", "instant"] }), true);
+  assert.equal(isSkillStunned(target, { id: "mental", family: ["mental", "strategic", "instant"] }), false);
+});
+
+test("Chiyo Life Reincarnation heals by Chiyo current HP", () => {
+  const chiyo = getCharacterById("chiyo");
+  const chiyoMember = {
+    id: "chiyo",
+    characterId: "chiyo",
+    hp: 35,
+    statusEffects: [{
+      id: "reincarnation-ready",
+      type: "replaceSkill",
+      turns: 2,
+      baseSkillId: "ally-puppetry",
+      skillId: "ones-own-life-reincarnation"
+    }],
+    skillCooldowns: {},
+    character: chiyo
+  };
+  const ally = { id: "ally", characterId: "naruto", hp: 0, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [chiyoMember, ally] };
+  const opponent = { id: "p2", name: "P2", team: [{ id: "enemy", characterId: "sasuke", hp: 100, statusEffects: [], skillCooldowns: {} }] };
+  const room = { players: [player, opponent], turn: 4 };
+
+  applyQueuedSkill(room, player, {
+    actorId: "chiyo",
+    targetId: "ally",
+    skillId: "ally-puppetry",
+    actorName: "Abuela Chiyo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Reencarnacion de vida propia"
+  });
+
+  assert.equal(ally.hp, 35);
+  assert.equal(chiyoMember.hp, 0);
 });
 
 test("replaceSkill duration -1 swaps a base skill permanently", () => {

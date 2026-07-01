@@ -955,11 +955,16 @@ label {
   margin: 0;
 }
 
-.selection-heading {
+.selection-kicker {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-bottom: 8px;
+}
+
+.selection-kicker .eyebrow {
+  margin: 0;
 }
 
 .random-team-button {

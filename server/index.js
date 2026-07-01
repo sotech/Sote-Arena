@@ -318,7 +318,10 @@ function payLife(target, value, { notKill = false } = {}) {
   return before - target.hp;
 }
 
-function healValueForTarget(effect, target) {
+function healValueForTarget(effect, target, source = target) {
+  if (effect?.sourceCurrentHp === true || effect?.sourceHp === true || effect?.sourceCurrentHealth === true) {
+    return Math.max(0, Number(source?.hp || 0));
+  }
   if (Number.isFinite(Number(effect?.missingHpPercent))) {
     const targetCharacter = getCharacterById(target.characterId);
     const missingHp = Math.max(0, Number(targetCharacter?.maxHp || 0) - Math.max(0, Number(target.hp || 0)));
@@ -1020,6 +1023,8 @@ export function addStatus(member, status) {
       existing.turns = mergeStatusTurns(existing.turns, status.turns);
       existing.skillIds = status.skillIds;
       existing.familiesAffected = status.familiesAffected;
+      existing.excludedDamageTypes = status.excludedDamageTypes;
+      existing.chargesPerTurn = status.chargesPerTurn;
       existing.trigger = status.trigger;
       existing.charges = status.charges;
       existing.reflectTo = status.reflectTo;
@@ -1173,6 +1178,10 @@ function appliesToModifiedSkill(effect, skill) {
 
 function appliesToDamageMultiplierSkill(effect, skill) {
   if (effect.type !== "modifyDamageMultiplier" || (effect.turns <= 0 && effect.turns !== -1)) return false;
+  if (Array.isArray(effect.familiesAffected) && effect.familiesAffected.length > 0) {
+    const skillFamilies = Array.isArray(skill?.family) ? skill.family : [];
+    if (!effect.familiesAffected.some((family) => skillFamilies.includes(family))) return false;
+  }
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }
@@ -1256,6 +1265,20 @@ export function damageBuffValue(actor, skill, currentTurn) {
     .filter((effect) => appliesToModifiedSkill({ ...effect, turns: 1 }, skill))
     .reduce((total, effect) => total + effectBuffValue(effect), 0);
   return directBuffs + complexBuffs;
+}
+
+function receivedDamageModifierValue(target) {
+  return activeStatusEffects(target).reduce((total, effect) => {
+    if (effect.type === "modifyReceivedDamage" && (effect.turns > 0 || effect.turns === -1)) {
+      return total + Number(effect.value || 0);
+    }
+    if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
+      return total + (effect.effects || [])
+        .filter((childEffect) => !statusIsIgnored(childEffect) && childEffect.type === "modifyReceivedDamage")
+        .reduce((sum, childEffect) => sum + Number(childEffect.value || 0), 0);
+    }
+    return total;
+  }, 0);
 }
 
 function statusMatchesTargetCondition(status, condition = {}) {
@@ -1659,6 +1682,9 @@ function targetsForSkill(room, player, actor, targetId, skill, currentTurn = roo
   if (targetType === "enemy") targets = [getMember(opponent, targetId)].filter(Boolean).filter((member) => canBeTargetedBy(player, member, targetingSource));
   if (targetType === "ally") targets = [getMember(player, targetId)].filter(Boolean);
   if (targetType === "otherAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.id !== actor.id);
+  if (targetType === "anyOtherAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.id !== actor.id);
+  if (targetType === "deadAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.hp <= 0);
+  if (targetType === "deadOtherAlly") targets = [getMember(player, targetId)].filter(Boolean).filter((member) => member.id !== actor.id && member.hp <= 0);
   if (targetType === "anyCharacter") targets = [
     getMember(player, targetId),
     getMember(opponent, targetId)
@@ -1692,6 +1718,13 @@ function resolveEffectTargets(room, player, actor, targetId, skill, effect) {
     }
     if (requestedTarget === "enemies") {
       members.push(...aliveMembers(opponent).filter((member) => canBeTargetedBy(player, member, effect)));
+      continue;
+    }
+    if (requestedTarget === "otherEnemies") {
+      const selectedTargetIds = new Set(targetsForSkill(room, player, actor, targetId, skill).map((member) => member.id));
+      members.push(...aliveMembers(opponent)
+        .filter((member) => !selectedTargetIds.has(member.id))
+        .filter((member) => canBeTargetedBy(player, member, effect)));
     }
   }
   const uniqueTargets = [...new Map(members.filter(Boolean).map((member) => [member.id, member])).values()];
@@ -1780,7 +1813,7 @@ function applyComplexStatusEffects(room, player) {
         const sourceMember = getRoomMember(room, status.originActorId);
         const sourcePlayer = sourceMember ? ownerOfMember(room, sourceMember) : player;
         const targets = resolveComplexEffectTargets(room, player, member, effect, status)
-          .filter((target) => target.hp > 0)
+          .filter((target) => target.hp > 0 || effect.affectsDead === true)
           .filter((target) => canEffectAffectTarget(room, sourcePlayer, target, effect, { id: status.sourceSkillId, family: status.interruptFamilies || effect.family || [] }));
         if (targets.length === 0) continue;
 
@@ -1810,7 +1843,7 @@ function applyComplexStatusEffects(room, player) {
         const damageType = effect.damageType || "basic";
         for (const target of targets) {
           if (!effectAppliesToTarget(effect, target, member)) continue;
-          const result = applyDamageDetailed(target, positiveEffectValue(effect), damageType);
+          const result = applyDamageDetailed(target, positiveEffectValue(effect) + receivedDamageModifierValue(target), damageType);
           totalDamage += result.dealt;
           recordDamageByType(damageByType, damageType, result.dealt);
           recordBalanceStats(room, target, { mitigated: result.mitigated });
@@ -1849,11 +1882,12 @@ function applyComplexStatusEffects(room, player) {
         if (effect.type === "heal" || effect.type === "self-heal") {
           if (effect.requirePreviousDamage === true && status.damageAppliedThisTick !== true) continue;
           let totalHeal = 0;
+          const sourceMember = getRoomMember(room, status.originActorId) || member;
           for (const target of targets) {
             if (!effectAppliesToTarget(effect, target, member)) continue;
             const targetCharacter = getCharacterById(target.characterId);
             const before = target.hp;
-            target.hp = Math.min(targetCharacter.maxHp, target.hp + healValueForTarget(effect, target));
+            target.hp = Math.min(targetCharacter.maxHp, target.hp + healValueForTarget(effect, target, sourceMember));
             totalHeal += target.hp - before;
           }
           recordBalanceStats(room, getRoomMember(room, status.originActorId), { healing: totalHeal });
@@ -1979,7 +2013,8 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   if (!canPaySkillCost(player.chakra, chakraCost, queuedNeutralChakraCost(player))) return `No tienes recursos suficientes: requiere ${chakraLabel(chakraCost)}.`;
 
   const targets = targetsForSkill(room, player, actor, targetId, skill);
-  if (targets.length === 0 || targets.some((target) => target.hp <= 0)) return "Objetivo invalido.";
+  const allowsDeadTargets = ["deadAlly", "deadOtherAlly", "anyOtherAlly"].includes(skill.targetType);
+  if (targets.length === 0 || (!allowsDeadTargets && targets.some((target) => target.hp <= 0))) return "Objetivo invalido.";
   const requirementError = validateSkillRequirements(skill, player, opponent, actor, targets);
   if (requirementError) return requirementError;
 
@@ -2016,6 +2051,30 @@ function reactiveStatusApplies(status, skill, trigger) {
     const skillFamilies = Array.isArray(skill.family) ? skill.family : [];
     if (!status.familiesAffected.some((family) => skillFamilies.includes(family))) return false;
   }
+  return true;
+}
+
+function effectHasExcludedDamageType(effect, excludedDamageTypes) {
+  if (!effect || excludedDamageTypes.length === 0) return false;
+  if (effect.type === "damage" && excludedDamageTypes.includes(effect.damageType || "basic")) return true;
+  return Array.isArray(effect.effects) && effect.effects.some((childEffect) => effectHasExcludedDamageType(childEffect, excludedDamageTypes));
+}
+
+function nullifyStatusApplies(status, skill, currentTurn) {
+  if (status.type !== "nullifyNextIncoming") return false;
+  if (status.turns <= 0 && status.turns !== -1) return false;
+  if (status.lastNullifyTurn !== currentTurn) {
+    status.charges = Math.max(1, Number(status.chargesPerTurn ?? status.charges ?? 1));
+    status.lastNullifyTurn = currentTurn;
+  }
+  if (Number(status.charges || 0) <= 0) return false;
+  if (Array.isArray(status.skillIds) && status.skillIds.length > 0 && !status.skillIds.includes(skill.id) && !status.skillIds.includes(skill.name)) return false;
+  if (Array.isArray(status.familiesAffected) && status.familiesAffected.length > 0) {
+    const skillFamilies = Array.isArray(skill.family) ? skill.family : [];
+    if (!status.familiesAffected.some((family) => skillFamilies.includes(family))) return false;
+  }
+  const excludedDamageTypes = Array.isArray(status.excludedDamageTypes) ? status.excludedDamageTypes : [];
+  if ((skill.effects || []).some((effect) => effectHasExcludedDamageType(effect, excludedDamageTypes))) return false;
   return true;
 }
 
@@ -2100,7 +2159,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
 
   for (const effect of status.effects || []) {
     const targets = resolveEffectTargets(room, sourcePlayer, sourceMember, statusMember.id, triggeredSkill, effect)
-      .filter((target) => target.hp > 0)
+      .filter((target) => target.hp > 0 || effect.affectsDead === true)
       .filter((target) => canEffectAffectTarget(room, sourcePlayer, target, effect, triggeredSkill));
     if (targets.length === 0) continue;
 
@@ -2110,7 +2169,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       const damageType = effect.damageType || "basic";
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, sourceMember)) continue;
-        const result = applyDamageDetailed(target, positiveEffectValue(effect), damageType);
+        const result = applyDamageDetailed(target, positiveEffectValue(effect) + receivedDamageModifierValue(target), damageType);
         totalDamage += result.dealt;
         recordDamageByType(damageByType, damageType, result.dealt);
         recordBalanceStats(room, target, { mitigated: result.mitigated });
@@ -2212,7 +2271,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       continue;
     }
 
-    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier") {
+    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier" || effect.type === "modifyReceivedDamage") {
       for (const target of targets) {
         addStatus(target, {
           id: randomUUID(),
@@ -2224,6 +2283,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
           amountPerStep: effect.amountPerStep,
           hpStep: effect.hpStep,
           skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+          familiesAffected: effect.familiesAffected,
           isStackable: effect.isStackable,
           stackCount: effect.stackCount,
           sourceSkillId: effect.statusSourceSkillId || status.sourceSkillId,
@@ -2302,6 +2362,14 @@ function consumeReactiveStatus(room, member, status, currentTurn) {
     if (status.isSecret) addSecretEndNotice(room, member, status, currentTurn);
   }
   return triggeredEvents;
+}
+
+function consumeNullifyStatus(status, currentTurn) {
+  if (status.lastNullifyTurn !== currentTurn) {
+    status.charges = Math.max(1, Number(status.chargesPerTurn ?? status.charges ?? 1));
+    status.lastNullifyTurn = currentTurn;
+  }
+  status.charges = Math.max(0, Number(status.charges ?? 1) - 1);
 }
 
 function resolveTriggerSkillStatuses(room, eventType = null) {
@@ -2439,8 +2507,8 @@ function applyDeathTriggerEffect(room, member, status, effect) {
     });
     return value > 0 ? `${memberCharacter.name} gano ${value}${effect.percent ? "%" : ""} de reduccion de dano.` : "";
   }
-  if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier") {
-    addStatus(member, {
+    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier" || effect.type === "modifyReceivedDamage") {
+      addStatus(member, {
       id: randomUUID(),
       type: effect.type,
       turns: effect.duration,
@@ -2450,6 +2518,7 @@ function applyDeathTriggerEffect(room, member, status, effect) {
       amountPerStep: effect.amountPerStep,
       hpStep: effect.hpStep,
       skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
+      familiesAffected: effect.familiesAffected,
       isStackable: effect.isStackable,
       stackCount: effect.stackCount ?? (effect.isStackable === true ? 1 : undefined),
       maxStacks: effect.maxStacks,
@@ -2535,8 +2604,17 @@ export function applyQueuedSkill(room, player, action) {
     targetType: modifiedTargetType(actor, skill, skill.targetType, room.turn)
   };
   const selectedTargets = targetsForSkill(room, player, actor, action.targetId, effectiveSkill);
-  if (selectedTargets.length === 0 || selectedTargets.every((target) => target.hp <= 0)) {
+  const allowsDeadTargets = ["deadAlly", "deadOtherAlly", "anyOtherAlly"].includes(effectiveSkill.targetType);
+  if (selectedTargets.length === 0 || (!allowsDeadTargets && selectedTargets.every((target) => target.hp <= 0))) {
     return `${actorCharacter.name} desperdicio ${skill.name}: el objetivo ya no es valido.`;
+  }
+
+  const nullify = firstNullifyForAction(selectedTargets, effectiveSkill, room.turn);
+  if (nullify) {
+    consumeNullifyStatus(nullify.status, room.turn);
+    setSkillCooldown(actor, skill.id, skill.cooldown || 0);
+    const nullifierName = getCharacterById(nullify.member.characterId)?.name || "El objetivo";
+    return `${actorCharacter.name} uso ${skill.name}, pero ${nullifierName} anulo la habilidad.`;
   }
 
   const counter = firstCounterForAction(actor, selectedTargets, effectiveSkill, room.turn);
@@ -2588,7 +2666,7 @@ export function applyQueuedSkill(room, player, action) {
     }
 
     const targets = resolveEffectTargets(room, player, actor, resolvedTargetId, resolvedSkill, effect)
-      .filter((target) => target.hp > 0)
+      .filter((target) => target.hp > 0 || effect.affectsDead === true)
       .filter((target) => canEffectAffectTarget(room, effectSourcePlayer, target, effect, resolvedSkill));
     if (targets.length === 0) continue;
     if (reflect) {
@@ -2662,7 +2740,7 @@ export function applyQueuedSkill(room, player, action) {
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
         const multiplier = damageMultiplierValue(actor, skill, target, room.turn);
-        const targetDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier);
+        const targetDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier) + receivedDamageModifierValue(target);
         const result = applyDamageDetailed(target, targetDamage, damageType);
         totalDamage += result.dealt;
         recordDamageByType(damageByType, damageType, result.dealt);
@@ -2696,7 +2774,7 @@ export function applyQueuedSkill(room, player, action) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
         const targetCharacter = getCharacterById(target.characterId);
         const before = target.hp;
-        target.hp = Math.min(targetCharacter.maxHp, target.hp + healValueForTarget(effect, target));
+        target.hp = Math.min(targetCharacter.maxHp, target.hp + healValueForTarget(effect, target, actor));
         totalHeal += target.hp - before;
       }
       continue;
@@ -2805,7 +2883,7 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
-    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier") {
+    if (effect.type === "modifyDamage" || effect.type === "modifyDamageByMissingHp" || effect.type === "modifyDamageMultiplier" || effect.type === "modifyReceivedDamage") {
       for (const target of targets) {
         const appliedEffect = effectForTargetImmunity(effect, target);
         const fallbackDescriptions = appliedEffect.ignoredByEffectImmunity === true
@@ -2822,6 +2900,7 @@ export function applyQueuedSkill(room, player, action) {
           amountPerStep: appliedEffect.amountPerStep,
           hpStep: appliedEffect.hpStep,
           skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
+          familiesAffected: appliedEffect.familiesAffected,
           isStackable: appliedEffect.isStackable,
           stackCount: appliedEffect.stackCount,
           maxStacks: appliedEffect.maxStacks,
@@ -2890,7 +2969,7 @@ export function applyQueuedSkill(room, player, action) {
       continue;
     }
 
-    if (["modifyTargetType", "modifyTargetCount", "addEffectToBase", "addUncountereable", "addNonReflectable", "replaceEffects", "counter", "reflect"].includes(effect.type)) {
+    if (["modifyTargetType", "modifyTargetCount", "addEffectToBase", "addUncountereable", "addNonReflectable", "nullifyNextIncoming", "replaceEffects", "counter", "reflect"].includes(effect.type)) {
       for (const target of targets) {
         const appliedEffect = effectForTargetImmunity(effect, target);
         const presentation = secretOpponentStatusPresentation(room, player, target, skill, appliedEffect, [statusDescription(appliedEffect, actorCharacter)]);
@@ -2904,6 +2983,8 @@ export function applyQueuedSkill(room, player, action) {
           effects: Array.isArray(appliedEffect.effects) ? appliedEffect.effects : [],
           skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
           familiesAffected: appliedEffect.familiesAffected,
+          excludedDamageTypes: Array.isArray(appliedEffect.excludedDamageTypes) ? appliedEffect.excludedDamageTypes : [],
+          chargesPerTurn: Math.max(1, Number(appliedEffect.chargesPerTurn ?? appliedEffect.charges ?? 1)),
           trigger: appliedEffect.trigger,
           charges: appliedEffect.charges ?? appliedEffect.value ?? 1,
           reflectTo: appliedEffect.reflectTo,
@@ -2911,15 +2992,15 @@ export function applyQueuedSkill(room, player, action) {
           showStatusEffect: presentation.showStatusEffect ?? (appliedEffect.type === "counter" || appliedEffect.type === "reflect" ? false : undefined),
           isSecret: Boolean(skill.isSecret || appliedEffect.isSecret || appliedEffect.type === "counter" || appliedEffect.type === "reflect"),
           ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
-          sourceSkillId: skill.id,
-          sourceSkillName: skill.name,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: presentation.descriptions,
           tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
-        if (appliedEffect.ignoredByEffectImmunity !== true && (appliedEffect.type === "addEffectToBase" || appliedEffect.type === "addUncountereable" || appliedEffect.type === "addNonReflectable")) totalAddedBaseEffects += 1;
+        if (appliedEffect.ignoredByEffectImmunity !== true && (appliedEffect.type === "addEffectToBase" || appliedEffect.type === "addUncountereable" || appliedEffect.type === "addNonReflectable" || appliedEffect.type === "nullifyNextIncoming")) totalAddedBaseEffects += 1;
         if (appliedEffect.ignoredByEffectImmunity !== true && appliedEffect.type === "replaceEffects") totalAddedBaseEffects += 1;
       }
       continue;
@@ -2993,22 +3074,26 @@ export function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "reviveOnDeath") {
       for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        const fallbackDescriptions = appliedEffect.descriptions || [`${actorCharacter.name} revivira al caer.`];
+        const presentation = secretOpponentStatusPresentation(room, player, target, skill, appliedEffect, fallbackDescriptions);
         addStatus(target, {
           id: randomUUID(),
           type: "reviveOnDeath",
-          turns: effect.duration ?? -1,
-          hp: effect.hp ?? effect.value ?? 1,
-          removeNegativeEffects: effect.removeNegativeEffects !== false,
-          invulnerableTurns: Number(effect.invulnerableTurns || 0),
-          disableSkillIds: Array.isArray(effect.disableSkillIds) ? effect.disableSkillIds : [],
-          showStatusEffect: effect.showStatusEffect ?? false,
-          sourceSkillId: skill.id,
-          sourceSkillName: skill.name,
+          turns: appliedEffect.duration ?? -1,
+          hp: appliedEffect.hp ?? appliedEffect.value ?? 1,
+          removeNegativeEffects: appliedEffect.removeNegativeEffects !== false,
+          invulnerableTurns: Number(appliedEffect.invulnerableTurns || 0),
+          disableSkillIds: Array.isArray(appliedEffect.disableSkillIds) ? appliedEffect.disableSkillIds : [],
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
+          showStatusEffect: presentation.showStatusEffect ?? false,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: effect.descriptions || [`${actorCharacter.name} revivira al caer.`],
-          tooltipDescription: tooltipDescriptionForEffect(effect)
+          descriptions: presentation.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
       }
       continue;
@@ -3016,19 +3101,22 @@ export function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "onEnemyDeath") {
       for (const target of targets) {
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        const presentation = secretOpponentStatusPresentation(room, player, target, skill, appliedEffect, appliedEffect.descriptions);
         addStatus(target, {
           id: randomUUID(),
           type: "onEnemyDeath",
-          turns: effect.duration ?? -1,
-          effects: Array.isArray(effect.effects) ? effect.effects : [],
-          showStatusEffect: effect.showStatusEffect ?? false,
-          sourceSkillId: skill.id,
-          sourceSkillName: skill.name,
+          turns: appliedEffect.duration ?? -1,
+          effects: Array.isArray(appliedEffect.effects) ? appliedEffect.effects : [],
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
+          showStatusEffect: presentation.showStatusEffect ?? false,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
-          descriptions: effect.descriptions,
-          tooltipDescription: tooltipDescriptionForEffect(effect)
+          descriptions: presentation.descriptions,
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
       }
       continue;
@@ -3036,26 +3124,28 @@ export function applyQueuedSkill(room, player, action) {
 
     if (effect.type === "triggerSkills") {
       for (const target of targets) {
-        const presentation = secretOpponentStatusPresentation(room, player, target, skill, effect, effect.descriptions);
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        const presentation = secretOpponentStatusPresentation(room, player, target, skill, appliedEffect, appliedEffect.descriptions);
         addStatus(target, {
           id: randomUUID(),
           type: "triggerSkills",
-          turns: effect.duration ?? -1,
-          condition: effect.condition || {
-            type: effect.conditionType || (effect.hpPercent !== undefined ? "hpPercent" : "hp"),
-            comparator: effect.comparator || effect.operator || "<=",
-            value: effect.value ?? effect.threshold ?? effect.hpPercent ?? effect.hp
+          turns: appliedEffect.duration ?? -1,
+          condition: appliedEffect.condition || {
+            type: appliedEffect.conditionType || (appliedEffect.hpPercent !== undefined ? "hpPercent" : "hp"),
+            comparator: appliedEffect.comparator || appliedEffect.operator || "<=",
+            value: appliedEffect.value ?? appliedEffect.threshold ?? appliedEffect.hpPercent ?? appliedEffect.hp
           },
-          effects: Array.isArray(effect.effects) ? effect.effects : [],
-          charges: effect.charges ?? 1,
+          effects: Array.isArray(appliedEffect.effects) ? appliedEffect.effects : [],
+          charges: appliedEffect.charges ?? 1,
+          ignoredByEffectImmunity: appliedEffect.ignoredByEffectImmunity === true,
           showStatusEffect: presentation.showStatusEffect ?? false,
-          sourceSkillId: skill.id,
-          sourceSkillName: skill.name,
+          sourceSkillId: appliedEffect.statusSourceSkillId || skill.id,
+          sourceSkillName: appliedEffect.statusSourceSkillName || skill.name,
           sourceActorName: actorCharacter.name,
           ...statusOrigin(actor),
           createdTurn: room.turn,
           descriptions: presentation.descriptions,
-          tooltipDescription: tooltipDescriptionForEffect(effect)
+          tooltipDescription: tooltipDescriptionForEffect(appliedEffect)
         });
       }
       continue;
@@ -3318,6 +3408,14 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}) {
   }
 
   room.botMessage = botTauntForDeaths(room, beforeDeathsByPlayerId);
+  return null;
+}
+
+function firstNullifyForAction(selectedTargets, skill, currentTurn) {
+  for (const target of selectedTargets) {
+    const status = activeStatusEffects(target).find((effect) => nullifyStatusApplies(effect, skill, currentTurn));
+    if (status) return { member: target, status };
+  }
   return null;
 }
 

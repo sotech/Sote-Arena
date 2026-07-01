@@ -41,6 +41,9 @@ function botTargetIdsForSkill(room, bot, actor, skill, engine) {
   if (skill.targetType === "self") return [actor.id];
   if (skill.targetType === "ally") return engine.aliveMembers(bot).map((member) => member.id);
   if (skill.targetType === "otherAlly") return engine.aliveMembers(bot).filter((member) => member.id !== actor.id).map((member) => member.id);
+  if (skill.targetType === "anyOtherAlly") return bot.team.filter((member) => member.id !== actor.id).map((member) => member.id);
+  if (skill.targetType === "deadAlly") return bot.team.filter((member) => member.hp <= 0).map((member) => member.id);
+  if (skill.targetType === "deadOtherAlly") return bot.team.filter((member) => member.id !== actor.id && member.hp <= 0).map((member) => member.id);
   if (skill.targetType === "anyCharacter") {
     return [
       ...engine.aliveMembers(bot).filter((member) => member.id !== actor.id),

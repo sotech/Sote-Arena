@@ -20,9 +20,11 @@ import { modifyChakraCostEffect } from "./modifyChakraCost.js";
 import { modifyDamageEffect } from "./modifyDamage.js";
 import { modifyDamageByMissingHpEffect } from "./modifyDamageByMissingHp.js";
 import { modifyDamageMultiplierEffect } from "./modifyDamageMultiplier.js";
+import { modifyReceivedDamageEffect } from "./modifyReceivedDamage.js";
 import { modifyDamageTypeEffect } from "./modifyDamageType.js";
 import { modifyTargetCountEffect } from "./modifyTargetCount.js";
 import { modifyTargetTypeEffect } from "./modifyTargetType.js";
+import { nullifyNextIncomingEffect } from "./nullifyNextIncoming.js";
 import { onEnemyDeathEffect } from "./onEnemyDeath.js";
 import { payLifeEffect } from "./payLife.js";
 import { reflectEffect } from "./reflect.js";
@@ -59,9 +61,11 @@ export const effectTypes = {
   modifyDamage: modifyDamageEffect,
   modifyDamageByMissingHp: modifyDamageByMissingHpEffect,
   modifyDamageMultiplier: modifyDamageMultiplierEffect,
+  modifyReceivedDamage: modifyReceivedDamageEffect,
   modifyDamageType: modifyDamageTypeEffect,
   modifyTargetType: modifyTargetTypeEffect,
   modifyTargetCount: modifyTargetCountEffect,
+  nullifyNextIncoming: nullifyNextIncomingEffect,
   addEffectToBase: addEffectToBaseEffect,
   addUncountereable: addUncountereableEffect,
   applyEffectsOntriggerEvent: applyEffectsOntriggerEventEffect,

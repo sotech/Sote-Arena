@@ -1525,15 +1525,15 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
       <div className="panel">
         <div className="section-head">
           <div>
-            <p className="eyebrow">Equipo</p>
+            <div className="selection-kicker">
+              <p className="eyebrow">Equipo</p>
+              <button type="button" className="secondary random-team-button" onClick={onRandomTeam} disabled={me?.ready || characters.length < 3}>
+                <RefreshCw size={16} />
+                {randomTeamLabel}
+              </button>
+            </div>
             <div className="selection-title">
-              <div className="selection-heading">
-                <h2>Elige 3 personajes</h2>
-                <button type="button" className="secondary random-team-button" onClick={onRandomTeam} disabled={me?.ready || characters.length < 3}>
-                  <RefreshCw size={16} />
-                  {randomTeamLabel}
-                </button>
-              </div>
+              <h2>Elige 3 personajes</h2>
               {selectedCharacters.length > 0 && (
                 <div className="selected-character-strip" aria-label="Personajes elegidos">
                   {selectedCharacters.map((character) => (
@@ -2221,6 +2221,8 @@ function SkillFooter({ skill, compact = false }) {
 function footerTargetTypeLabel(type) {
   if (type === "enemy") return "1 enemigo";
   if (type === "ally" || type === "otherAlly") return "1 aliado";
+  if (type === "anyOtherAlly") return "1 aliado vivo o caido";
+  if (type === "deadAlly" || type === "deadOtherAlly") return "1 aliado caido";
   if (type === "enemies") return "Todos los enemigos";
   if (type === "allies") return "Todos los aliados";
   if (type === "self") return "A si mismo";
@@ -2304,7 +2306,8 @@ function damageSeverityClass(damage, maxHp) {
 function injurySeverityClass(member) {
   const maxHp = Math.max(1, Number(member?.character?.maxHp || 0));
   const hp = Math.max(0, Number(member?.hp || 0));
-  if (hp <= 0 || hp >= maxHp) return "";
+  if (hp >= maxHp) return "";
+  if (hp <= 0) return "injury-severe";
   const missingPercent = ((maxHp - hp) / maxHp) * 100;
   if (missingPercent < 34) return "injury-light";
   if (missingPercent < 67) return "injury-moderate";

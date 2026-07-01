@@ -130,6 +130,7 @@ export function eligibleTargetsForSkill(skill, me, opponent, actor) {
   if (!skill || !actor || actor.hp <= 0) return [];
 
   const allies = (me?.team || []).filter((member) => member.hp > 0);
+  const deadAllies = (me?.team || []).filter((member) => member.hp <= 0);
   const canTargetInvulnerableEnemies = activeSkillIgnoresInvulnerability(actor, skill);
   const enemies = (opponent?.team || []).filter((member) => (
     member.hp > 0 && (canTargetInvulnerableEnemies || !isInvulnerableAgainstSkill(member, skill))
@@ -138,6 +139,9 @@ export function eligibleTargetsForSkill(skill, me, opponent, actor) {
   if (skill.targetType === "self") return actor.hp > 0 ? [actor] : [];
   if (skill.targetType === "ally" || skill.targetType === "allies") return allies;
   if (skill.targetType === "otherAlly") return allies.filter((member) => member.id !== actor.id);
+  if (skill.targetType === "anyOtherAlly") return [...allies, ...deadAllies].filter((member) => member.id !== actor.id);
+  if (skill.targetType === "deadAlly") return deadAllies;
+  if (skill.targetType === "deadOtherAlly") return deadAllies.filter((member) => member.id !== actor.id);
   if (skill.targetType === "anyCharacter") return [...allies.filter((member) => member.id !== actor.id), ...enemies];
   if (skill.targetType === "enemy" || skill.targetType === "enemies") return enemies;
   if (skill.targetType === "allPlayers") return [...allies, ...enemies];

@@ -58,6 +58,11 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="1.6.0">
+        <CharacterPatch id="chiyo">
+          <New>Agregado Abuela Chiyo</New>
+        </CharacterPatch>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.5.0">
         <CharacterPatch id="zoro">
           <New>Agregado Roronoa Zoro</New>
@@ -75,7 +80,7 @@ export function PatchNotesContent() {
         </CharacterPatch>
         <CharacterPatch id="jotaro">
           <Buff>Stand: Star Platinum ahora reduce 50% el daño recibido</Buff>
-        </CharacterPatch>        
+        </CharacterPatch>
         <CharacterPatch id="joseph">
           <Balance>Hamon ahora dura 3 turnos, reduce 50% el daño y tiene un cooldown de 4.</Balance>
         </CharacterPatch>
@@ -91,7 +96,7 @@ export function PatchNotesContent() {
           <Nerf>Poder del Kyubi cuesta 15 de salud.</Nerf>
         </CharacterPatch>
       </PatchNotesPatch>
-      <PatchNotesPatch patch="1.4.0">        
+      <PatchNotesPatch patch="1.4.0">
         <CharacterPatch id="ichigo">
           <New>Agregado Kurosaki Ichigo.</New>
         </CharacterPatch>
@@ -118,9 +123,9 @@ export function PatchNotesContent() {
         <CharacterPatch id="sasuke">
           <Buff>Kirin ahora hace 55 de daño.</Buff>
         </CharacterPatch>
-        <ul>          
+        <ul>
           <Fix>Habilidades sin usos quedan deshabilitadas en la UI</Fix>
-          <Fix>Las habilidades colocadas sobre enemigos ahora muetran un tooltip secreto para el jugador</Fix>          
+          <Fix>Las habilidades colocadas sobre enemigos ahora muetran un tooltip secreto para el jugador</Fix>
           <li>Agregado nuevo sonido para cuando un personaje muere.</li>
         </ul>
       </PatchNotesPatch>

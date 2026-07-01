@@ -9,7 +9,7 @@ export function normalizeChakraCost(cost = {}) {
 }
 
 export function appliesToCostModifiedSkill(effect, skill) {
-  if (!chakraCostModifierTypes.includes(effect?.type) || effect.turns <= 0) return false;
+  if (!chakraCostModifierTypes.includes(effect?.type) || (effect.turns <= 0 && effect.turns !== -1)) return false;
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }

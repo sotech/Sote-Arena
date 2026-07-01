@@ -11,13 +11,13 @@ const ittoryuEffects = [
   clearStances,
   {
     type: "damage-reduction",
-    value: 20,
+    value: 25,
     percent: true,
     duration: -1,
     targets: "self",
     statusSourceSkillId: "zoro-ittoryu",
     statusSourceSkillName: "Ittoryu",
-    descriptions: ["Ittoryu: Zoro reduce el dano recibido en 20%."]
+    descriptions: ["Ittoryu: Zoro reduce el dano recibido en 25%."]
   }
 ];
 
@@ -41,19 +41,47 @@ const nitoryuEffects = [
     statusSourceSkillId: "zoro-nitoryu",
     statusSourceSkillName: "Nitoryu",
     descriptions: ["Nitoryu: si Zoro recibe dano de vida, devuelve 10 de dano perforante al atacante."]
+  },
+  {
+    type: "addUncountereable",
+    duration: -1,
+    targets: "self",
+    skillIds: ["king-of-hell-blade"],
+    statusSourceSkillId: "zoro-nitoryu",
+    statusSourceSkillName: "Nitoryu",
+    descriptions: ["Nitoryu: Filo del Rey del Infierno no puede ser contrarrestado."]
   }
 ];
 
 const santoryuEffects = [
   clearStances,
   {
-    type: "modifyDamage",
-    value: 20,
+    type: "substituteChakraCost",
+    chakra: { taijutsu: 1, neutralChakra: 1 },
     duration: -1,
     targets: "self",
+    skillIds: ["king-of-hell-blade"],
     statusSourceSkillId: "zoro-santoryu",
     statusSourceSkillName: "Santoryu",
-    descriptions: ["Santoryu: Zoro inflige 35 de daño con Filo del Rey del Infierno."]
+    descriptions: ["Santoryu: Filo del Rey del Infierno cuesta 1 recurso fisico y 1 neutral."]
+  },
+  {
+    type: "addUncountereable",
+    duration: -1,
+    targets: "self",
+    skillIds: ["king-of-hell-blade"],
+    statusSourceSkillId: "zoro-santoryu",
+    statusSourceSkillName: "Santoryu",
+    descriptions: ["Santoryu: Filo del Rey del Infierno no puede ser contrarrestado."]
+  },
+  {
+    type: "addNonReflectable",
+    duration: -1,
+    targets: "self",
+    skillIds: ["king-of-hell-blade"],
+    statusSourceSkillId: "zoro-santoryu",
+    statusSourceSkillName: "Santoryu",
+    descriptions: ["Santoryu: Filo del Rey del Infierno no puede ser reflejado."]
   }
 ];
 
@@ -70,14 +98,14 @@ export const zoro = {
   name: "Roronoa Zoro",
   avatar: "RZ",
   maxHp: 100,
-  bio: "Roronoa Zoro es un espadachín legendario cuyo Santoryu y voluntad inquebrantable lo convierten en una fuerza imparable. En Wano domina la espada Enma y desafía a los enemigos más poderosos sin retroceder un solo paso.",
+  bio: "Roronoa Zoro es un espadachin legendario cuyo Santoryu y voluntad inquebrantable lo convierten en una fuerza imparable. En Wano domina la espada Enma y desafia a los enemigos mas poderosos sin retroceder un solo paso.",
   skills: [
     {
       id: "sword-style-stance",
       name: "Estilo de Espadas",
-      chakra: { neutralChakra: 1 },
+      chakra: {},
       targetType: "self",
-      description: "Zoro cambia su postura en orden ciclico: Ittoryu reduce el dano recibido en 20%, Nitoryu reduce 15 puntos y devuelve 10 de dano perforante al atacante, Santoryu aumenta el dano infligido en 20.",
+      description: "Zoro cambia su postura en orden ciclico: Ittoryu reduce el dano recibido en 25%; Nitoryu reduce 15 puntos, devuelve 10 de dano perforante al atacante y vuelve Filo del Rey del Infierno no contrarrestable; Santoryu hace que Filo del Rey del Infierno cueste 1 fisico y 1 neutral, no sea contrarrestable y no sea reflejable.",
       effects: [{
         type: "conditionalEffects",
         value: 1,
@@ -109,7 +137,7 @@ export const zoro = {
       name: "Liberacion de Enma",
       chakra: { ninjutsu: 1 },
       targetType: "self",
-      description: "Zoro se inflige 5 de dano sin poder morir por ese dano. El efecto permanece hasta usar Filo del Rey del Infierno. Ese Filo gana un efecto segun su postura: Ittoryu suma 10 e ignora invulnerabilidad, Nitoryu suma 10 y aturde 1 turno, Santoryu golpea a todos los enemigos.",
+      description: "Zoro se inflige 5 de dano sin poder morir por ese dano. El efecto permanece hasta usar Filo del Rey del Infierno. Ese Filo gana un efecto segun su postura: Ittoryu inflige 35 de dano normal e ignora invulnerabilidad; Nitoryu inflige 40 de dano perforante y aturde 1 turno; Santoryu inflige 40 de dano perforante a todos los enemigos y Zoro recupera 10 salud.",
       effects: [
         { type: "payLife", value: 5, targets: "self", notKill: true },
         {
@@ -133,24 +161,25 @@ export const zoro = {
                 targets: "self",
                 skillIds: ["king-of-hell-blade"],
                 effects: [
-                  { type: "damage", value: 30, damageType: "piercing", targets: "target" },
+                  { type: "damage", value: 40, damageType: "piercing", targets: "target" },
                   { type: "stun", value: 1, targets: "target" }
                 ],
-                descriptions: ["Enma: Filo del Rey del Infierno suma 10 de dano y aturde 1 turno."]
+                descriptions: ["Enma: Filo del Rey del Infierno inflige 40 de dano perforante y aturde 1 turno."]
               }]
             },
             {
               condition: { scope: "actor", type: "hasStatusEffect", effectId: "zoro-santoryu" },
-              effects: [
-                {
-                  type: "modifyTargetType",
-                  duration: -1,
-                  targets: "self",
-                  skillIds: ["king-of-hell-blade"],
-                  targetType: "enemies",
-                  descriptions: ["Enma: Filo del Rey del Infierno golpea a todos los enemigos."]
-                }
-              ]
+              effects: [{
+                type: "replaceEffects",
+                duration: -1,
+                targets: "self",
+                skillIds: ["king-of-hell-blade"],
+                effects: [
+                  { type: "damage", value: 40, damageType: "piercing", targets: "enemies" },
+                  { type: "self-heal", value: 10, targets: "self" }
+                ],
+                descriptions: ["Enma: Filo del Rey del Infierno inflige 40 de dano perforante a todos los enemigos y Zoro recupera 10 salud."]
+              }]
             },
             {
               when: "default",
@@ -159,8 +188,10 @@ export const zoro = {
                 duration: -1,
                 targets: "self",
                 skillIds: ["king-of-hell-blade"],
-                effects: [{ type: "damage", value: 35, targets: "target", ignoreInvulnerable: true }],
-                descriptions: ["Enma: Filo del Rey del Infierno suma 10 de dano e ignora invulnerabilidad."]
+                effects: [
+                  { type: "damage", value: 35, targets: "target", ignoreInvulnerable: true }
+                ],
+                descriptions: ["Enma: Filo del Rey del Infierno inflige 35 de dano normal e ignora invulnerabilidad."]
               }]
             }
           ]
@@ -172,9 +203,9 @@ export const zoro = {
     {
       id: "king-of-hell-blade",
       name: "Filo del Rey del Infierno",
-      chakra: { taijutsu: 1, neutralChakra: 1 },
+      chakra: { taijutsu: 1 },
       targetType: "enemy",
-      description: "Zoro ataca con su estilo actual. Ittoryu inflige 25 de dano normal, Nitoryu inflige 20 de dano perforante y Santoryu inflige 35 de dano normal.",
+      description: "Zoro ataca con su estilo actual. Sin Enma: Ittoryu inflige 20 de dano normal y cuesta 1 recurso fisico; Nitoryu inflige 25 de dano perforante, cuesta 1 recurso fisico y no puede ser contrarrestado; Santoryu inflige 35 de dano normal, cuesta 1 recurso fisico y 1 neutral, no puede ser contrarrestado ni reflejado. Con Enma: Ittoryu inflige 35 de dano normal e ignora invulnerabilidad; Nitoryu inflige 40 de dano perforante, aturde 1 turno y no puede ser contrarrestado; Santoryu inflige 40 de dano perforante a todos los enemigos, Zoro recupera 10 salud, no puede ser contrarrestado ni reflejado.",
       effects: [{
         type: "conditionalEffects",
         value: 1,
@@ -182,19 +213,18 @@ export const zoro = {
         cases: [
           {
             condition: { scope: "actor", type: "hasStatusEffect", effectId: "zoro-nitoryu" },
-            effects: [{ type: "damage", value: 20, damageType: "piercing", targets: "target" }]
+            effects: [{ type: "damage", value: 25, damageType: "piercing", targets: "target" }]
           },
           {
             condition: { scope: "actor", type: "hasStatusEffect", effectId: "zoro-santoryu" },
-            effects: [{ type: "damage", value: 15, targets: "target" }]
+            effects: [{ type: "damage", value: 35, targets: "target" }]
           },
           {
             when: "default",
-            effects: [{ type: "damage", value: 25, targets: "target" }]
+            effects: [{ type: "damage", value: 20, targets: "target" }]
           }
         ]
       }],
-      cooldown: 1,
       family: ["physical", "offensive", "instant"]
     },
     {
@@ -203,7 +233,12 @@ export const zoro = {
       chakra: { neutralChakra: 1 },
       targetType: "self",
       description: "Zoro se vuelve invulnerable por 1 turno.",
-      effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
+      effects: [{
+        type: "complex",
+        duration: 1,
+        targets: "self",
+        effects: [{ type: "invulnerable", value: 1, targets: "self" }]
+      }],
       cooldown: 4,
       family: ["physical", "strategic", "instant"]
     },
@@ -214,7 +249,7 @@ export const zoro = {
       startsActive: true,
       chakra: {},
       targetType: "self",
-      description: "Zoro empieza el combate en Ittoryu, reduciendo el dano recibido en 20%.",
+      description: "Zoro empieza el combate en Ittoryu, reduciendo el dano recibido en 25%.",
       effects: ittoryuEffects,
       hideUntilReplaced: true,
       hideSkillInInspect: true,

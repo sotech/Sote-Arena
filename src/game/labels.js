@@ -1,7 +1,7 @@
 import { normalizeHpOperator, normalizeRequireScope, normalizeRequireType } from "../../shared/requires.js";
 import { getSkillNameById } from "../../shared/characters.js";
 import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
-import { skillFamiliesLabel, stunFamiliesAffected } from "../../shared/effects.js";
+import { skillFamiliesLabel, stunFamiliesAffected, stunScopeLabel } from "../../shared/effects.js";
 
 const resourceLabels = {
   taijutsu: "Fisico",
@@ -212,8 +212,7 @@ export function effectDescription(effect) {
   }
   if (effect.type === "stun") {
     const affectedFamilies = stunFamiliesAffected(effect);
-    const scope = affectedFamilies.length ? ` (${skillFamiliesLabel(affectedFamilies)})` : "";
-    return `Aturde: ${effect.value} turno(s)${scope}`;
+    return `Aturde: ${effect.value} turno(s). ${stunScopeLabel(affectedFamilies)}`;
   }
   if (effect.type === "payLife") return `Paga vida: ${effect.value}${effect.notKill ? " (no puede matar)" : ""}`;
   if (effect.type === "invulnerable") {
@@ -258,6 +257,9 @@ export function targetTypeLabel(type) {
   if (type === "enemies") return "Todos los enemigos";
   if (type === "ally") return "Aliado";
   if (type === "otherAlly") return "Otro aliado";
+  if (type === "anyOtherAlly") return "Aliado vivo o caido";
+  if (type === "deadAlly") return "Aliado caido";
+  if (type === "deadOtherAlly") return "Otro aliado caido";
   if (type === "allies") return "Todos los aliados";
   if (type === "self") return "Propio";
   if (type === "allPlayers") return "Todos";

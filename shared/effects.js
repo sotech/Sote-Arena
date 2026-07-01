@@ -4,7 +4,8 @@ export {
   skillFamilyLabel,
   skillFamiliesLabel,
   skillClassLabel,
-  skillClassesLabel
+  skillClassesLabel,
+  stunScopeLabel
 } from "./effects/labels.js";
 export {
   commonEffectFields,

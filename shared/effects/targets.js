@@ -3,5 +3,6 @@ export const effectTargetRefs = {
   self: "Usa al personaje que lanza la habilidad.",
   origin: "En efectos complex, usa al personaje que aplico originalmente el statusEffect si todavia existe.",
   allies: "Usa todos los aliados vivos.",
-  enemies: "Usa todos los enemigos vivos que puedan ser seleccionados."
+  enemies: "Usa todos los enemigos vivos que puedan ser seleccionados.",
+  otherEnemies: "Usa enemigos vivos que puedan ser seleccionados, excluyendo el objetivo seleccionado por la habilidad."
 };
