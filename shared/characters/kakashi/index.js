@@ -16,7 +16,7 @@ export const kakashi = {
         { type: "instakill", targets: "target", when: { type: "hasStatusEffect", effectId: "ninken-trap" } }
       ],
       family:["special","offensive","instant"],
-      cooldown: 1
+      cooldown: 2
     },
     {
       id: "kakashi-sharingan",

@@ -90,9 +90,13 @@ function modifyDamageMultiplierDescriptions(effect) {
 }
 
 function modifyReceivedDamageDescriptions(effect) {
+  if (effect.multiplier !== undefined) {
+    return [`${effect.sourceActorName || "Un personaje"} multiplica el dano recibido x${Number(effect.multiplier || 0)}.`];
+  }
   const amount = Math.abs(Number(effect.value || 0));
   const verb = Number(effect.value || 0) < 0 ? "reduce" : "aumenta";
-  return [`${effect.sourceActorName || "Un personaje"} ${verb} el dano recibido en ${amount}.`];
+  const suffix = effect.mode === "percent" ? "%" : "";
+  return [`${effect.sourceActorName || "Un personaje"} ${verb} el dano recibido en ${amount}${suffix}.`];
 }
 
 function modifyDamageTypeDescriptions(effect) {
@@ -189,8 +193,10 @@ export function simpleEffectDescription(effect) {
     return `Multiplica x${Number(effect.multiplier ?? effect.value ?? 1)} el dano${scope}.`;
   }
   if (effect.type === "modifyReceivedDamage") {
+    if (effect.multiplier !== undefined) return `Multiplica x${Number(effect.multiplier || 0)} el dano recibido.`;
     const amount = Math.abs(Number(effect.value || 0));
-    return `${Number(effect.value || 0) < 0 ? "Reduce" : "Aumenta"} ${amount} el dano recibido.`;
+    const suffix = effect.mode === "percent" ? "%" : "";
+    return `${Number(effect.value || 0) < 0 ? "Reduce" : "Aumenta"} ${amount}${suffix} el dano recibido.`;
   }
   if (effect.type === "modifyDamageType") {
     const scope = effect.skillIds?.length ? ` a ${effect.skillIds.map(getSkillNameById).join(", ")}` : " a todas las habilidades";

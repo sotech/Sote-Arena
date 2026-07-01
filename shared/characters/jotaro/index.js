@@ -49,7 +49,7 @@ export const jotaro = {
         { type: "breakShield", value: 1, targets: "target", ignoreInvulnerable: true },
         { type: "damage", value: 30, damageType: "piercing", targets: "target", ignoreInvulnerable: true }
       ],
-      cooldown: 1,
+      cooldown: 3,
       family: ["physical", "offensive", "instant"]
     },
     {
@@ -57,9 +57,9 @@ export const jotaro = {
       name: "Stand: Star Platinum",
       chakra: { taijutsu: 1, bloodline: 1 },
       targetType: "self",
-      description: "Jotaro invoca Star Platinum durante 3 turnos, obtiene 50% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
+      description: "Jotaro invoca Star Platinum durante 3 turnos, obtiene 25% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
       effects: [
-        { type: "damage-reduction", value: 50, percent: true, duration: 3, targets: "self" },
+        { type: "damage-reduction", value: 25, percent: true, duration: 3, targets: "self" },
         { type: "modifyDamage", value: 10, duration: 3, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
         { type: "addUncountereable", duration: 3, targets: "self", skillIds: ["ora-ora-ora", "star-finger"] },
         { type: "replaceSkill", duration: 3, targets: "self", baseSkillId: "stand-star-platinum", skillId: "star-platinum-the-world" }
@@ -95,19 +95,19 @@ export const jotaro = {
       name: "Star Platinum: The World",
       chakra: { bloodline: 2 },
       targetType: "allPlayers",
-      description: "Jotaro detiene el tiempo. No puede ser contrarrestada ni reflejada. Todos excepto Jotaro quedan aturdidos durante 2 turnos. Durante este tiempo, los enemigos aturdidos por esta habilidad reciben doble daño de Jotaro",
+      description: "Jotaro detiene el tiempo. No puede ser contrarrestada ni reflejada. Todos excepto Jotaro quedan aturdidos durante 1 turno. Durante este tiempo, los enemigos aturdidos por esta habilidad reciben doble daño de Jotaro",
       effects: [
-        { type: "stun", value: 2, targets: ["allies", "enemies"] },
+        { type: "stun", value: 1, targets: ["allies", "enemies"] },
         {
-          type: "modifyDamageMultiplier",
+          type: "modifyReceivedDamage",
           multiplier: 2,
           duration: 2,
-          targets: "self",
-          targetStatus: { type: "stun", sourceSkillId: "star-platinum-the-world", originCharacterId: "jotaro" },
+          targets: "enemies",
+          sourceCharacterIds: ["jotaro"],
           statusSourceSkillId: "star-platinum-the-world-damage-window",
           statusSourceSkillName: "Star Platinum: The World",
           statusIconSkillId: "star-platinum-the-world",
-          descriptions: ["Los enemigos aturdidos por Star Platinum: The World reciben doble daño de las habilidades de Jotaro."]
+          descriptions: ["Los enemigos afectados por Star Platinum: The World reciben doble dano de las habilidades de Jotaro durante 2 turnos."]
         }
       ],
       uncountereable: true,

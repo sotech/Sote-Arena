@@ -11,13 +11,13 @@ const ittoryuEffects = [
   clearStances,
   {
     type: "damage-reduction",
-    value: 25,
+    value: 15,
     percent: true,
     duration: -1,
     targets: "self",
     statusSourceSkillId: "zoro-ittoryu",
     statusSourceSkillName: "Ittoryu",
-    descriptions: ["Ittoryu: Zoro reduce el dano recibido en 25%."]
+    descriptions: ["Ittoryu: Zoro reduce el dano recibido en 15%."]
   }
 ];
 
@@ -103,9 +103,9 @@ export const zoro = {
     {
       id: "sword-style-stance",
       name: "Estilo de Espadas",
-      chakra: {},
+      chakra: {neutralChakra: 1},
       targetType: "self",
-      description: "Zoro cambia su postura en orden ciclico: Ittoryu reduce el dano recibido en 25%; Nitoryu reduce 15 puntos, devuelve 10 de dano perforante al atacante y vuelve Filo del Rey del Infierno no contrarrestable; Santoryu hace que Filo del Rey del Infierno cueste 1 fisico y 1 neutral, no sea contrarrestable y no sea reflejable.",
+      description: "Zoro cambia su postura en orden ciclico: Ittoryu reduce el dano recibido en 15%; Nitoryu reduce 15 puntos, devuelve 10 de dano perforante al atacante y vuelve Filo del Rey del Infierno no contrarrestable; Santoryu hace que Filo del Rey del Infierno cueste 1 fisico y 1 neutral, no sea contrarrestable y no sea reflejable.",
       effects: [{
         type: "conditionalEffects",
         value: 1,
@@ -175,10 +175,10 @@ export const zoro = {
                 targets: "self",
                 skillIds: ["king-of-hell-blade"],
                 effects: [
-                  { type: "damage", value: 40, damageType: "piercing", targets: "enemies" },
+                  { type: "damage", value: 35, damageType: "piercing", targets: "enemies" },
                   { type: "self-heal", value: 10, targets: "self" }
                 ],
-                descriptions: ["Enma: Filo del Rey del Infierno inflige 40 de dano perforante a todos los enemigos y Zoro recupera 10 salud."]
+                descriptions: ["Enma: Filo del Rey del Infierno inflige 35 de dano perforante a todos los enemigos y Zoro recupera 10 salud."]
               }]
             },
             {

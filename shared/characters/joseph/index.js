@@ -36,7 +36,7 @@ export const joseph = {
       chakra: { genjutsu: 1 },
       targetType: "enemy",
       isSecret: true,
-      description: "Joseph predice el movimiento enemigo y prepara un counter. Si contrarresta una habilidad, obtiene 2 acumulaciones de Hamon.",
+      description: "Joseph predice el movimiento enemigo y prepara un counter. Si contrarresta una habilidad, obtiene 1 acumulacion de Hamon.",
       effects: [{
         type: "counter",
         duration: 1,
@@ -48,7 +48,7 @@ export const joseph = {
         descriptions: ["Tu siguiente frase es... fue usada en este personaje."],
         counteredNoticeTemplate: "Tu siguiente frase es: {skillName}",
         effects: [
-          { type: "modifyDamage", isStackable: true ,value: 10, duration: -1, targets: "origin", skillIds: ["clacker-volley"], statusNoticeDescription: "Tu siguiente frase es: habilidad contrarrestada" }
+          { type: "modifyDamage", isStackable: true ,value: 5, duration: -1, targets: "origin", skillIds: ["clacker-volley"], statusNoticeDescription: "Tu siguiente frase es: habilidad contrarrestada" }
         ]
       }],
       cooldown: 2,

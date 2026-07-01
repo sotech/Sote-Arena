@@ -67,7 +67,7 @@ export const alucard = {
       effects: [
         {
           type: "modifyDamage",
-          value: 25,
+          value: 20,
           duration: -1,
           targets: "self",
           skillIds: ["casull-jackal"],
@@ -87,6 +87,17 @@ export const alucard = {
           statusIconSkillId: "restriction-level-zero",
           descriptions: ["Casull & Jackal hacen el doble de dano. Forma de niebla hace el doble de dano. Alucard recibe 25% mas de dano."]
         },
+        {
+          type: "modifyReceivedDamage",
+          value: 25,
+          duration: -1,
+          targets: "self",
+          mode: "percent",
+          statusSourceSkillId: "restriction-level-zero-vulnerability",
+          statusSourceSkillName: "Nivel de Restriccion 0",
+          statusIconSkillId: "restriction-level-zero",
+          descriptions: ["Alucard recibe 25% mas de dano."]
+        }
       ],
       uses: 1,
       cooldown: 0,

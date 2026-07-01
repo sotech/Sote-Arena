@@ -14,7 +14,7 @@ export const hinata = {
       effects: [
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
       ],
-      cooldown: 2,
+      cooldown: 1,
       family: ["physical", "offensive", "instant"]
     },
     {

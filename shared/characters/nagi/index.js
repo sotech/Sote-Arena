@@ -75,12 +75,12 @@ export const nagi = {
       name: "Genio Perezoso",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "self",
-      description: "Nagi obtiene 75% de reduccion de daño durante 3 turnos. Por este tiempo, Remate de volea cuesta 1 recurso fisico menos.",
+      description: "Nagi obtiene 50% de reduccion de daño durante 3 turnos. Por este tiempo, Remate de volea cuesta 1 recurso fisico menos.",
       effects: [
-        { type: "damage-reduction", value: 75, percent: true, duration: 3, targets: "self" },
+        { type: "damage-reduction", value: 50, percent: true, duration: 3, targets: "self" },
         { type: "modifyChakraCost", chakra: { taijutsu: -1 }, duration: 3, targets: "self", skillIds: ["volley-shot"] }
       ],
-      cooldown: 3,
+      cooldown: 4,
       family: ["mental", "strategic", "instant"]
     }
   ]

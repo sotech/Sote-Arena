@@ -3,7 +3,7 @@ export const cacho = {
   name: "Cacho",
   avatar: "CH",
   bio:"Cacho es un peleador impulsivo y feroz que siempre está dispuesto a lanzarse de cabeza al combate para proteger a quienes considera sus amigos. Su carácter carismático, su inagotable pasión por los cigarrillos y su brutal estilo de pelea lo convierten en un aliado inolvidable y un rival peligroso.",
-  maxHp: 150,
+  maxHp: 125,
   skills: [
     {
       id: "cacho-lariat",
@@ -21,7 +21,7 @@ export const cacho = {
       name: "Humo peligroso",
       chakra: { genjutsu: 1, neutralChakra: 1 },
       targetType: "enemies",
-      description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 15 de daño de afliccion y aturdiendo sus habilidades fisicas por 1 turno. Ademas Cacho recibe 10 puntos de daño de afliccion.",
+      description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 10 de daño de afliccion y aturdiendo sus habilidades fisicas por 1 turno. Ademas Cacho recibe 10 puntos de daño de afliccion.",
       effects: [
         { type: "complex", duration: 1, targets: "target", effects: [{ type: "stun", value: 1, targets: "self", familiesAffected: ["physical"] }] },
         { type: "damage", value: 10, damageType: "affliction", targets: "target" },
@@ -40,7 +40,7 @@ export const cacho = {
         { type: "heal", value: 15, targets: "target" },
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage-reduction", value: 15, targets: "self" }] }
       ],
-      cooldown: 3,
+      cooldown: 2,
       family:["special","strategic","instant"]
     },
     {

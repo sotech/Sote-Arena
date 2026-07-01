@@ -1267,18 +1267,35 @@ export function damageBuffValue(actor, skill, currentTurn) {
   return directBuffs + complexBuffs;
 }
 
-function receivedDamageModifierValue(target) {
-  return activeStatusEffects(target).reduce((total, effect) => {
-    if (effect.type === "modifyReceivedDamage" && (effect.turns > 0 || effect.turns === -1)) {
-      return total + Number(effect.value || 0);
-    }
+function receivedDamageSourceMatches(effect, actor, skill) {
+  const sourceCharacterIds = [
+    effect.sourceCharacterId,
+    ...(Array.isArray(effect.sourceCharacterIds) ? effect.sourceCharacterIds : [])
+  ].filter(Boolean);
+  if (sourceCharacterIds.length > 0 && !sourceCharacterIds.includes(actor?.character?.id)) return false;
+  return appliesToModifiedSkill(effect, skill);
+}
+
+function receivedDamageModifierValue(target, baseDamage = 0, actor = null, skill = null) {
+  const modifiers = activeStatusEffects(target).flatMap((effect) => {
+    if (effect.type === "modifyReceivedDamage" && (effect.turns > 0 || effect.turns === -1)) return [effect];
     if (effect.type === "complex" && (effect.turns > 0 || effect.turns === -1)) {
-      return total + (effect.effects || [])
-        .filter((childEffect) => !statusIsIgnored(childEffect) && childEffect.type === "modifyReceivedDamage")
-        .reduce((sum, childEffect) => sum + Number(childEffect.value || 0), 0);
+      return (effect.effects || [])
+        .filter((childEffect) => !statusIsIgnored(childEffect) && childEffect.type === "modifyReceivedDamage");
     }
+    return [];
+  }).filter((effect) => receivedDamageSourceMatches(effect, actor, skill));
+
+  const multiplier = modifiers.reduce((total, effect) => {
+    if (effect.multiplier !== undefined) return total * Math.max(0, Number(effect.multiplier || 0));
+    if (effect.mode === "percent") return total * Math.max(0, 1 + (Number(effect.value || 0) / 100));
     return total;
-  }, 0);
+  }, 1);
+  const flat = modifiers
+    .filter((effect) => effect.multiplier === undefined && effect.mode !== "percent")
+    .reduce((total, effect) => total + Number(effect.value || 0), 0);
+
+  return Math.ceil(Math.max(0, Number(baseDamage || 0)) * multiplier) + flat;
 }
 
 function statusMatchesTargetCondition(status, condition = {}) {
@@ -1864,7 +1881,9 @@ function applyComplexStatusEffects(room, player, resolveOrder = [], allowedStatu
         const damageType = effect.damageType || "basic";
         for (const target of targets) {
           if (!effectAppliesToTarget(effect, target, member)) continue;
-          const result = applyDamageDetailed(target, positiveEffectValue(effect) + receivedDamageModifierValue(target), damageType);
+          const baseDamage = positiveEffectValue(effect);
+          const sourceMember = getRoomMember(room, status.originActorId);
+          const result = applyDamageDetailed(target, receivedDamageModifierValue(target, baseDamage, sourceMember, { id: status.sourceSkillId }), damageType);
           totalDamage += result.dealt;
           recordDamageByType(damageByType, damageType, result.dealt);
           recordBalanceStats(room, target, { mitigated: result.mitigated });
@@ -2190,7 +2209,8 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       const damageType = effect.damageType || "basic";
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, sourceMember)) continue;
-        const result = applyDamageDetailed(target, positiveEffectValue(effect) + receivedDamageModifierValue(target), damageType);
+        const baseDamage = positiveEffectValue(effect);
+        const result = applyDamageDetailed(target, receivedDamageModifierValue(target, baseDamage, sourceMember, { id: status.sourceSkillId }), damageType);
         totalDamage += result.dealt;
         recordDamageByType(damageByType, damageType, result.dealt);
         recordBalanceStats(room, target, { mitigated: result.mitigated });
@@ -2535,7 +2555,10 @@ function applyDeathTriggerEffect(room, member, status, effect) {
       turns: effect.duration,
       value: effect.value,
       multiplier: effect.multiplier,
+      mode: effect.mode,
       targetStatus: effect.targetStatus,
+      sourceCharacterId: effect.sourceCharacterId,
+      sourceCharacterIds: Array.isArray(effect.sourceCharacterIds) ? effect.sourceCharacterIds : [],
       amountPerStep: effect.amountPerStep,
       hpStep: effect.hpStep,
       skillIds: Array.isArray(effect.skillIds) ? effect.skillIds : [],
@@ -2761,7 +2784,8 @@ export function applyQueuedSkill(room, player, action) {
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
         const multiplier = damageMultiplierValue(actor, skill, target, room.turn);
-        const targetDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier) + receivedDamageModifierValue(target);
+        const baseDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier);
+        const targetDamage = receivedDamageModifierValue(target, baseDamage, actor, skill);
         const result = applyDamageDetailed(target, targetDamage, damageType);
         totalDamage += result.dealt;
         recordDamageByType(damageByType, damageType, result.dealt);
@@ -2917,7 +2941,10 @@ export function applyQueuedSkill(room, player, action) {
           turns: appliedEffect.duration,
           value: appliedEffect.value,
           multiplier: appliedEffect.multiplier,
+          mode: appliedEffect.mode,
           targetStatus: appliedEffect.targetStatus,
+          sourceCharacterId: appliedEffect.sourceCharacterId,
+          sourceCharacterIds: Array.isArray(appliedEffect.sourceCharacterIds) ? appliedEffect.sourceCharacterIds : [],
           amountPerStep: appliedEffect.amountPerStep,
           hpStep: appliedEffect.hpStep,
           skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],

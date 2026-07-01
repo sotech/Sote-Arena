@@ -53,9 +53,9 @@ export const daniel = {
       name: "Nueve vidas",
       chakra: { neutralChakra: 3 },
       targetType: "self",
-      description: "Usando la energia vital de su gata, Daniel recupera 40 puntos de vida y se vuelve invulnerable 1 turno.",
+      description: "Usando la energia vital de su gata, Daniel recupera 35 puntos de vida y se vuelve invulnerable 1 turno.",
       effects: [
-        { type: "heal", value: 40, targets: "self" },
+        { type: "heal", value: 35, targets: "self" },
         { type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
       cooldown: 4,
       family:["special","strategic","instant"]

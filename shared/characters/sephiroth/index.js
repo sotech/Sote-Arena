@@ -16,7 +16,7 @@ export const sephiroth = {
         { type: "damage", value: 25, damageType: "piercing", targets: "target" }
       ],
       cooldown: 3,
-      family: ["physical", "offensive", "channeled"]
+      family: ["physical", "offensive", "instant"]
     },
     {
       id: "supernova",
@@ -47,7 +47,7 @@ export const sephiroth = {
         effects: [
           {
             type: "damage-reduction",
-            value: 25,
+            value: 15,
             percent: true,
             duration: -1,
             targets: "self",
@@ -57,11 +57,11 @@ export const sephiroth = {
             statusSourceSkillId: "black-feather",
             statusSourceSkillName: "Pluma negra",
             statusIconSkillId: "black-feather",
-            descriptions: ["Cada Pluma Negra otorga 25% de reduccion de dano, aumenta Masamune en 15 y aumenta Supernova en 20."]
+            descriptions: ["Cada Pluma Negra otorga 25% de reduccion de dano, aumenta Masamune en 10 y aumenta Supernova en 10."]
           },
           {
             type: "modifyDamage",
-            value: 15,
+            value: 10,
             duration: -1,
             targets: "self",
             skillIds: ["masamune"],
@@ -71,11 +71,11 @@ export const sephiroth = {
             statusSourceSkillId: "black-feather-masamune",
             statusSourceSkillName: "Pluma negra",
             statusIconSkillId: "black-feather",
-            descriptions: ["Cada Pluma Negra otorga 25% de reduccion de dano, aumenta Masamune en 15 y aumenta Supernova en 20."]
+            descriptions: ["Cada Pluma Negra otorga 25% de reduccion de dano, aumenta Masamune en 10 y aumenta Supernova en 10."]
           },
           {
             type: "modifyDamage",
-            value: 20,
+            value: 10,
             duration: -1,
             targets: "self",
             skillIds: ["supernova"],
@@ -85,7 +85,7 @@ export const sephiroth = {
             statusSourceSkillId: "black-feather-supernova",
             statusSourceSkillName: "Pluma negra",
             statusIconSkillId: "black-feather",
-            descriptions: ["Cada Pluma Negra otorga 25% de reduccion de dano, aumenta Masamune en 15 y aumenta Supernova en 20."]
+            descriptions: ["Cada Pluma Negra otorga 25% de reduccion de dano, aumenta Masamune en 10 y aumenta Supernova en 10."]
           }
         ]
       }],

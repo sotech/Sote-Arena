@@ -8,7 +8,7 @@ export const chiyo = {
     {
       id: "white-secret-attack-rampage",
       name: "Ataque secreto blanco",
-      chakra: { neutralChakra: 1 },
+      chakra: { neutralChakra: 2 },
       targetType: "enemy",
       description: "Chiyo dirige sus marionetas contra un enemigo e inflige 20 de dano normal. Otro enemigo aleatorio recibe 20 de dano normal al comienzo del segundo turno enemigo siguiente si esta disponible. El siguiente Sanbou Kyuukai de Chiyo consume las acumulaciones de esta habilidad para infligir 5 de dano adicional por acumulacion.",
       effects: [
@@ -95,7 +95,7 @@ export const chiyo = {
           showStatusEffect: false
         }
       ],
-      cooldown: 2,
+      cooldown: 3,
       family: ["special", "strategic", "instant"]
     },
     {

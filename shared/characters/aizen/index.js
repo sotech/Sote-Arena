@@ -29,7 +29,7 @@ export const aizen = {
           effects: [{ type: "damage", value: 30, targets: "self", damageType: "piercing", ignoreInvulnerable: true }]
         }
       ],
-      cooldown: 2,
+      cooldown: 3,
       family: ["physical", "offensive", "instant"]
     },
     {
@@ -40,7 +40,7 @@ export const aizen = {
       isSecret: true,
       description: `Usando su Zanpakutou, Aizen crea una ilusion para un enemigo. 
         Durante 1 turno, la siguiente habilidad ofensiva que use ese enemigo sera contrarrestada y 
-        un enemigo al azar recibira 20 de daño perforante que ignora invulnerabilidad. 
+        un enemigo al azar recibira 20 de daño perforante. 
         Esta habilidad es secreta.`,
       effects: [
         { type: "complex", duration: 1, targets: "self", showStatusEffect: true, effects: [] },
@@ -56,7 +56,7 @@ export const aizen = {
             value: 20,
             targets: "enemies",
             damageType: "piercing",
-            ignoreInvulnerable: true,
+            ignoreInvulnerable: false,
             randomTargetCount: 1,
             statusNoticeDescription: "Este objetivo recibio dano de Dispersate, Kyouka Suijetsu de Aizen."
           }]
@@ -71,7 +71,7 @@ export const aizen = {
       chakra: { ninjutsu: 1, neutralChakra: 1 },
       targetType: "enemy",
       description: `Aizen conjura un Hado sin encantamientos, aturdiendo a un objetivo por 2 turnos. 
-        Por 2 turnos, el objetivo recibe 20 de daño. 
+        Por 2 turnos, el objetivo recibe 15 de daño. 
         Esta habilidad puede ser cancelada si Aizen es aturdido.`,
       effects: [
         {
@@ -94,7 +94,7 @@ export const aizen = {
           statusLinkId: "hado-90-black-coffin",
           effects: [
             { type: "stun", value: 2, targets: "self" },
-            { type: "damage", value: 20, targets: "self" }
+            { type: "damage", value: 15, targets: "self" }
           ]
         }
       ],
