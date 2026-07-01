@@ -58,6 +58,12 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="2.0.0">
+        <ul>
+          <New>Nuevo sistema de habilidades y resolucion</New>
+          <New>Mejoras de UI</New>
+        </ul>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="1.6.0">
         <CharacterPatch id="chiyo">
           <New>Agregado Abuela Chiyo</New>
