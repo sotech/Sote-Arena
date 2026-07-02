@@ -1501,6 +1501,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [detailCharacterId, setDetailCharacterId] = useState("");
+  const [detailSkillId, setDetailSkillId] = useState("");
   const filteredCharacters = filterCharacters(characters, search);
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -1522,24 +1523,13 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
   }, [search]);
 
   function clickCharacter(characterId) {
-    if (me?.ready) return;
     setDetailCharacterId(characterId);
+    setDetailSkillId("");
   }
 
   return (
     <section className="lobby">
       <div className="panel">
-        {detailCharacter ? (
-          <CharacterDetailView
-            character={detailCharacter}
-            selected={detailCharacterSelected}
-            canSelect
-            selectDisabled={detailSelectDisabled}
-            selectLabel={detailCharacterSelected ? "Quitar del equipo" : selected.length >= 3 ? "Equipo completo" : "Agregar al equipo"}
-            onToggle={() => onToggle(detailCharacter.id)}
-            onBack={() => setDetailCharacterId("")}
-          />
-        ) : (
         <>
         <div className="section-head">
           <div>
@@ -1580,9 +1570,8 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
           {pageCharacters.map((character) => (
             <button
               key={character.id}
-              className={`character-card ${selected.includes(character.id) ? "selected" : ""}`}
+              className={`character-card ${selected.includes(character.id) ? "selected" : ""} ${detailCharacterId === character.id ? "inspected" : ""}`}
               onClick={() => clickCharacter(character.id)}
-              disabled={me?.ready}
             >
               <SquareImage alt={character.name} src={characterImage(character.id)} />
             </button>
@@ -1598,8 +1587,18 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
             <ChevronRight size={18} />
           </button>
         </div>
-        </>
+        {detailCharacter && (
+          <LobbyInspectionFooter
+            character={detailCharacter}
+            selected={detailCharacterSelected}
+            selectDisabled={detailSelectDisabled}
+            selectLabel={detailCharacterSelected ? "Quitar del equipo" : selected.length >= 3 ? "Equipo completo" : "Agregar al equipo"}
+            skillId={detailSkillId}
+            onSkill={setDetailSkillId}
+            onToggle={() => onToggle(detailCharacter.id)}
+          />
         )}
+        </>
       </div>
       <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>
         <section className="panel status side-main">
@@ -1664,6 +1663,11 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const ownBattleShare = playerHealthShare(me, opponent);
   const enemyBattleShare = playerHealthShare(opponent, me);
   const damageAnimationTurnKey = `${room.turn}:${room.activePlayerId}`;
+  const chatMessages = room.chat || [];
+  const latestChatMessage = chatMessages[chatMessages.length - 1] || null;
+  const latestChatMessageId = latestChatMessage?.id || "";
+  const lastVisibleChatRoomRef = useRef("");
+  const lastVisibleChatMessageRef = useRef("");
 
   useEffect(() => {
     if (skillActorChangeRef.current === actorId) {
@@ -1690,18 +1694,26 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   useEffect(() => {
     if (room.mode !== "pvp") {
       setVisibleChatBubble(null);
+      lastVisibleChatRoomRef.current = "";
+      lastVisibleChatMessageRef.current = "";
       return undefined;
     }
-    const messages = room.chat || [];
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage) {
+    if (lastVisibleChatRoomRef.current !== room.code) {
+      lastVisibleChatRoomRef.current = room.code;
+      lastVisibleChatMessageRef.current = latestChatMessageId;
       setVisibleChatBubble(null);
       return undefined;
     }
-    setVisibleChatBubble(lastMessage);
+    if (!latestChatMessageId) {
+      setVisibleChatBubble(null);
+      return undefined;
+    }
+    if (lastVisibleChatMessageRef.current === latestChatMessageId) return undefined;
+    lastVisibleChatMessageRef.current = latestChatMessageId;
+    setVisibleChatBubble(latestChatMessage);
     const timeout = window.setTimeout(() => setVisibleChatBubble(null), 5000);
     return () => window.clearTimeout(timeout);
-  }, [room.mode, room.chat]);
+  }, [room.mode, room.code, latestChatMessageId]);
 
   function clickMemberSkill(actor, skill) {
     if (!actor) return;
@@ -1778,6 +1790,10 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
     if (!isMyTurn || room.phase === "finished") return;
     if (defaultResolveOrder.length > 0 || queuedNeutralChakra > 0) {
       setNeutralChakraOpen(true);
+      return;
+    }
+    if (!hasQueuedSkills) {
+      setEmptyQueueConfirmOpen(true);
       return;
     }
     onEndTurn(emptyChakra());
@@ -2206,7 +2222,7 @@ function EndTurnConfirmModal({ onClose, onConfirm }) {
           <button type="button" className="secondary" onClick={onClose}>Atras</button>
           <button type="button" onClick={onConfirm}>
             <CheckCircle2 size={18} />
-            Proceder
+            Finalizar turno
           </button>
         </footer>
       </div>
@@ -2221,6 +2237,36 @@ function PatchNotesPopup({ onClose }) {
         <PatchNotesView onBack={onClose} />
       </div>
     </div>
+  );
+}
+
+function LobbyInspectionFooter({ character, selected, selectDisabled, selectLabel, skillId, onSkill, onToggle }) {
+  if (!character) return null;
+  const skills = inspectableSkillsForCharacter(character);
+  const inspectedSkill = skills.find((skill) => skill.id === skillId);
+  return (
+    <section className="character-skill-footer lobby-inspection-footer">
+      <div className="lobby-inspection-actions">
+        <button type="button" className={selected ? "secondary" : ""} onClick={onToggle} disabled={selectDisabled}>
+          {selectLabel}
+        </button>
+      </div>
+      <div className="battle-skill-strip" aria-label={`Habilidades de ${character.name}`}>
+        {skills.map((skill) => (
+          <button
+            type="button"
+            key={skill.id}
+            className={`${inspectedSkill?.id === skill.id ? "selected" : ""} ${skill.passive ? "unavailable" : ""}`}
+            aria-disabled={skill.passive === true}
+            onClick={() => onSkill(skill.id)}
+            aria-label={skill.name}
+          >
+            <SquareImage alt={skill.name} src={skillImage(skill.id)} />
+          </button>
+        ))}
+      </div>
+      {inspectedSkill ? <SkillFooter skill={inspectedSkill} /> : <CharacterFooter character={character} />}
+    </section>
   );
 }
 

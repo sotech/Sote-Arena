@@ -36,6 +36,7 @@ import { reviveOnDeathEffect } from "./reviveOnDeath.js";
 import { selfHealEffect } from "./selfHeal.js";
 import { shieldEffect } from "./shield.js";
 import { shieldDamageEffect } from "./shieldDamage.js";
+import { shuffleDeckSkillsEffect } from "./shuffleDeckSkills.js";
 import { spikeEffect } from "./spike.js";
 import { stunEffect } from "./stun.js";
 import { stunImmunityEffect } from "./stunImmunity.js";
@@ -50,6 +51,7 @@ export const effectTypes = {
   payLife: payLifeEffect,
   breakShield: breakShieldEffect,
   shieldDamage: shieldDamageEffect,
+  shuffleDeckSkills: shuffleDeckSkillsEffect,
   shield: shieldEffect,
   spike: spikeEffect,
   changeAvatarImage: changeAvatarImageEffect,
@@ -84,6 +86,7 @@ export const effectTypes = {
   reflect: reflectEffect,
   reviveOnDeath: reviveOnDeathEffect,
   "gain-chakra": gainChakraEffect,
+  gainRandomChakra: gainChakraEffect,
   "remove-chakra": removeChakraEffect,
   complex: complexEffect
 };

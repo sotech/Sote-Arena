@@ -14,6 +14,12 @@ function hasCustomDescriptions(effect) {
   return Array.isArray(effect?.descriptions) && effect.descriptions.length > 0;
 }
 
+function effectTypeLabel(type) {
+  if (type === "damage") return "daño";
+  if (type === "heal" || type === "self-heal") return "curacion";
+  return type;
+}
+
 export function statusDescription(effect, actorCharacter) {
   if (effect.type === "shield") return `Este personaje tiene ${effect.remainingShield || effect.value} de escudo.`;
   if (effect.type === "payLife") return `${actorCharacter.name} pago ${effect.value} de vida.`;
@@ -51,7 +57,7 @@ export function statusDescription(effect, actorCharacter) {
   }
   if (effect.type === "effect-immunity") return `${actorCharacter.name} ignora efectos que no sean dano o sanacion.`;
   if (effect.type === "stunImmunity") return `${actorCharacter.name} es inmune a aturdimientos especificos.`;
-  if (effect.type === "ignoreEffects") return `${actorCharacter.name} ignora algunos efectos aplicados.`;
+  if (effect.type === "ignoreEffects") return `Este personaje esta ignorando los efectos de tipo: ${(effect.ignoreEffects || []).map(effectTypeLabel).join(", ") || "ninguno"}.`;
   return `${actorCharacter.name} ha aplicado ${effect.type} a este personaje.`;
 }
 
@@ -232,7 +238,7 @@ export function simpleEffectDescription(effect) {
   }
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion.";
   if (effect.type === "stunImmunity") return "Otorga inmunidad a aturdimientos especificos.";
-  if (effect.type === "ignoreEffects") return "Ignora efectos indicados aunque sus estados se apliquen.";
+  if (effect.type === "ignoreEffects") return `Este personaje esta ignorando los efectos de tipo: ${(effect.ignoreEffects || []).map(effectTypeLabel).join(", ") || "ninguno"}.`;
   if (effect.type === "removeStatus") return "Elimina estados especificos.";
   if (effect.type === "conditionalEffects") return "Aplica efectos condicionales.";
   if (effect.type === "onEnemyDeath") return "Se activa cuando muere un enemigo.";
@@ -243,7 +249,7 @@ export function simpleEffectDescription(effect) {
     const affectedFamilies = stunFamiliesAffected(effect);
     return `Aplica aturdimiento. ${stunScopeLabel(affectedFamilies)}`;
   }
-  if (effect.type === "gain-chakra") return `Otorga ${effect.value} recurso.`;
+  if (effect.type === "gain-chakra" || effect.type === "gainRandomChakra") return `Otorga ${effect.value} recurso.`;
   if (effect.type === "remove-chakra") return `Elimina ${effect.value} recurso.`;
   return `${effect.type}: ${effect.value || ""}`.trim();
 }

@@ -19,6 +19,7 @@ import { joseph } from "./characters/joseph/index.js";
 import { ichigo } from "./characters/ichigo/index.js";
 import { zoro } from "./characters/zoro/index.js";
 import { chiyo } from "./characters/chiyo/index.js";
+import { yugi } from "./characters/yugi/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -49,12 +50,13 @@ function effectBotDescription(effect) {
   if (effect.type === "addNonReflectable") return `addNonReflectable-${(effect.skillIds || []).join(",") || "all"}`;
   if (effect.type === "replaceEffects") return `replaceEffects-${(effect.effects || []).map(effectBotDescription).join(",")}`;
   if (effect.type === "replaceSkill") return `replaceSkill-${effect.baseSkillId || ""}-${effect.skillId || ""}`;
+  if (effect.type === "shuffleDeckSkills") return `shuffleDeckSkills-${(effect.baseSkillIds || []).join(",")}-${(effect.deckSkillIds || []).join(",")}`;
   if (effect.type === "counter") return `counter-${effect.trigger || "incoming"}-${effect.charges ?? effect.value ?? 1}-${(effect.effects || []).map(effectBotDescription).join(",")}`;
   if (effect.type === "reflect") return `reflect-${effect.reflectTo || "caster"}-${effect.charges ?? effect.value ?? 1}`;
   if (effect.type === "modifyChakraCost" || effect.type === "substituteChakraCost") return `${effect.type}-${JSON.stringify(effect.chakra || {})}`;
   if (effect.type === "stun") return `stun-${effect.value}`;
   if (effect.type === "invulnerable") return `invulnerable-${effect.value}`;
-  if (effect.type === "gain-chakra") return `gainChakra-${effect.value}`;
+  if (effect.type === "gain-chakra" || effect.type === "gainRandomChakra") return `gainChakra-${effect.value}`;
   if (effect.type === "remove-chakra") return `removeChakra-${effect.value}`;
   if (effect.type === "complex") {
     const childDescriptions = (effect.effects || []).map(effectBotDescription);
@@ -110,5 +112,6 @@ export const characters = [
   joseph,
   ichigo,
   zoro,
-  chiyo
+  chiyo,
+  yugi
 ].map(withSkillDefaults);

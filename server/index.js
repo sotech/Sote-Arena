@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { Server } from "socket.io";
 import { characters, getCharacterById } from "../shared/characters.js";
 import { chakraCostModifierTypes, modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
+import { chooseDeckSkillIds } from "../shared/deckSkills.js";
 import { stunFamiliesAffected, supportedEffectTypes } from "../shared/effects.js";
 import { compareHp, normalizeRequireScope, normalizeRequireType } from "../shared/requires.js";
 import { activeSkillForMember, activeSkillsForMember } from "../shared/skillReplacements.js";
@@ -170,12 +171,9 @@ function tooltipDescriptionForEffect(effect) {
 
 function secretOpponentStatusPresentation(room, sourcePlayer, target, skill, effect, fallbackDescriptions = null) {
   const isSecret = Boolean(skill?.isSecret || effect?.isSecret || effect?.type === "counter" || effect?.type === "reflect");
-  const targetOwner = target ? ownerOfMember(room, target) : null;
-  const appliesToOpponent = Boolean(sourcePlayer && targetOwner && sourcePlayer.id !== targetOwner.id);
-  const shouldShowSecretTooltip = isSecret && appliesToOpponent;
   return {
-    showStatusEffect: shouldShowSecretTooltip ? true : effect?.showStatusEffect,
-    descriptions: shouldShowSecretTooltip
+    showStatusEffect: isSecret ? true : effect?.showStatusEffect,
+    descriptions: isSecret
       ? (hasCustomDescriptions(effect) ? effect.descriptions : [`${skill?.name || "Una habilidad secreta"} fue usada en este personaje.`])
       : (hasCustomDescriptions(effect) ? effect.descriptions : fallbackDescriptions)
   };
@@ -486,6 +484,37 @@ function characterNames(members) {
     .join(", ");
 }
 
+const BOT_DEFEATED_ENEMY_LINES = [
+  "¿Eso era todo, {personajeDerrotado}?",
+  "Uno menos, todavía me sobran fuerzas.",
+  "La próxima deberás entrenar un poco más.",
+  "Ni siquiera me hiciste esforzar.",
+  "{personajeDerrotado}, esperaba mucho más de ti.",
+  "Este combate ya estaba decidido.",
+  "Qué decepción, pensé que durarías más.",
+  "Vuelve cuando estés a mi nivel.",
+  "Otro rival que cae ante mí.",
+  "No todos nacieron para ganar."
+];
+
+const BOT_LOST_MEMBER_LINES = [
+  "¡No puede ser, {personajeDerrotado}!",
+  "Esto todavía no termina.",
+  "Me las vas a pagar.",
+  "No esperaba perder a {personajeDerrotado} tan rápido.",
+  "Qué golpe tan bajo.",
+  "Esto salió peor de lo que imaginaba.",
+  "Todavía puedo dar vuelta la pelea.",
+  "No pienso olvidar esto.",
+  "Maldición, eso dolió.",
+  "Vas a arrepentirte de haber hecho caer a {personajeDerrotado}."
+];
+
+function randomBotLine(lines, defeatedName) {
+  const line = lines[Math.floor(Math.random() * lines.length)] || "";
+  return line.replaceAll("{personajeDerrotado}", defeatedName || "ese personaje");
+}
+
 function botTauntForDeaths(room, beforeDeathsByPlayerId) {
   if (room.mode !== "bot") return "";
   const bot = room.players.find((player) => player.isBot);
@@ -496,11 +525,11 @@ function botTauntForDeaths(room, beforeDeathsByPlayerId) {
   const deadHumanMembers = newDeaths(beforeDeathsByPlayerId.get(human.id) || new Set(), human);
   if (deadBotMembers.length > 0) {
     const names = characterNames(deadBotMembers);
-    return `${bot.name}: ${names} cayo, pero esto no termina aca.`;
+    return randomBotLine(BOT_LOST_MEMBER_LINES, names);
   }
   if (deadHumanMembers.length > 0) {
     const names = characterNames(deadHumanMembers);
-    return `${bot.name}: ${names} queda fuera.`;
+    return randomBotLine(BOT_DEFEATED_ENEMY_LINES, names);
   }
   return "";
 }
@@ -1012,6 +1041,7 @@ export function addStatus(member, status) {
         : status.value;
       existing.damageType = status.damageType;
       existing.multiplier = status.multiplier;
+      existing.mode = status.mode;
       existing.targetStatus = status.targetStatus;
       existing.targetType = status.targetType;
       existing.count = status.count;
@@ -1023,11 +1053,15 @@ export function addStatus(member, status) {
       existing.turns = mergeStatusTurns(existing.turns, status.turns);
       existing.skillIds = status.skillIds;
       existing.familiesAffected = status.familiesAffected;
+      existing.effectTypesAffected = status.effectTypesAffected;
       existing.excludedDamageTypes = status.excludedDamageTypes;
       existing.chargesPerTurn = status.chargesPerTurn;
       existing.trigger = status.trigger;
       existing.charges = status.charges;
       existing.reflectTo = status.reflectTo;
+      existing.onCounterSuccess = status.onCounterSuccess;
+      existing.sourceCharacterId = status.sourceCharacterId;
+      existing.sourceCharacterIds = status.sourceCharacterIds;
       existing.counteredNoticeTemplate = status.counteredNoticeTemplate;
       existing.showStatusEffect = status.showStatusEffect;
       existing.isStackable = status.isStackable;
@@ -1098,6 +1132,8 @@ export function addStatus(member, status) {
     existing.turns = mergeStatusTurns(existing.turns, status.turns);
     existing.familiesAffected = status.familiesAffected;
     existing.ignoreEffects = status.ignoreEffects;
+    existing.effectTypesAffected = status.effectTypesAffected;
+    existing.onCounterSuccess = status.onCounterSuccess;
     existing.descriptions = status.descriptions;
     existing.createdTurn = status.createdTurn;
     existing.originActorId = status.originActorId;
@@ -1162,6 +1198,61 @@ function statusOrigin(actor) {
   };
 }
 
+function currentDeckReplacementSkillIds(member, baseSkillIds) {
+  const baseSkillIdSet = new Set(baseSkillIds);
+  return (member.statusEffects || [])
+    .filter((status) => status.type === "replaceSkill" && baseSkillIdSet.has(status.baseSkillId))
+    .map((status) => status.skillId)
+    .filter(Boolean);
+}
+
+function applyShuffleDeckSkillsEffect({ targets, effect, actor, actorCharacter, skill, currentTurn }) {
+  const baseSkillIds = Array.isArray(effect.baseSkillIds) ? effect.baseSkillIds.filter(Boolean) : [];
+  if (baseSkillIds.length === 0) return 0;
+
+  let totalReplacements = 0;
+  for (const target of targets) {
+    const avoidSkillIds = effect.avoidCurrentSkillIds === true
+      ? currentDeckReplacementSkillIds(target, baseSkillIds)
+      : [];
+    const skillIds = chooseDeckSkillIds({
+      deckSkillIds: effect.deckSkillIds,
+      count: baseSkillIds.length,
+      cooldowns: target.skillCooldowns,
+      avoidCooldown: effect.avoidCooldown !== false,
+      avoidSkillIds
+    });
+    if (skillIds.length === 0) continue;
+
+    target.statusEffects = (target.statusEffects || []).filter((status) => (
+      status.type !== "replaceSkill" || !baseSkillIds.includes(status.baseSkillId)
+    ));
+
+    baseSkillIds.forEach((baseSkillId, index) => {
+      const skillId = skillIds[index];
+      if (!skillId) return;
+      addStatus(target, {
+        id: randomUUID(),
+        type: "replaceSkill",
+        turns: -1,
+        baseSkillId,
+        skillId,
+        showStatusEffect: effect.showStatusEffect ?? false,
+        sourceSkillId: effect.statusSourceSkillId || skill.id,
+        sourceSkillName: effect.statusSourceSkillName || skill.name,
+        sourceActorName: actorCharacter.name,
+        ...statusOrigin(actor),
+        createdTurn: currentTurn,
+        descriptions: effect.descriptions,
+        tooltipDescription: tooltipDescriptionForEffect(effect)
+      });
+      totalReplacements += 1;
+    });
+  }
+
+  return totalReplacements;
+}
+
 function hasStunImmunity(member, sourceSkillId) {
   return activeStatusEffects(member).some((effect) => {
     if (effect.type !== "stunImmunity" || (effect.turns <= 0 && effect.turns !== -1)) return false;
@@ -1172,6 +1263,10 @@ function hasStunImmunity(member, sourceSkillId) {
 
 function appliesToModifiedSkill(effect, skill) {
   if (!["modifyDamage", "modifyDamageByMissingHp"].includes(effect.type) || (effect.turns <= 0 && effect.turns !== -1)) return false;
+  return skillIdsMatchEffect(effect, skill);
+}
+
+function skillIdsMatchEffect(effect, skill) {
   if (!Array.isArray(effect.skillIds) || effect.skillIds.length === 0) return true;
   return effect.skillIds.includes(skill.id) || effect.skillIds.includes(skill.name);
 }
@@ -1272,8 +1367,9 @@ function receivedDamageSourceMatches(effect, actor, skill) {
     effect.sourceCharacterId,
     ...(Array.isArray(effect.sourceCharacterIds) ? effect.sourceCharacterIds : [])
   ].filter(Boolean);
-  if (sourceCharacterIds.length > 0 && !sourceCharacterIds.includes(actor?.character?.id)) return false;
-  return appliesToModifiedSkill(effect, skill);
+  const actorCharacterId = actor?.characterId || actor?.character?.id;
+  if (sourceCharacterIds.length > 0 && !sourceCharacterIds.includes(actorCharacterId)) return false;
+  return skillIdsMatchEffect(effect, skill);
 }
 
 function receivedDamageModifierValue(target, baseDamage = 0, actor = null, skill = null) {
@@ -1881,6 +1977,10 @@ function applyComplexStatusEffects(room, player, resolveOrder = [], allowedStatu
         const damageType = effect.damageType || "basic";
         for (const target of targets) {
           if (!effectAppliesToTarget(effect, target, member)) continue;
+          const appliedEffect = effectForTargetImmunity(effect, target);
+          if (appliedEffect.ignoredByEffectImmunity === true) {
+            continue;
+          }
           const baseDamage = positiveEffectValue(effect);
           const sourceMember = getRoomMember(room, status.originActorId);
           const result = applyDamageDetailed(target, receivedDamageModifierValue(target, baseDamage, sourceMember, { id: status.sourceSkillId }), damageType);
@@ -1966,19 +2066,19 @@ function applyComplexStatusEffects(room, player, resolveOrder = [], allowedStatu
           continue;
         }
 
-        if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
+        if (effect.type === "gain-chakra" || effect.type === "gainRandomChakra" || effect.type === "remove-chakra") {
           const activeTargets = targets.filter((target) => effectForTargetImmunity(effect, target).ignoredByEffectImmunity !== true);
           if (activeTargets.length === 0) continue;
           const affectedPlayers = affectedPlayersForChakraEffect(room, player, activeTargets, effect);
           const changedChakra = emptyChakra();
           for (const affectedPlayer of affectedPlayers) {
-            const changed = effect.type === "gain-chakra"
-              ? applyChakraGain(affectedPlayer, positiveEffectValue(effect), effect.chakraType)
-              : applyChakraRemoval(affectedPlayer, positiveEffectValue(effect), effect.chakraType);
+            const changed = effect.type === "remove-chakra"
+              ? applyChakraRemoval(affectedPlayer, positiveEffectValue(effect), effect.chakraType)
+              : applyChakraGain(affectedPlayer, positiveEffectValue(effect), effect.type === "gainRandomChakra" ? undefined : effect.chakraType);
             for (const type of CHAKRA_TYPES) changedChakra[type] += changed[type] || 0;
           }
           if (totalChakra(changedChakra) > 0) {
-            events.push(`${status.sourceSkillName} ${effect.type === "gain-chakra" ? "gano" : "elimino"} ${chakraLabel(changedChakra)}.`);
+            events.push(`${status.sourceSkillName} ${effect.type === "remove-chakra" ? "elimino" : "gano"} ${chakraLabel(changedChakra)}.`);
           }
           continue;
         }
@@ -2091,7 +2191,20 @@ function reactiveStatusApplies(status, skill, trigger) {
     const skillFamilies = Array.isArray(skill.family) ? skill.family : [];
     if (!status.familiesAffected.some((family) => skillFamilies.includes(family))) return false;
   }
+  if (Array.isArray(status.effectTypesAffected) && status.effectTypesAffected.length > 0) {
+    if (!status.effectTypesAffected.some((type) => skillHasEffectType(skill, type))) return false;
+  }
   return true;
+}
+
+function skillHasEffectType(skill, effectType) {
+  return (skill.effects || []).some((effect) => effectHasType(effect, effectType));
+}
+
+function effectHasType(effect, effectType) {
+  if (!effect) return false;
+  if (effect.type === effectType) return true;
+  return Array.isArray(effect.effects) && effect.effects.some((childEffect) => effectHasType(childEffect, effectType));
 }
 
 function effectHasExcludedDamageType(effect, excludedDamageTypes) {
@@ -2180,6 +2293,20 @@ function addTriggeredEffectNotice(member, status, effect, currentTurn) {
   });
 }
 
+function resolveTriggeredStatusEffectTargets(room, sourcePlayer, sourceMember, statusMember, triggeredSkill, effect) {
+  const requestedTargets = Array.isArray(effect.targets) ? effect.targets : [effect.targets || "self"];
+  if (requestedTargets.includes("statusMember")) {
+    const remainingTargets = requestedTargets.filter((target) => target !== "statusMember");
+    const statusTargets = statusMember ? [statusMember] : [];
+    if (remainingTargets.length === 0) return statusTargets;
+    return [
+      ...statusTargets,
+      ...resolveEffectTargets(room, sourcePlayer, sourceMember, statusMember.id, triggeredSkill, { ...effect, targets: remainingTargets })
+    ];
+  }
+  return resolveEffectTargets(room, sourcePlayer, sourceMember, statusMember.id, triggeredSkill, effect);
+}
+
 function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
   const sourceMember = getRoomMember(room, status.originActorId) || statusMember;
   const sourcePlayer = ownerOfMember(room, sourceMember) || ownerOfMember(room, statusMember);
@@ -2198,7 +2325,7 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
   }
 
   for (const effect of status.effects || []) {
-    const targets = resolveEffectTargets(room, sourcePlayer, sourceMember, statusMember.id, triggeredSkill, effect)
+    const targets = resolveTriggeredStatusEffectTargets(room, sourcePlayer, sourceMember, statusMember, triggeredSkill, effect)
       .filter((target) => target.hp > 0 || effect.affectsDead === true)
       .filter((target) => canEffectAffectTarget(room, sourcePlayer, target, effect, triggeredSkill));
     if (targets.length === 0) continue;
@@ -2209,6 +2336,10 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       const damageType = effect.damageType || "basic";
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, sourceMember)) continue;
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        if (appliedEffect.ignoredByEffectImmunity === true) {
+          continue;
+        }
         const baseDamage = positiveEffectValue(effect);
         const result = applyDamageDetailed(target, receivedDamageModifierValue(target, baseDamage, sourceMember, { id: status.sourceSkillId }), damageType);
         totalDamage += result.dealt;
@@ -2369,6 +2500,23 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
       continue;
     }
 
+    if (effect.type === "gain-chakra" || effect.type === "gainRandomChakra" || effect.type === "remove-chakra") {
+      const activeTargets = targets.filter((target) => effectForTargetImmunity(effect, target).ignoredByEffectImmunity !== true);
+      if (activeTargets.length === 0) continue;
+      const affectedPlayers = affectedPlayersForChakraEffect(room, sourcePlayer, activeTargets, effect);
+      const changedChakra = emptyChakra();
+      for (const affectedPlayer of affectedPlayers) {
+        const changed = effect.type === "remove-chakra"
+          ? applyChakraRemoval(affectedPlayer, positiveEffectValue(effect), effect.chakraType)
+          : applyChakraGain(affectedPlayer, positiveEffectValue(effect), effect.type === "gainRandomChakra" ? undefined : effect.chakraType);
+        for (const type of CHAKRA_TYPES) changedChakra[type] += changed[type] || 0;
+      }
+      if (totalChakra(changedChakra) > 0) {
+        events.push(`${status.sourceSkillName} ${effect.type === "remove-chakra" ? "elimino" : "gano"} ${chakraLabel(changedChakra)}.`);
+      }
+      continue;
+    }
+
     if (effect.type === "changeAvatarImage") {
       for (const target of targets) {
         addStatus(target, {
@@ -2395,7 +2543,13 @@ function applyTriggeredStatusEffects(room, statusMember, status, currentTurn) {
 }
 
 function consumeReactiveStatus(room, member, status, currentTurn) {
-  const triggeredEvents = applyTriggeredStatusEffects(room, member, status, currentTurn);
+  const triggeredEvents = applyTriggeredStatusEffects(room, member, {
+    ...status,
+    effects: [
+      ...(Array.isArray(status.effects) ? status.effects : []),
+      ...(Array.isArray(status.onCounterSuccess) ? status.onCounterSuccess : [])
+    ]
+  }, currentTurn);
   if (status.charges === -1) return triggeredEvents;
   status.charges = Math.max(0, Number(status.charges ?? 1) - 1);
   if (status.charges <= 0) {
@@ -2783,6 +2937,10 @@ export function applyQueuedSkill(room, player, action) {
       const damageType = modifiedDamageType(actor, skill, effect.damageType || "basic", room.turn);
       for (const target of targets) {
         if (!effectAppliesToTarget(effect, target, actor)) continue;
+        const appliedEffect = effectForTargetImmunity(effect, target);
+        if (appliedEffect.ignoredByEffectImmunity === true) {
+          continue;
+        }
         const multiplier = damageMultiplierValue(actor, skill, target, room.turn);
         const baseDamage = Math.ceil((buffedDamage + damageBonusForTarget(effect, target, actor)) * multiplier);
         const targetDamage = receivedDamageModifierValue(target, baseDamage, actor, skill);
@@ -3029,8 +3187,10 @@ export function applyQueuedSkill(room, player, action) {
           count: appliedEffect.count ?? appliedEffect.value,
           random: appliedEffect.random,
           effects: Array.isArray(appliedEffect.effects) ? appliedEffect.effects : [],
+          onCounterSuccess: Array.isArray(appliedEffect.onCounterSuccess) ? appliedEffect.onCounterSuccess : [],
           skillIds: Array.isArray(appliedEffect.skillIds) ? appliedEffect.skillIds : [],
           familiesAffected: appliedEffect.familiesAffected,
+          effectTypesAffected: appliedEffect.effectTypesAffected,
           excludedDamageTypes: Array.isArray(appliedEffect.excludedDamageTypes) ? appliedEffect.excludedDamageTypes : [],
           chargesPerTurn: Math.max(1, Number(appliedEffect.chargesPerTurn ?? appliedEffect.charges ?? 1)),
           trigger: appliedEffect.trigger,
@@ -3064,6 +3224,18 @@ export function applyQueuedSkill(room, player, action) {
         currentTurn: room.turn,
         addStatus,
         statusOrigin
+      });
+      continue;
+    }
+
+    if (effect.type === "shuffleDeckSkills") {
+      totalSkillReplacements += applyShuffleDeckSkillsEffect({
+        targets,
+        effect,
+        skill,
+        actor,
+        actorCharacter,
+        currentTurn: room.turn
       });
       continue;
     }
@@ -3343,18 +3515,18 @@ export function applyQueuedSkill(room, player, action) {
       }
     }
 
-    if (effect.type === "gain-chakra" || effect.type === "remove-chakra") {
+    if (effect.type === "gain-chakra" || effect.type === "gainRandomChakra" || effect.type === "remove-chakra") {
       const activeTargets = targets.filter((target) => effectForTargetImmunity(effect, target).ignoredByEffectImmunity !== true);
       if (activeTargets.length === 0) continue;
       const affectedPlayers = affectedPlayersForChakraEffect(room, player, activeTargets, effect);
       const amount = positiveEffectValue(effect);
       for (const affectedPlayer of affectedPlayers) {
-        const changed = effect.type === "gain-chakra"
-          ? applyChakraGain(affectedPlayer, amount, effect.chakraType)
-          : applyChakraRemoval(affectedPlayer, amount, effect.chakraType);
+        const changed = effect.type === "remove-chakra"
+          ? applyChakraRemoval(affectedPlayer, amount, effect.chakraType)
+          : applyChakraGain(affectedPlayer, amount, effect.type === "gainRandomChakra" ? undefined : effect.chakraType);
 
         for (const type of CHAKRA_TYPES) {
-          if (effect.type === "gain-chakra") {
+          if (effect.type !== "remove-chakra") {
             gainedChakra[type] += changed[type] || 0;
           } else {
             removedChakra[type] += changed[type] || 0;

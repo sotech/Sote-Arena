@@ -58,6 +58,11 @@ export function Bot({ children }) {
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="2.1.0">
+        <CharacterPatch id="yugi">
+          <New>Agregado Yugi Muto</New>
+        </CharacterPatch>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="2.0.0">
         <ul>
           <New>Nuevo sistema de habilidades y resolucion</New>

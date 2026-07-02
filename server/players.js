@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getCharacterById } from "../shared/characters.js";
+import { chooseDeckSkillIds } from "../shared/deckSkills.js";
 
 function skillUsesLimit(skill) {
   return Math.max(0, Number(skill?.uses ?? skill?.maxUses ?? 0));
@@ -23,6 +24,39 @@ function skillUsesStatus(character, skill, remainingUses) {
     createdTurn: 0,
     descriptions: [`${skill.name} puede usarse ${remainingUses} veces mas.`]
   };
+}
+
+function initialDeckReplacementStatuses(character, member) {
+  const deck = character.initialSkillDeck;
+  const baseSkillIds = Array.isArray(deck?.baseSkillIds) ? deck.baseSkillIds : [];
+  if (baseSkillIds.length === 0) return [];
+
+  const skillIds = chooseDeckSkillIds({
+    deckSkillIds: deck.deckSkillIds,
+    count: baseSkillIds.length,
+    cooldowns: member.skillCooldowns,
+    avoidCooldown: deck.avoidCooldown !== false
+  });
+
+  return baseSkillIds.flatMap((baseSkillId, index) => {
+    const skillId = skillIds[index];
+    if (!skillId) return [];
+    return [{
+      id: randomUUID(),
+      type: "replaceSkill",
+      turns: -1,
+      baseSkillId,
+      skillId,
+      showStatusEffect: deck.showStatusEffect ?? false,
+      sourceSkillId: deck.sourceSkillId || "skill-deck",
+      sourceSkillName: deck.sourceSkillName || "Mazo de habilidades",
+      sourceActorName: character.name,
+      originActorId: member.id,
+      originCharacterId: member.characterId,
+      createdTurn: 0,
+      descriptions: deck.descriptions
+    }];
+  });
 }
 
 export function cloneCooldowns(cooldowns) {
@@ -61,7 +95,7 @@ export function createTeam(characterIds) {
       .map((skill) => ({ skill, limit: skillUsesLimit(skill) }))
       .filter(({ skill, limit }) => limit > 0 && shouldShowSkillUses(skill))
       .map(({ skill, limit }) => skillUsesStatus(character, skill, limit));
-    return {
+    const member = {
       id: `${characterId}-${randomUUID()}`,
       characterId,
       hp: character.maxHp,
@@ -70,6 +104,11 @@ export function createTeam(characterIds) {
       skillUses: {},
       statusEffects: usesStatuses
     };
+    member.statusEffects = [
+      ...member.statusEffects,
+      ...initialDeckReplacementStatuses(character, member)
+    ];
+    return member;
   });
 }
 

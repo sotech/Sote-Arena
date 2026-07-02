@@ -202,6 +202,7 @@ export function effectDescription(effect) {
     const baseSkillName = effect.baseSkillId ? getSkillNameById(effect.baseSkillId) : "habilidad actual";
     return `Reemplaza habilidad${duration}: ${baseSkillName} -> ${getSkillNameById(effect.skillId)}`;
   }
+  if (effect.type === "shuffleDeckSkills") return "Cambia cartas activas del mazo";
   if (chakraCostModifierTypes.includes(effect.type)) {
     const scope = effect.skillIds?.length ? ` (${effect.skillIds.map(getSkillNameById).join(", ")})` : " (todas)";
     const entries = Object.entries(effect.chakra || {})
@@ -222,7 +223,7 @@ export function effectDescription(effect) {
   }
   if (effect.type === "effect-immunity") return "Ignora efectos que no sean dano o sanacion";
   if (effect.type === "stunImmunity") return "Inmune a aturdimientos especificos";
-  if (effect.type === "ignoreEffects") return `Ignora efectos: ${(effect.ignoreEffects || []).join(", ") || "ninguno"}`;
+  if (effect.type === "ignoreEffects") return `Este personaje esta ignorando los efectos de tipo: ${(effect.ignoreEffects || []).map(effectTypeLabel).join(", ") || "ninguno"}`;
   if (effect.type === "removeStatus") return "Elimina estados especificos";
   if (effect.type === "conditionalEffects") return "Efectos condicionales";
   if (effect.type === "onEnemyDeath") return "Se activa al derrotar enemigos";
@@ -231,7 +232,7 @@ export function effectDescription(effect) {
   if (effect.type === "changeAvatarImage") return "Cambia la imagen del personaje";
   if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
-  if (effect.type === "gain-chakra") return `Gana recurso: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
+  if (effect.type === "gain-chakra" || effect.type === "gainRandomChakra") return `Gana recurso: ${effect.value} ${chakraEffectTypeLabel(effect.type === "gainRandomChakra" ? undefined : effect.chakraType)}`;
   if (effect.type === "remove-chakra") return `Elimina recurso: ${effect.value} ${chakraEffectTypeLabel(effect.chakraType)}`;
   if (effect.type === "complex") {
     const descriptions = (effect.effects || []).map(effectDescription).join(" + ");
@@ -243,6 +244,12 @@ export function effectDescription(effect) {
 export function chakraEffectTypeLabel(type) {
   if (!type) return "aleatorio";
   return resourceLabels[type] || type;
+}
+
+function effectTypeLabel(type) {
+  if (type === "damage") return "daño";
+  if (type === "heal" || type === "self-heal") return "curacion";
+  return type;
 }
 
 export function damageTypeLabel(type = "basic") {
