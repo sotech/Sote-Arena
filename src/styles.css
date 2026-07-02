@@ -4475,7 +4475,7 @@ main.mobile-preview .skill-footer-meta {
   .battle-turn-strip {
     grid-column: 1;
     align-items: stretch;
-    grid-template-columns: minmax(0, 1fr) 128px;
+    grid-template-columns: minmax(0, 1fr) 174px;
     order: initial;
   }
 
@@ -4705,42 +4705,54 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .fighter-action-lane {
-    gap: 4px;
-    grid-template-columns: repeat(4, 34px) 1px 34px;
-    min-height: 46px;
+    align-items: center;
+    gap: 5px;
+    grid-template-columns: repeat(2, 42px) 8px 42px;
+    grid-template-rows: repeat(2, 42px);
+    min-height: 89px;
   }
 
   .fighter-queue-separator,
   main.mobile-preview .fighter-queue-separator {
-    height: 34px;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    height: 84px;
+    justify-self: center;
   }
 
   .fighter-queue-slot,
   main.mobile-preview .fighter-queue-slot,
   .fighter-queued-skill,
   main.mobile-preview .fighter-queued-skill {
-    height: 34px;
-    min-height: 34px;
-    min-width: 34px;
-    width: 34px;
+    height: 42px;
+    min-height: 42px;
+    min-width: 42px;
+    width: 42px;
+  }
+
+  .fighter-queue-slot,
+  main.mobile-preview .fighter-queue-slot {
+    align-self: center;
+    grid-column: 4;
+    grid-row: 1 / span 2;
   }
 
   .fighter-skill-button,
   main.mobile-preview .fighter-skill-button,
   .fighter-queued-skill > button,
   main.mobile-preview .fighter-queued-skill > button {
-    height: 34px;
-    min-height: 34px;
+    height: 42px;
+    min-height: 42px;
     padding: 3px;
-    width: 34px;
+    width: 42px;
   }
 
   .fighter-skill-button .skill-icon .square-img,
   main.mobile-preview .fighter-skill-button .skill-icon .square-img,
   .fighter-queued-skill .square-img,
   main.mobile-preview .fighter-queued-skill .square-img {
-    height: 26px;
-    width: 26px;
+    height: 34px;
+    width: 34px;
   }
 
   .fighter-skill-button small,
@@ -4892,5 +4904,43 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .combat-log .log {
     min-height: 0;
     overflow: auto;
+  }
+
+  .end-turn-confirm-modal,
+  main.mobile-preview .end-turn-confirm-modal {
+    gap: 18px;
+    max-width: 500px;
+    padding: 32px;
+    width: min(100%, 500px);
+  }
+
+  .end-turn-confirm-modal h2,
+  main.mobile-preview .end-turn-confirm-modal h2 {
+    font-size: 32px;
+  }
+
+  .end-turn-confirm-modal p,
+  main.mobile-preview .end-turn-confirm-modal p {
+    font-size: 18px;
+    line-height: 1.35;
+  }
+
+  .end-turn-confirm-modal footer,
+  main.mobile-preview .end-turn-confirm-modal footer {
+    gap: 12px;
+  }
+
+  .end-turn-confirm-modal footer button,
+  main.mobile-preview .end-turn-confirm-modal footer button {
+    font-size: 17px;
+    min-height: 52px;
+    padding: 12px 18px;
+  }
+
+  .neutral-chakra-modal,
+  main.mobile-preview .neutral-chakra-modal {
+    max-width: 540px;
+    padding: 24px;
+    width: min(100%, 540px);
   }
 }
