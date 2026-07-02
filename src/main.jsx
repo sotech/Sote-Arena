@@ -934,7 +934,7 @@ function App() {
     <>
     <RotatingBackground />
     <main className={mobilePreview ? "mobile-preview" : ""}>
-      <section className="topbar">
+      <section className={`topbar ${!room ? "home-topbar" : ""} ${room?.phase === "lobby" ? "lobby-topbar" : ""}`}>
         <div className="topbar-brand">
           <h1>Sote Arena</h1>
           <span className="version-tag">v{GAME_VERSION}</span>
@@ -1365,52 +1365,95 @@ function TeamChakraUsage({ characters }) {
   );
 }
 
+function CharacterDetailView({ character, selected = false, canSelect = false, selectDisabled = false, selectLabel, standalone = false, onToggle, onBack }) {
+  const skills = inspectableSkillsForCharacter(character);
+  const actionLabel = selectLabel || (selected ? "Quitar del equipo" : "Agregar al equipo");
+  return (
+    <section className={`character-detail-view ${standalone ? "panel" : ""}`}>
+      <div className="character-detail-toolbar">
+        <button type="button" className="secondary back-button" onClick={onBack}>
+          <ChevronLeft size={18} />
+          Volver
+        </button>
+        {canSelect && (
+          <button
+            type="button"
+            className={selected ? "secondary" : ""}
+            onClick={onToggle}
+            disabled={selectDisabled}
+          >
+            {actionLabel}
+          </button>
+        )}
+      </div>
+      <header className="character-detail-hero">
+        <SquareImage alt={character.name} src={characterImage(character.id)} />
+        <div className="character-detail-summary">
+          <h2>{character.name}</h2>
+          <p>{characterDescription(character)}</p>
+          <div className="character-detail-meta">
+            <span><b>Vida:</b> {character.maxHp}</span>
+          </div>
+          <CharacterChakraUsage character={character} />
+        </div>
+      </header>
+      <div className="character-detail-skills" aria-label={`Habilidades de ${character.name}`}>
+        {skills.map((skill) => (
+          <CharacterSkillDetailCard key={skill.id} skill={skill} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CharacterSkillDetailCard({ skill }) {
+  return (
+    <article className="character-detail-skill-card">
+      <h3>
+        <span>Habilidad:</span>
+        {skill.name}
+      </h3>
+      <div className="character-detail-skill-body">
+        <SquareImage alt={skill.name} src={skillImage(skill.id)} />
+        <p>{skill.description}</p>
+      </div>
+      <div className="character-detail-skill-meta">
+        <span><b>Cooldown:</b> {skill.cooldown || 0}</span>
+        <span><b>Costo:</b> {skill.passive ? "No usable" : <ChakraCost chakra={skill.chakra} />}</span>
+        <span><b>Objetivo:</b> {skill.passive ? "Pasiva" : footerTargetTypeLabel(skill.targetType)}</span>
+        <span><b>Familias:</b> {skill.family?.length ? skillClassesLabel(skill.family) : "Ninguna"}</span>
+      </div>
+    </article>
+  );
+}
+
 function CharactersCatalog({ characters, onBack }) {
   const pageSize = 10;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [inspectedCharacterId, setInspectedCharacterId] = useState("");
-  const [inspectedSkillId, setInspectedSkillId] = useState("");
-  const [footerDetailType, setFooterDetailType] = useState("character");
+  const [detailCharacterId, setDetailCharacterId] = useState("");
   const filteredCharacters = filterCharacters(characters, search);
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId) || pageCharacters[0];
-  const inspectedSkills = inspectableSkillsForCharacter(inspectedCharacter);
-  const inspectedSkill = footerDetailType === "skill"
-    ? inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0]
-    : null;
+  const detailCharacter = characters.find((character) => character.id === detailCharacterId);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
   useEffect(() => {
-    if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
-      setInspectedCharacterId(pageCharacters[0]?.id || "");
-      setInspectedSkillId("");
-      setFooterDetailType("character");
-    } else if (!inspectedCharacterId && pageCharacters[0]) {
-      setInspectedCharacterId(pageCharacters[0].id);
-      setInspectedSkillId("");
-      setFooterDetailType("character");
-    }
-  }, [filteredCharacters, inspectedCharacterId, pageCharacters]);
-
-  useEffect(() => {
     setPage(1);
   }, [search]);
 
-  function inspectCharacter(characterId) {
-    setInspectedCharacterId(characterId);
-    setInspectedSkillId("");
-    setFooterDetailType("character");
-  }
-
-  function inspectCatalogSkill(skillId) {
-    setInspectedSkillId(skillId);
-    setFooterDetailType("skill");
+  if (detailCharacter) {
+    return (
+      <CharacterDetailView
+        character={detailCharacter}
+        standalone
+        onBack={() => setDetailCharacterId("")}
+      />
+    );
   }
 
   return (
@@ -1429,8 +1472,8 @@ function CharactersCatalog({ characters, onBack }) {
         {pageCharacters.map((character) => (
           <button
             key={character.id}
-            className={`character-card ${inspectedCharacter?.id === character.id ? "inspected" : ""}`}
-            onClick={() => inspectCharacter(character.id)}
+            className="character-card"
+            onClick={() => setDetailCharacterId(character.id)}
           >
             <SquareImage alt={character.name} src={characterImage(character.id)} />
           </button>
@@ -1446,27 +1489,6 @@ function CharactersCatalog({ characters, onBack }) {
           <ChevronRight size={18} />
         </button>
       </div>
-      {inspectedCharacter && (
-        <footer className="character-skill-footer">
-          <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
-            {inspectedSkills.map((skill) => (
-              <button
-                type="button"
-                key={skill.id}
-                className={footerDetailType === "skill" && inspectedSkill?.id === skill.id ? "selected" : ""}
-                onClick={() => inspectCatalogSkill(skill.id)}
-                aria-label={skill.name}
-              >
-                <SquareImage alt={skill.name} src={skillImage(skill.id)} />
-              </button>
-            ))}
-          </div>
-          <CharacterChakraUsage character={inspectedCharacter} />
-          {footerDetailType === "skill" && inspectedSkill
-            ? <SkillFooter skill={inspectedSkill} compact />
-            : <CharacterFooter character={inspectedCharacter} compact />}
-        </footer>
-      )}
     </section>
   );
 }
@@ -1475,22 +1497,18 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
   const pageSize = 10;
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [inspectedCharacterId, setInspectedCharacterId] = useState("");
-  const [inspectedSkillId, setInspectedSkillId] = useState("");
-  const [footerDetailType, setFooterDetailType] = useState("character");
+  const [detailCharacterId, setDetailCharacterId] = useState("");
   const filteredCharacters = filterCharacters(characters, search);
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageCharacters = filteredCharacters.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const inspectedCharacter = filteredCharacters.find((character) => character.id === inspectedCharacterId);
-  const inspectedSkills = inspectableSkillsForCharacter(inspectedCharacter);
-  const inspectedSkill = footerDetailType === "skill"
-    ? inspectedSkills.find((skill) => skill.id === inspectedSkillId) || inspectedSkills[0]
-    : null;
+  const detailCharacter = characters.find((character) => character.id === detailCharacterId);
   const selectedCharacters = selected
     .map((characterId) => characters.find((character) => character.id === characterId))
     .filter(Boolean);
   const randomTeamLabel = selected.length > 0 ? "Completar Equipo Random" : "Equipo Random";
+  const detailCharacterSelected = detailCharacter ? selected.includes(detailCharacter.id) : false;
+  const detailSelectDisabled = Boolean(me?.ready || (!detailCharacterSelected && selected.length >= 3));
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -1500,29 +1518,26 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
     setPage(1);
   }, [search]);
 
-  useEffect(() => {
-    if (inspectedCharacterId && !filteredCharacters.some((character) => character.id === inspectedCharacterId)) {
-      setInspectedCharacterId("");
-      setInspectedSkillId("");
-      setFooterDetailType("character");
-    }
-  }, [filteredCharacters, inspectedCharacterId]);
-
   function clickCharacter(characterId) {
-    setInspectedCharacterId(characterId);
-    setInspectedSkillId("");
-    setFooterDetailType("character");
-    onToggle(characterId);
-  }
-
-  function inspectLobbySkill(skillId) {
-    setInspectedSkillId(skillId);
-    setFooterDetailType("skill");
+    if (me?.ready) return;
+    setDetailCharacterId(characterId);
   }
 
   return (
     <section className="lobby">
       <div className="panel">
+        {detailCharacter ? (
+          <CharacterDetailView
+            character={detailCharacter}
+            selected={detailCharacterSelected}
+            canSelect
+            selectDisabled={detailSelectDisabled}
+            selectLabel={detailCharacterSelected ? "Quitar del equipo" : selected.length >= 3 ? "Equipo completo" : "Agregar al equipo"}
+            onToggle={() => onToggle(detailCharacter.id)}
+            onBack={() => setDetailCharacterId("")}
+          />
+        ) : (
+        <>
         <div className="section-head">
           <div>
             <div className="selection-kicker">
@@ -1580,27 +1595,7 @@ function Lobby({ characters, selected, me, room, onToggle, onConfirm, onRandomTe
             <ChevronRight size={18} />
           </button>
         </div>
-        {inspectedCharacter && (
-          <footer className="character-skill-footer">
-            <div className="lobby-skill-strip" aria-label={`Habilidades de ${inspectedCharacter.name}`}>
-              {inspectedSkills.map((skill) => (
-                <button
-                  type="button"
-                  key={skill.id}
-                  className={footerDetailType === "skill" && inspectedSkill?.id === skill.id ? "selected" : ""}
-                  onClick={() => inspectLobbySkill(skill.id)}
-                  disabled={me?.ready}
-                  aria-label={skill.name}
-                >
-                  <SquareImage alt={skill.name} src={skillImage(skill.id)} />
-                </button>
-              ))}
-            </div>
-            <CharacterChakraUsage character={inspectedCharacter} />
-            {footerDetailType === "skill" && inspectedSkill
-              ? <SkillFooter skill={inspectedSkill} compact />
-              : <CharacterFooter character={inspectedCharacter} compact />}
-          </footer>
+        </>
         )}
       </div>
       <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>

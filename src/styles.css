@@ -113,7 +113,7 @@ main {
 }
 
 .desktop-mobile-preview-button {
-  display: inline-flex;
+  display: none !important;
 }
 
 .desktop-mobile-preview-button.active {
@@ -1285,6 +1285,116 @@ label {
   display: grid;
   gap: 14px;
   padding: 18px 20px 20px;
+}
+
+.character-detail-view {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+}
+
+.character-detail-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.character-detail-hero {
+  background: #f8fafc;
+  border: 1px solid #e5ebf2;
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 112px minmax(0, 1fr);
+  padding: 16px;
+}
+
+.character-detail-hero > .square-img {
+  height: 112px;
+  width: 112px;
+}
+
+.character-detail-summary {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.character-detail-summary h2,
+.character-detail-summary p {
+  margin: 0;
+}
+
+.character-detail-summary p {
+  color: #516070;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.character-detail-meta {
+  color: #17202a;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+}
+
+.character-detail-skills {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.character-detail-skill-card {
+  border-top: 1px dashed #8ea0b2;
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.character-detail-skill-card h3 {
+  color: #e11d48;
+  font-size: 18px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.character-detail-skill-card h3 span {
+  color: #17202a;
+  font-size: 14px;
+  font-weight: 800;
+  margin-right: 6px;
+}
+
+.character-detail-skill-body {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 86px minmax(0, 1fr);
+}
+
+.character-detail-skill-body .square-img {
+  height: 86px;
+  width: 86px;
+}
+
+.character-detail-skill-body p {
+  color: #273444;
+  font-size: 14px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.character-detail-skill-meta {
+  border-top: 1px dotted #b7c3d0;
+  color: #516070;
+  display: grid;
+  font-size: 12px;
+  gap: 3px;
+}
+
+.character-detail-skill-meta span {
+  min-width: 0;
 }
 
 .inspected-character-name {
@@ -3546,7 +3656,7 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .desktop-mobile-preview-button {
-    display: none;
+    display: none !important;
   }
 
   button,
@@ -4383,7 +4493,7 @@ main.mobile-preview .skill-footer-meta {
   }
 
   .desktop-mobile-preview-button {
-    display: inline-flex;
+    display: none !important;
   }
 
   .topbar,
@@ -4404,6 +4514,13 @@ main.mobile-preview .skill-footer-meta {
     min-height: 60px;
   }
 
+  .topbar.home-topbar .topbar-brand,
+  main.mobile-preview .topbar.home-topbar .topbar-brand {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(100%, 460px);
+  }
+
   .topbar-actions,
   main.mobile-preview .topbar-actions {
     align-items: center;
@@ -4421,6 +4538,19 @@ main.mobile-preview .skill-footer-meta {
     min-height: 40px;
     padding: 8px 12px;
     width: auto;
+  }
+
+  .topbar.lobby-topbar .topbar-actions,
+  main.mobile-preview .topbar.lobby-topbar .topbar-actions {
+    align-self: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .topbar.lobby-topbar .topbar-actions button,
+  main.mobile-preview .topbar.lobby-topbar .topbar-actions button {
+    justify-content: center;
+    width: 100%;
   }
 
   h1,
@@ -4855,6 +4985,67 @@ main.mobile-preview .skill-footer-meta {
     width: 76px;
   }
 
+  .character-detail-view,
+  main.mobile-preview .character-detail-view {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .character-detail-toolbar,
+  main.mobile-preview .character-detail-toolbar {
+    gap: 8px;
+  }
+
+  .character-detail-toolbar button,
+  main.mobile-preview .character-detail-toolbar button {
+    min-height: 42px;
+    padding: 9px 12px;
+  }
+
+  .character-detail-hero,
+  main.mobile-preview .character-detail-hero {
+    gap: 12px;
+    grid-template-columns: 92px minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .character-detail-hero > .square-img,
+  main.mobile-preview .character-detail-hero > .square-img {
+    height: 92px;
+    width: 92px;
+  }
+
+  .character-detail-summary p,
+  main.mobile-preview .character-detail-summary p {
+    font-size: 13px;
+  }
+
+  .character-detail-skills,
+  main.mobile-preview .character-detail-skills {
+    grid-template-columns: 1fr;
+  }
+
+  .character-detail-skill-card h3,
+  main.mobile-preview .character-detail-skill-card h3 {
+    font-size: 17px;
+  }
+
+  .character-detail-skill-body,
+  main.mobile-preview .character-detail-skill-body {
+    grid-template-columns: 78px minmax(0, 1fr);
+  }
+
+  .character-detail-skill-body .square-img,
+  main.mobile-preview .character-detail-skill-body .square-img {
+    height: 78px;
+    width: 78px;
+  }
+
+  .character-detail-skill-body p,
+  main.mobile-preview .character-detail-skill-body p {
+    font-size: 13px;
+  }
+
   .skill-footer,
   main.mobile-preview .skill-footer,
   main.mobile-preview .battle-skill-footer .skill-footer {
@@ -4953,7 +5144,7 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .end-turn-confirm-modal footer button {
     font-size: 17px;
     min-height: 52px;
-    padding: 12px 18px;
+    padding: 14px 22px;
   }
 
   .neutral-chakra-modal,
@@ -5025,6 +5216,6 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .neutral-chakra-modal footer button {
     font-size: 18px;
     min-height: 54px;
-    padding: 12px 18px;
+    padding: 14px 24px;
   }
 }
