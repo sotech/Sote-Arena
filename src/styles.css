@@ -4969,8 +4969,8 @@ main.mobile-preview .skill-footer-meta {
 
   .ally-status-row {
     flex-wrap: nowrap;
-    max-width: calc((28px * 10) + (5px * 9));
-    min-height: 30px;
+    max-width: calc((26px * 10) + (5px * 9));
+    min-height: 28px;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -4978,9 +4978,9 @@ main.mobile-preview .skill-footer-meta {
   .enemy-status-row {
     flex-direction: row-reverse;
     flex-wrap: wrap;
-    max-height: calc((28px * 3) + (4px * 2));
-    max-width: calc((28px * 3) + (4px * 2));
-    min-height: 28px;
+    max-height: calc((26px * 3) + (4px * 2));
+    max-width: calc((26px * 3) + (4px * 2));
+    min-height: 26px;
     overflow: hidden;
   }
 
@@ -4988,19 +4988,19 @@ main.mobile-preview .skill-footer-meta {
   main.mobile-preview .status-icon {
     border-radius: 6px;
     display: block;
-    height: 24px;
-    width: 24px;
+    height: 22px;
+    width: 22px;
   }
 
   .ally-status-row .status-icon,
   .enemy-status-row .status-icon {
-    height: 28px;
-    width: 28px;
+    height: 26px;
+    width: 26px;
   }
 
   .status-icon b,
   main.mobile-preview .status-icon b {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .status-row .status-icon:nth-child(n + 7),
