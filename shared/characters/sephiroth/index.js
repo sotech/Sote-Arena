@@ -9,7 +9,7 @@ export const sephiroth = {
     {
       id: "masamune",
       name: "Masamune",
-      chakra: { bloodline: 1 },
+      cost: { rojo: 1 },
       targetType: "enemy",
       description: "Sephiroth atraviesa al enemigo con la Masamune. Inflige 25 de daño perforante",
       effects: [        
@@ -21,7 +21,7 @@ export const sephiroth = {
     {
       id: "supernova",
       name: "Supernova",
-      chakra: { bloodline: 2 },
+      cost: { rojo: 2 },
       targetType: "enemies",
       description: "Sephiroth invoca una catastrofe cosmica. Inflige 20 de daño a todos los enemigos y reduce su daño en -10 durante 2 turnos.",
       effects: [
@@ -36,7 +36,7 @@ export const sephiroth = {
       name: "Pluma negra",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Cada vez que muere un enemigo, Sephiroth obtiene una Pluma Negra. Cada acumulacion otorga 25% de reduccion de dano, aumenta Masamune en 15 y aumenta Supernova en 20. Maximo: 2 acumulaciones.",
       effects: [{
@@ -94,7 +94,7 @@ export const sephiroth = {
     {
       id: "jenova-cells",
       name: "Celulas Jenova",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Sephiroth se vuelve invulnerable durante 1 turno. Pasiva: la primera vez que llega a 0 HP, queda en 1 HP, limpia efectos negativos y obtiene invulnerabilidad durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -106,7 +106,7 @@ export const sephiroth = {
       name: "Celulas Jenova pasiva",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "La primera vez que Sephiroth llega a 0 HP, queda en 1 HP, elimina efectos negativos y obtiene invulnerabilidad por 1 turno.",
       effects: [{ type: "reviveOnDeath", value: 1, hp: 1, duration: -1, targets: "self", invulnerableTurns: 1 }],

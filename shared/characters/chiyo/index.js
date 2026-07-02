@@ -8,7 +8,7 @@ export const chiyo = {
     {
       id: "white-secret-attack-rampage",
       name: "Ataque secreto blanco",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 1 },
       targetType: "enemy",
       description: "Chiyo dirige sus marionetas contra un enemigo e inflige 20 de dano normal. Otro enemigo aleatorio recibe 20 de dano normal al comienzo del segundo turno enemigo siguiente si esta disponible. El siguiente Sanbou Kyuukai de Chiyo consume las acumulaciones de esta habilidad para infligir 5 de dano adicional por acumulacion.",
       effects: [
@@ -42,7 +42,7 @@ export const chiyo = {
     {
       id: "sanbou-kyuukai",
       name: "Sanbou Kyuukai",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "enemy",
       description: "Chiyo atrapa a un enemigo con sus marionetas, inflige 20 de dano perforante e ignora invulnerabilidad. El objetivo queda aturdido para habilidades fisicas y especiales por 1 turno y recibe 5 de dano adicional de todas las fuentes durante 1 turno. Consume las acumulaciones de Ataque secreto blanco.",
       effects: [
@@ -64,11 +64,11 @@ export const chiyo = {
     {
       id: "ally-puppetry",
       name: "Manipulacion aliada",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "ally",
-      description: "Chiyo controla a un aliado por 3 turnos. Cada turno, ese aliado anula la primera habilidad fisica, especial o mental no aflictiva usada contra el. Durante este tiempo, sus habilidades fisicas infligen 25% mas dano. Por 2 turnos, esta habilidad es reemplazada por Reencarnacion de vida propia.",
+      description: "Chiyo controla a un aliado por 3 turnos. Durante este tiempo, sus habilidades fisicas infligen 25% mas dano y ese aliado obtiene 5 de reduccion de daño. Por 2 turnos, esta habilidad es reemplazada por Reencarnacion de vida propia.",
       effects: [
-        {
+        /*{
           type: "nullifyNextIncoming",
           duration: 3,
           targets: "target",
@@ -77,7 +77,7 @@ export const chiyo = {
           chargesPerTurn: 1,
           charges: 1,
           descriptions: ["Este personaje anula la primera habilidad fisica, especial o mental no aflictiva que reciba cada turno."]
-        },
+        },*/
         {
           type: "modifyDamageMultiplier",
           multiplier: 1.25,
@@ -85,6 +85,12 @@ export const chiyo = {
           targets: "target",
           familiesAffected: ["physical"],
           descriptions: ["Las habilidades fisicas de este personaje infligen 25% mas dano."]
+        },
+        {
+          type: "damage-reduction",
+          value: 5,
+          duration: 3,
+          targets: "target"
         },
         {
           type: "replaceSkill",
@@ -101,7 +107,7 @@ export const chiyo = {
     {
       id: "chakra-shield",
       name: "Escudo de chakra",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Chiyo se vuelve invulnerable por 1 turno.",
       effects: [
@@ -113,7 +119,7 @@ export const chiyo = {
     {
       id: "ones-own-life-reincarnation",
       name: "Reencarnacion de vida propia",
-      chakra: { neutralChakra: 4 },
+      cost: { negro: 4 },
       targetType: "anyOtherAlly",
       description: "Chiyo selecciona un aliado vivo o caido, lo cura por la vida actual de Chiyo y luego muere. El aliado elegido gana 1 recurso aleatorio al comienzo de sus turnos por el resto de la partida.",
       requires: [{ scope: "otherAlly", type: "hp", operator: "gt", value: 0, message: "Reencarnacion de vida propia requiere al menos un aliado vivo de Chiyo." }],

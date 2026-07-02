@@ -26,7 +26,7 @@ export const yugi = {
     {
       id: "yugi-card-a",
       name: "Carta del mazo",
-      chakra: {},
+      cost: {},
       targetType: "enemy",
       description: "Una carta aleatoria del mazo de Yugi ocupa esta ranura al comenzar el combate y cada vez que Yugi usa Robar!.",
       effects: [],
@@ -36,7 +36,7 @@ export const yugi = {
     {
       id: "yugi-card-b",
       name: "Carta del mazo",
-      chakra: {},
+      cost: {},
       targetType: "enemy",
       description: "Una carta aleatoria del mazo de Yugi ocupa esta ranura al comenzar el combate y cada vez que Yugi usa Robar!.",
       effects: [],
@@ -46,7 +46,7 @@ export const yugi = {
     {
       id: "robar",
       name: "Robar!",
-      chakra: {neutralchakra: 1},
+      cost: {negro: 1},
       targetType: "self",
       description: "Yugi saca una carta de su mazo. Gana 20 puntos de escudo que no se acumulan y cambia al azar sus dos cartas activas por otras del mazo.",
       effects: [
@@ -77,7 +77,7 @@ export const yugi = {
     {
       id: "gran-escudo-gardna",
       name: "Gran escudo gardna",
-      chakra: {neutralchakra: 1},
+      cost: {negro: 1},
       targetType: "self",
       description: "Yugi se hace invulnerable durante 1 turno.",
       effects: [
@@ -89,7 +89,7 @@ export const yugi = {
     {
       id: "guardian-celta",
       name: "Guardian Celta",
-      chakra: {taijutsu: 1},
+      cost: {verde: 1},
       targetType: "enemy",
       description: "Yugi ataca a un objetivo enemigo con el Guardian Celta e inflige 25 puntos de dano perforante.",
       effects: [{ type: "damage", value: 25, damageType: "piercing", targets: "target" }],
@@ -100,22 +100,37 @@ export const yugi = {
     },
     {
       id: "slifer-el-dragon-celestial",
-      name: "Slifer el dragon celestial",
-      chakra: {bloodline: 2},
+      name: "Slifer, el Dragon Celestial",
+      cost: {rojo: 3},
       targetType: "enemies",
-      description: "Yugi invoca a su dios egipcio para obliterar a sus enemigos. Todos los enemigos reciben 30 puntos de dano. No puede ser contrarestada ni reflejada.",
-      effects: [{ type: "damage", value: 30, targets: "enemies" }],
+      description: "Yugi invoca a su dios egipcio para obliterar a sus enemigos. Todos los enemigos reciben 20 puntos de dano durante 3 turnos. Durante este tiempo, si este personaje usa una habilidad ofensiva, recibira 10 de daño. No puede ser contrarestada ni reflejada.",
+      effects: [{
+        type: "complex",
+        duration: 3,
+        targets: "enemies",
+        effects: [{ type: "damage", value: 20, targets: "self" }],
+        descriptions: ["Este personaje recibe 20 de dano al comienzo de sus turnos por Slifer, el Dragon Celestial."]
+      }, {
+        type: "applyEffectsOntriggerEvent",
+        duration: 3,
+        targets: "enemies",
+        triggerEvent: "useOffensiveSkill",
+        showStatusEffect: true,
+        charges: -1,
+        effects: [{ type: "damage", value: 10, targets: "statusMember" }],
+        descriptions: ["Si este personaje usa una habilidad ofensiva, recibe 10 de dano por Slifer, el Dragon Celestial."]
+      }],
       uncounterable: true,
       nonReflectable: true,
       isExtraSkill: true,
-      cooldown: 1,
+      cooldown: 3,
       hideUntilReplaced: true,
       family: ["special", "offensive", "instant"]
     },
     {
       id: "kuriboh",
       name: "Kuriboh",
-      chakra: {neutralchakra: 1},
+      cost: {negro: 1},
       targetType: "ally",
       description: "Yugi coloca en secreto una proteccion sobre un aliado o sobre si mismo. Durante el siguiente turno, ese personaje ignora todos los efectos de dano enemigos sobre si. Luego Kuriboh se revela y termina.",
       effects: [
@@ -143,7 +158,7 @@ export const yugi = {
     {
       id: "cilindros-magicos",
       name: "Cilindros magicos",
-      chakra: {ninjutsu: 1},
+      cost: {azul: 1},
       targetType: "ally",
       description: "Yugi coloca una carta trampa secreta sobre un aliado o sobre si mismo. La primera habilidad ofensiva usada contra ese aliado es reflejada.",
       effects: [
@@ -168,11 +183,11 @@ export const yugi = {
     {
       id: "espadas-de-luz-reveladoras",
       name: "Espadas de luz reveladoras",
-      chakra: {ninjutsu: 1, neutralchakra: 1},
+      cost: {azul: 1, negro: 1},
       targetType: "enemy",
-      description: "Yugi activa las espadas de luz reveladoras impidiendo al contrincante jugar. Un objetivo queda aturdido por 2 turnos y recibe 15 de dano por 2 turnos.",
+      description: "Yugi activa las espadas de luz reveladoras impidiendo al contrincante jugar. Aturde las habilidades fisicas de un objetivo por 2 turnos y recibe 15 de dano por 2 turnos.",
       effects: [
-        { type: "stun", value: 2, targets: "target" },
+        { type: "stun", value: 2, targets: "target", familiesAffected: ["physical"] },
         {
           type: "complex",
           duration: 2,
@@ -189,7 +204,7 @@ export const yugi = {
     {
       id: "mago-oscuro",
       name: "Mago oscuro",
-      chakra: {ninjutsu: 1, neutralchakra: 1},
+      cost: {azul: 1, negro: 1},
       targetType: "enemy",
       description: "Yugi invoca a su fiel aliado y confidente. El Mago oscuro hace 30 de dano a un objetivo y ese objetivo recibe 5 mas de dano permanentemente de las habilidades de Yugi. Esta habilidad ignora invulnerabilidad.",
       effects: [

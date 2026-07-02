@@ -14,12 +14,12 @@ import { OptionsModal, ResultModal } from "./components/Overlays.jsx";
 import { PatchNotesView } from "./components/PatchNotesView.jsx";
 import { StatusEffects } from "./components/StatusEffects.jsx";
 import { allAssetUrls, backgroundImages, characterImage, characterSound, skillImage, skullImage } from "./game/assets.js";
-import { canPaySkillChakra, chakraTypes, emptyChakra, neutralChakraCost, totalChakra } from "./game/chakra.js";
+import { canPaySkillChakra, chakraTypes, emptyChakra, negroCost, totalChakra } from "./game/chakra.js";
 import { eligibleTargetsForSkill, hasStatus, isQueuedActor, isQueuedSkill, isSkillOutOfUses, isSkillStunned, meetsSkillRequirements, playerHealthShare, skillCooldownFor } from "./game/battleRules.js";
 import { groupStatusEffects, targetTypeLabel } from "./game/labels.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { skillClassesLabel } from "../shared/effects.js";
-import { actionSkillsForMember, activeSkillsForMember, baseSkillsForCharacter, inspectableSkillsForCharacter } from "../shared/skillReplacements.js";
+import { actionSkillsForMember, activeSkillsForMember, chakraUsageSkillsForCharacter, inspectableSkillsForCharacter } from "../shared/skillReplacements.js";
 import {
   ADVANTAGE_HEALTH_SHARE,
   AUDIO_FADE_MS,
@@ -836,9 +836,9 @@ function App() {
     return response.ok;
   }
 
-  async function endTurn(neutralChakra = emptyChakra(), resolveOrder = []) {
+  async function endTurn(negro = emptyChakra(), resolveOrder = []) {
     setError("");
-    const response = await callSocket("battle:endTurn", { neutralChakra, resolveOrder });
+    const response = await callSocket("battle:endTurn", { negro, resolveOrder });
     if (!response.ok) setError(response.error);
     return response.ok;
   }
@@ -1311,14 +1311,14 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
 
 const chakraUsageTypes = [
   ...chakraTypes,
-  { id: "neutralChakra", label: "Neutral", className: "neutral" }
+  { id: "negro", label: "Neutral", className: "neutral" }
 ];
 
 function characterChakraUsage(character) {
   const totals = chakraUsageTypes.reduce((usage, type) => ({ ...usage, [type.id]: 0 }), {});
-  for (const skill of baseSkillsForCharacter(character)) {
+  for (const skill of chakraUsageSkillsForCharacter(character)) {
     for (const type of chakraUsageTypes) {
-      totals[type.id] += Math.max(0, Number(skill.chakra?.[type.id] || 0));
+      totals[type.id] += Math.max(0, Number(skill.cost?.[type.id] || 0));
     }
   }
   const totalChakraCost = Object.values(totals).reduce((total, amount) => total + amount, 0);
@@ -1345,9 +1345,9 @@ function TeamChakraUsage({ characters }) {
   if (characters.length === 0) return null;
   const totals = chakraUsageTypes.reduce((usage, type) => ({ ...usage, [type.id]: 0 }), {});
   for (const character of characters) {
-    for (const skill of baseSkillsForCharacter(character)) {
+    for (const skill of chakraUsageSkillsForCharacter(character)) {
       for (const type of chakraUsageTypes) {
-        totals[type.id] += Math.max(0, Number(skill.chakra?.[type.id] || 0));
+        totals[type.id] += Math.max(0, Number(skill.cost?.[type.id] || 0));
       }
     }
   }
@@ -1422,7 +1422,7 @@ function CharacterSkillDetailCard({ skill }) {
       </div>
       <div className="character-detail-skill-meta">
         <span><b>Cooldown:</b> {skill.cooldown || 0}</span>
-        <span><b>Costo:</b> {skill.passive ? "No usable" : <ChakraCost chakra={skill.chakra} />}</span>
+        <span><b>Costo:</b> {skill.passive ? "No usable" : <ChakraCost chakra={skill.cost} />}</span>
         <span><b>Objetivo:</b> {skill.passive ? "Pasiva" : footerTargetTypeLabel(skill.targetType)}</span>
         <span><b>Familias:</b> {skill.family?.length ? skillClassesLabel(skill.family) : "Ninguna"}</span>
       </div>
@@ -1630,7 +1630,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const [visibleBotMessage, setVisibleBotMessage] = useState("");
   const [visibleChatBubble, setVisibleChatBubble] = useState(null);
   const [chakraExchangeOpen, setChakraExchangeOpen] = useState(false);
-  const [neutralChakraOpen, setNeutralChakraOpen] = useState(false);
+  const [negroOpen, setnegroOpen] = useState(false);
   const [emptyQueueConfirmOpen, setEmptyQueueConfirmOpen] = useState(false);
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
@@ -1656,9 +1656,9 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const canUndoExchange = Boolean(exchange && !hasQueuedSkills && (me?.chakra?.[exchange.receivedType] || 0) > 0);
   const canOpenExchange = isMyTurn && room.phase !== "finished" && !exchange && totalChakra(me?.chakra) >= 5;
   const exchangeButtonLabel = exchange ? "Deshacer intercambio" : "Intercambiar recursos";
-  const queuedNeutralChakra = (me?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
+  const queuedNegro = (me?.queue || []).reduce((total, action) => total + negroCost(action.chakra), 0);
   const chakraTotal = totalChakra(me?.chakra);
-  const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNeutralChakra);
+  const adjustedChakraTotal = Math.max(0, chakraTotal - queuedNegro);
   const defaultResolveOrder = useMemo(() => skillResolveItems(room, me, opponent), [room, me, opponent]);
   const ownBattleShare = playerHealthShare(me, opponent);
   const enemyBattleShare = playerHealthShare(opponent, me);
@@ -1749,7 +1749,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
       && !isQueuedActor(me, actor?.id)
       && !isQueuedSkill(me, actor?.id, skill.id)
       && meetsSkillRequirements(skill, me, opponent, actor)
-      && canPaySkillChakra(me?.chakra, chakraCost, queuedNeutralChakra)
+      && canPaySkillChakra(me?.chakra, chakraCost, queuedNegro)
       && validTargets.length > 0;
   }
 
@@ -1788,8 +1788,8 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
 
   function clickEndTurn() {
     if (!isMyTurn || room.phase === "finished") return;
-    if (defaultResolveOrder.length > 0 || queuedNeutralChakra > 0) {
-      setNeutralChakraOpen(true);
+    if (defaultResolveOrder.length > 0 || queuedNegro > 0) {
+      setnegroOpen(true);
       return;
     }
     if (!hasQueuedSkills) {
@@ -1806,7 +1806,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           <div className="battle-turn-summary">
             <span className="turn-pill">Turno {room.turn}</span>
             <span className="resource-pill" title="Chakra disponible ajustado por cola">
-              Recursos {queuedNeutralChakra > 0 ? `${adjustedChakraTotal}/${chakraTotal}` : chakraTotal}
+              Recursos {queuedNegro > 0 ? `${adjustedChakraTotal}/${chakraTotal}` : chakraTotal}
             </span>
             {room.phase === "finished" ? (
               <span className="turn-pill active winner">Gano {winner?.name}</span>
@@ -1895,15 +1895,15 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           }}
         />
       )}
-      {neutralChakraOpen && (
-        <NeutralChakraModal
+      {negroOpen && (
+        <negroModal
           chakra={me?.chakra}
-          required={queuedNeutralChakra}
+          required={queuedNegro}
           resolveItems={defaultResolveOrder}
-          onClose={() => setNeutralChakraOpen(false)}
+          onClose={() => setnegroOpen(false)}
           onConfirm={async (spent, resolveOrder) => {
             const ok = await onEndTurn(spent, resolveOrder);
-            if (ok) setNeutralChakraOpen(false);
+            if (ok) setnegroOpen(false);
           }}
         />
       )}
@@ -2097,7 +2097,7 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
   );
 }
 
-function NeutralChakraModal({ chakra, required, resolveItems = [], onClose, onConfirm }) {
+function negroModal({ chakra, required, resolveItems = [], onClose, onConfirm }) {
   const [spent, setSpent] = useState(() => emptyChakra());
   const [orderedItems, setOrderedItems] = useState(resolveItems);
   const spentTotal = totalChakra(spent);
@@ -2333,7 +2333,7 @@ function SkillFooter({ skill, compact = false }) {
         <p className="skill-footer-description">{skill.description}</p>
         <div className="skill-footer-meta">
           <span><b>Objetivo:</b> {skill.passive ? "Pasiva" : footerTargetTypeLabel(skill.targetType)}</span>
-          <span><b>Costo:</b> {skill.passive ? "No usable" : <ChakraCost chakra={skill.chakra} />}</span>
+          <span><b>Costo:</b> {skill.passive ? "No usable" : <ChakraCost chakra={skill.cost} />}</span>
           <span><b>Cooldown:</b> {skill.cooldown || 0}</span>
         </div>
         <p className="skill-footer-families"><b>Familias:</b> {skill.family?.length ? skillClassesLabel(skill.family) : "Ninguna"}</p>

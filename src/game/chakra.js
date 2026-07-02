@@ -1,20 +1,20 @@
 export const chakraTypes = [
-  { id: "taijutsu", label: "", shortLabel: "", className: "tai" },
-  { id: "ninjutsu", label: "", shortLabel: "", className: "nin" },
-  { id: "bloodline", label: "", shortLabel: "", className: "blood" },
-  { id: "genjutsu", label: "", shortLabel: "", className: "gen" }
+  { id: "verde", label: "Verde", shortLabel: "", className: "tai" },
+  { id: "azul", label: "Azul", shortLabel: "", className: "nin" },
+  { id: "rojo", label: "Rojo", shortLabel: "", className: "blood" },
+  { id: "blanco", label: "Blanco", shortLabel: "", className: "gen" }
 ];
 
 export function emptyChakra() {
-  return { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 };
+  return { verde: 0, azul: 0, rojo: 0, blanco: 0 };
 }
 
 export function totalChakra(chakra = {}) {
   return chakraTypes.reduce((total, type) => total + (chakra?.[type.id] || 0), 0);
 }
 
-export function neutralChakraCost(chakra = {}) {
-  return Math.max(0, Number(chakra?.neutralChakra || 0));
+export function negroCost(chakra = {}) {
+  return Math.max(0, Number(chakra?.negro || 0));
 }
 
 export function specificChakraCost(chakra = {}) {
@@ -30,5 +30,5 @@ export function canPayChakra(available = {}, cost = {}) {
 
 export function canPaySkillChakra(available = {}, cost = {}, reservedNeutral = 0) {
   const specificCost = specificChakraCost(cost);
-  return canPayChakra(available, specificCost) && totalChakra(available) >= reservedNeutral + totalChakra(specificCost) + neutralChakraCost(cost);
+  return canPayChakra(available, specificCost) && totalChakra(available) >= reservedNeutral + totalChakra(specificCost) + negroCost(cost);
 }

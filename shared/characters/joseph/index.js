@@ -9,7 +9,7 @@ export const joseph = {
     {
       id: "clacker-volley",
       name: "Boleadoras Resonantes",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Joseph lanza sus Boleadoras con Hamon. Inflige 20 de daño y aumenta 5 por cada acumulacion de Hamon.",
       effects: [{ type: "damage", value: 20, targets: "target" }],
@@ -19,7 +19,7 @@ export const joseph = {
     {
       id: "hamon",
       name: "Hamon",
-      chakra: { bloodline: 1 },
+      cost: { rojo: 1 },
       targetType: "self",
       description: "Joseph obtiene 1 acumulacion de Hamon, 50% de reduccion de daño durante 3 turnos y devuelve 5 de daño especial al atacante si recibe daño. Cada Hamon aumenta Boleadoras Resonantes en 5.",
       effects: [
@@ -33,7 +33,7 @@ export const joseph = {
     {
       id: "your-next-line",
       name: "Tu siguiente frase es...",
-      chakra: { genjutsu: 1 },
+      cost: { blanco: 1 },
       targetType: "enemy",
       isSecret: true,
       description: "Joseph predice el movimiento enemigo y prepara un counter. Si contrarresta una habilidad, obtiene 1 acumulacion de Hamon.",
@@ -57,7 +57,7 @@ export const joseph = {
     {
       id: "nigerundayo",
       name: "Nigerundayo!",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Joseph decide que la mejor estrategia es escapar. Obtiene invulnerabilidad durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],

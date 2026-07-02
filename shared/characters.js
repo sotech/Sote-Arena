@@ -20,6 +20,7 @@ import { ichigo } from "./characters/ichigo/index.js";
 import { zoro } from "./characters/zoro/index.js";
 import { chiyo } from "./characters/chiyo/index.js";
 import { yugi } from "./characters/yugi/index.js";
+import { gojo } from "./characters/gojo/index.js";
 
 function effectBotDescription(effect) {
   if (effect.type === "damage") {
@@ -113,5 +114,6 @@ export const characters = [
   ichigo,
   zoro,
   chiyo,
-  yugi
+  yugi,
+  gojo
 ].map(withSkillDefaults);

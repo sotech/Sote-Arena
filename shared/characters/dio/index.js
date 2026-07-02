@@ -9,7 +9,7 @@ export const dio = {
     {
       id: "muda-muda-muda",
       name: "MUDA MUDA MUDA",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "The World golpea a un enemigo con una rafaga de golpes. Inflige 15 de daño durante 3 turnos. Con Stand: The World activo inflige 10 adicional por turno. Puede ser interrumpida.",
       effects: [
@@ -39,7 +39,7 @@ export const dio = {
     {
       id: "blood-transfer",
       name: "Transferencia de Sangre",
-      chakra: { bloodline: 1 },
+      cost: { rojo: 1 },
       targetType: "anyCharacter",
       description: `Dio absorbe la sangre de cualquiera que lo rodee. 
       Si el objetivo es enemigo, hace 20 de daño de afliccion, Dio recupera 15 de vida y MUDA MUDA MUDA inflige 10 daño adicional durante 3 turnos. 
@@ -75,7 +75,7 @@ export const dio = {
     {
       id: "stand-the-world",
       name: "Stand: The World",
-      chakra: { taijutsu: 1, bloodline: 1 },
+      cost: { verde: 1, rojo: 1 },
       targetType: "self",
       description: "Dio invoca The World durante 3 turnos, obtiene 25% de reduccion de daño, MUDA MUDA MUDA es reemplazada por Perfora Abdomen y esta habilidad por The World.",
       effects: [
@@ -90,7 +90,7 @@ export const dio = {
     {
       id: "defense-the-world",
       name: "Defensa: The World",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "The World intercepta ataques y vuelve invulnerable a Dio durante 1 turno. Dio es inmune al aturdimiento provocado por Star Platinum: The World.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -102,7 +102,7 @@ export const dio = {
       name: "Inmunidad de The World",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Dio ignora 1 aturdimiento provocado por Star Platinum: The World.",
       effects: [{ type: "stunImmunity", value: 1, duration: -1, targets: "self", skillIds: ["star-platinum-the-world", "the-world"], showStatusEffect: false }],
@@ -113,7 +113,7 @@ export const dio = {
     {
       id: "the-world",
       name: "The World",
-      chakra: { bloodline: 2 },
+      cost: { rojo: 2 },
       targetType: "allPlayers",
       description: "Dio detiene el tiempo. Todos excepto Dio quedan aturdidos durante 1 turno. Durante este tiempo, los enemigos aturdidos por esta habilidad reciben doble daño de Dio",
       effects: [
@@ -140,7 +140,7 @@ export const dio = {
     {
       id: "abdomen-pierce",
       name: "Perfora Abdomen",
-      chakra: { taijutsu: 2 },
+      cost: { verde: 2 },
       targetType: "enemy",
       description: "The World atraviesa violentamente el abdomen del enemigo. Inflige 40 de daño. No puede ser contrarrestada ni reflejada.",
       effects: [{ type: "damage", value: 40, targets: "target" }],

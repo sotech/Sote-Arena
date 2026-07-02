@@ -1,6 +1,6 @@
 import { characters, getCharacterById } from "../shared/characters.js";
 import { BOT_TURN_DELAY_MS, BOT_VS_BOT_TURN_DELAY_MS } from "../shared/config.js";
-import { CHAKRA_TYPES, emptyChakra, queuedNeutralChakraCost } from "./chakra.js";
+import { CHAKRA_TYPES, emptyChakra, queuedNegroCost } from "./chakra.js";
 import { createTeam, findPlayer, opponentOf } from "./players.js";
 
 function weightedRandomItem(items) {
@@ -92,11 +92,15 @@ function botEffectiveHealing(room, bot, actor, skill, targetId, engine) {
   let totalHealing = 0;
   for (const effect of skill.effects || []) {
     if (effect.type !== "heal" && effect.type !== "self-heal") continue;
-    const targets = engine.resolveEffectTargets(room, bot, actor, targetId, skill, effect).filter((target) => target.hp > 0);
+    const targets = engine.resolveEffectTargets(room, bot, actor, targetId, skill, effect)
+      .filter((target) => target.hp > 0 || effect.affectsDead === true);
     for (const target of targets) {
       const targetCharacter = getCharacterById(target.characterId);
       const missingHp = Math.max(0, targetCharacter.maxHp - target.hp);
-      totalHealing += Math.min(missingHp, Math.max(0, Number(effect.value || 0)));
+      const healValue = effect.sourceCurrentHp === true || effect.sourceHp === true || effect.sourceCurrentHealth === true
+        ? Math.max(0, Number(actor.hp || 0))
+        : Math.max(0, Number(effect.value || 0));
+      totalHealing += Math.min(missingHp, healValue);
     }
   }
   return totalHealing;
@@ -120,10 +124,46 @@ function botShouldConsiderSkill(actor, actorCharacter, skill) {
   return healthPercent <= 0.5;
 }
 
-function botActionPriority(room, bot, actor, skill, targetId, engine) {
+function memberHealthPercent(member) {
+  const character = getCharacterById(member?.characterId);
+  const maxHp = Math.max(0, Number(character?.maxHp || 0));
+  return maxHp > 0 ? Math.max(0, Number(member?.hp || 0)) / maxHp : 0;
+}
+
+function botOwnLifeReincarnationPriority(room, bot, actor, targetId, effectiveHealing, engine) {
+  const opponent = opponentOf(room, bot.id);
+  const target = engine.getRoomMember(room, targetId);
+  if (!target) return 1;
+
+  const actorHealth = memberHealthPercent(actor);
+  const targetHealth = memberHealthPercent(target);
+  const ownAlive = engine.aliveMembers(bot).length;
+  const enemyAlive = engine.aliveMembers(opponent).length;
+  const targetMissingHealth = 1 - targetHealth;
+  let priority = 2;
+
+  if (targetHealth >= 0.75) priority = 1;
+  else if (targetHealth >= 0.5) priority = 6;
+  else priority = 18;
+
+  priority += Math.floor(effectiveHealing / 3);
+  priority += Math.floor(targetMissingHealth * 18);
+
+  if (ownAlive < enemyAlive) priority += 28;
+  if (actorHealth <= 0.5 && targetHealth <= 0.5 && effectiveHealing > 0) priority += 90;
+  if (target.hp <= 0) priority += 45;
+
+  return priority;
+}
+
+export function botActionPriority(room, bot, actor, skill, targetId, engine) {
   let priority = 10;
   const description = skill.botDescription || "";
   const effectiveHealing = botEffectiveHealing(room, bot, actor, skill, targetId, engine);
+
+  if (skill.id === "ones-own-life-reincarnation") {
+    return botOwnLifeReincarnationPriority(room, bot, actor, targetId, effectiveHealing, engine);
+  }
 
   if (description.includes("invulnerable-")) {
     priority = 1;
@@ -180,7 +220,7 @@ function botSkillOptions(room, bot, engine) {
 }
 
 export function botNeutralPayment(player) {
-  let remaining = queuedNeutralChakraCost(player);
+  let remaining = queuedNegroCost(player);
   const payment = emptyChakra();
   for (const type of CHAKRA_TYPES) {
     if (remaining <= 0) break;

@@ -9,7 +9,7 @@ export const jotaro = {
     {
       id: "ora-ora-ora",
       name: "ORA ORA ORA",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Star Platinum golpea a un enemigo. Inflige 10 de dano adicional solo a escudos e inflige 15 de dano durante 3 turnos. Con Star Platinum activo inflige 10 adicional por turno y no puede ser contrarrestada. Puede ser interrumpida.",
       effects: [
@@ -42,7 +42,7 @@ export const jotaro = {
     {
       id: "star-finger",
       name: "Star Finger",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      cost: { rojo: 1, negro: 1 },
       targetType: "enemy",
       description: "Star Platinum atraviesa defensas. Rompe los escudos del oponente, inflige 30 de daño perforante e ignora invulnerabilidad. Con Star Platinum activo inflige 15 adicional y no puede ser contrarrestada.",
       effects: [
@@ -55,7 +55,7 @@ export const jotaro = {
     {
       id: "stand-star-platinum",
       name: "Stand: Star Platinum",
-      chakra: { taijutsu: 1, bloodline: 1 },
+      cost: { verde: 1, rojo: 1 },
       targetType: "self",
       description: "Jotaro invoca Star Platinum durante 3 turnos, obtiene 25% de reduccion de daño, mejora ORA ORA ORA y Star Finger en 10, y reemplaza esta habilidad por Star Platinum: The World.",
       effects: [
@@ -70,7 +70,7 @@ export const jotaro = {
     {
       id: "star-platinum-block",
       name: "Star Platinum Block",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Star Platinum intercepta ataques y vuelve invulnerable a Jotaro durante 1 turno. Pasiva: Jotaro es inmune al aturdimiento provocado por The World de Dio Brando.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -82,7 +82,7 @@ export const jotaro = {
       name: "Inmunidad de Star Platinum",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Jotaro ignora 1 aturdimiento provocado por The World de Dio Brando.",
       effects: [{ type: "stunImmunity", value: 1, duration: -1, targets: "self", skillIds: ["the-world", "star-platinum-the-world"], showStatusEffect: false }],
@@ -93,7 +93,7 @@ export const jotaro = {
     {
       id: "star-platinum-the-world",
       name: "Star Platinum: The World",
-      chakra: { bloodline: 2 },
+      cost: { rojo: 2 },
       targetType: "allPlayers",
       description: "Jotaro detiene el tiempo. No puede ser contrarrestada ni reflejada. Todos excepto Jotaro quedan aturdidos durante 1 turno. Durante este tiempo, los enemigos aturdidos por esta habilidad reciben doble daño de Jotaro",
       effects: [

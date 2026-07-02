@@ -237,7 +237,7 @@ export function registerSocketHandlers(io, {
       broadcast(room);
     });
 
-    socket.on("battle:endTurn", ({ neutralChakra, resolveOrder } = {}, callback) => {
+    socket.on("battle:endTurn", ({ negro, resolveOrder } = {}, callback) => {
       const code = socketRooms.get(socket.id);
       const room = rooms.get(code);
       if (!room) {
@@ -245,7 +245,7 @@ export function registerSocketHandlers(io, {
         return;
       }
 
-      const error = resolveTurn(room, socket.id, neutralChakra, resolveOrder);
+      const error = resolveTurn(room, socket.id, negro, resolveOrder);
       if (error) {
         callback?.({ ok: false, error });
         return;

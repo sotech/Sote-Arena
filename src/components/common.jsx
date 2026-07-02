@@ -1,5 +1,5 @@
 import React from "react";
-import { chakraTypes, neutralChakraCost } from "../game/chakra.js";
+import { chakraTypes, negroCost } from "../game/chakra.js";
 
 export function SquareImage({ alt, src, className = "" }) {
   return <img className={`square-img ${className}`.trim()} src={src} alt={alt} width="48" height="48" />;
@@ -21,7 +21,7 @@ export function ChakraPool({ chakra }) {
 
 export function ChakraIcon({ type }) {
   const chakraType = chakraTypes.find((item) => item.id === type);
-  const className = type === "neutralChakra" ? "neutral" : chakraType?.className || "";
+  const className = type === "negro" ? "neutral" : chakraType?.className || "";
   return (
     <svg className={`chakra-svg ${className}`} viewBox="0 0 16 16" aria-hidden="true">
       <rect className="chakra-border" x="1" y="1" width="14" height="14" rx="4" />
@@ -35,9 +35,9 @@ export function ChakraCost({ chakra = {} }) {
   const entries = chakraTypes
     .map((type) => ({ ...type, amount: chakra[type.id] || 0 }))
     .filter((type) => type.amount > 0);
-  const neutralAmount = neutralChakraCost(chakra);
+  const neutralAmount = negroCost(chakra);
   if (neutralAmount > 0) {
-    entries.push({ id: "neutralChakra", label: "Neutral", amount: neutralAmount });
+    entries.push({ id: "negro", label: "Negro", amount: neutralAmount });
   }
 
   if (!entries.length) return <span className="chakra-cost empty">Sin recursos</span>;

@@ -14,8 +14,32 @@ function turnsFromDuration(duration) {
   return duration;
 }
 
+function memberHasStatusEffect(member, requirement) {
+  const effectId = requirement.effectId || requirement.statusEffectId || requirement.id || requirement.sourceSkillId;
+  if (!effectId) return false;
+  return (member?.statusEffects || []).some((status) => (
+    status.id === effectId
+    || status.type === effectId
+    || status.sourceSkillId === effectId
+    || status.statusSourceSkillId === effectId
+  ));
+}
+
+function targetMeetsRequirement(target, requirement) {
+  const type = requirement.type || requirement.condition;
+  if (type === "hasStatusEffect" || type === "hasStatus" || type === "status") {
+    return memberHasStatusEffect(target, requirement);
+  }
+  return true;
+}
+
+function targetMeetsRequirements(target, effect) {
+  return (effect.requires || effect.requirements || []).every((requirement) => targetMeetsRequirement(target, requirement));
+}
+
 export function applyReplaceSkillEffect({ targets, effect, skill, actor, actorCharacter, currentTurn, addStatus, statusOrigin }) {
   for (const target of targets) {
+    if (!targetMeetsRequirements(target, effect)) continue;
     const baseSkillId = effect.baseSkillId || skill.id;
     addStatus(target, {
       id: randomUUID(),

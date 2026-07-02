@@ -57,7 +57,7 @@ const santoryuEffects = [
   clearStances,
   {
     type: "substituteChakraCost",
-    chakra: { taijutsu: 1, neutralChakra: 1 },
+    chakra: { verde: 1, negro: 1 },
     duration: -1,
     targets: "self",
     skillIds: ["king-of-hell-blade"],
@@ -103,7 +103,7 @@ export const zoro = {
     {
       id: "sword-style-stance",
       name: "Estilo de Espadas",
-      chakra: {neutralChakra: 1},
+      cost: {negro: 1},
       targetType: "self",
       description: "Zoro cambia su postura en orden ciclico: Ittoryu reduce el dano recibido en 15%; Nitoryu reduce 15 puntos, devuelve 10 de dano perforante al atacante y vuelve Filo del Rey del Infierno no contrarrestable; Santoryu hace que Filo del Rey del Infierno cueste 1 fisico y 1 neutral, no sea contrarrestable y no sea reflejable.",
       effects: [{
@@ -135,9 +135,16 @@ export const zoro = {
     {
       id: "enma-release",
       name: "Liberacion de Enma",
-      chakra: { ninjutsu: 1 },
+      cost: { azul: 1 },
       targetType: "self",
       description: "Zoro se inflige 5 de dano sin poder morir por ese dano. El efecto permanece hasta usar Filo del Rey del Infierno. Ese Filo gana un efecto segun su postura: Ittoryu inflige 35 de dano normal e ignora invulnerabilidad; Nitoryu inflige 40 de dano perforante y aturde 1 turno; Santoryu inflige 40 de dano perforante a todos los enemigos y Zoro recupera 10 salud.",
+      requires: [{
+        scope: "self",
+        type: "hasStatusEffect",
+        effectId: "enma-release",
+        not: true,
+        message: "Liberacion de Enma ya esta activa."
+      }],
       effects: [
         { type: "payLife", value: 5, targets: "self", notKill: true },
         {
@@ -203,7 +210,7 @@ export const zoro = {
     {
       id: "king-of-hell-blade",
       name: "Filo del Rey del Infierno",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Zoro ataca con su estilo actual. Sin Enma: Ittoryu inflige 20 de dano normal y cuesta 1 recurso fisico; Nitoryu inflige 25 de dano perforante, cuesta 1 recurso fisico y no puede ser contrarrestado; Santoryu inflige 35 de dano normal, cuesta 1 recurso fisico y 1 neutral, no puede ser contrarrestado ni reflejado. Con Enma: Ittoryu inflige 35 de dano normal e ignora invulnerabilidad; Nitoryu inflige 40 de dano perforante, aturde 1 turno y no puede ser contrarrestado; Santoryu inflige 40 de dano perforante a todos los enemigos, Zoro recupera 10 salud, no puede ser contrarrestado ni reflejado.",
       effects: [{
@@ -230,7 +237,7 @@ export const zoro = {
     {
       id: "zoro-defense",
       name: "Defensa de Zoro",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Zoro se vuelve invulnerable por 1 turno.",
       effects: [{
@@ -247,7 +254,7 @@ export const zoro = {
       name: "Ittoryu",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Zoro empieza el combate en Ittoryu, reduciendo el dano recibido en 25%.",
       effects: ittoryuEffects,

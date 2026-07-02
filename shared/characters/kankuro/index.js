@@ -8,7 +8,7 @@ export const kankuro = {
     {
       id: "puppet-ambush",
       name: "Emboscada de marionetas",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "enemy",
       description: "Usando sus marionetas para la ofensiva, Kankuro inflige 30 de daño a un enemigo. Inflige 10 de daño adicional si el objetivo esta aturdido.",
       effects: [
@@ -24,19 +24,19 @@ export const kankuro = {
     {
       id: "iron-puppet-barrage",
       name: "Rafaga de marionetas de hierro",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "enemies",
       description: "Las marionetas atacan a todos los enemigos con veneno y les inflige 10 puntos de daño de afliccion durante 2 turnos.",
       effects: [
         { type: "complex", duration: 2, targets: "enemies", effects: [{ type: "damage", value: 10, targets: "self", damageType: "affliction" }] }
       ],
       cooldown: 3,
-      family:["physical","offensive","instant"]
+      family:["affliction", "offensive","instant"]
     },
     {
       id: "puppet-preparation",
       name: "Preparacion de marionetas",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Kankuro prepara sus marionetas para atacar. Kankuro gana 5 puntos de defensa destruible y por 4 turnos el daño de Rafaga de marionetas de hierro aumenta en 5 y el daño de Emboscada de marionetas aumenta en 10.",
       effects: [
@@ -56,7 +56,7 @@ export const kankuro = {
     {
       id: "puppet-substitution",
       name: "Jutsu de sustitucion de marionetas",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "enemy",
       isSecret: true,
       description: "Coloca una trampa de marionetas en un objetivo. Durante el siguiente turno, la primera habilidad ofensiva usada por ese objetivo sera countereada.",

@@ -20,7 +20,7 @@ export const ejemplo = {
     {
       id: "golpe-ejemplo",
       name: "Golpe ejemplo",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Inflige 25 de dano a un enemigo.",
       effects: [{ type: "damage", value: 25, targets: "target" }],
@@ -35,7 +35,7 @@ export const ejemplo = {
 
 - `id`: slug unico de la habilidad. Debe coincidir con el nombre del icono en `src/assets/skills/<id>.png`.
 - `name`: nombre visible.
-- `chakra`: coste. Tipos validos: `taijutsu`, `ninjutsu`, `bloodline`, `genjutsu`, `neutralChakra`.
+- `cost`: coste. Tipos validos: `verde`, `azul`, `rojo`, `blanco`, `negro`.
 - `targetType`: `self`, `enemy`, `ally`, `otherAlly`, `anyCharacter`, `enemies`, `allies`, `allPlayers`.
 - `description`: texto visible para el jugador.
 - `effects`: lista de efectos resueltos al usar la habilidad.
@@ -206,7 +206,7 @@ Estos efectos se aplican como estados sobre el personaje objetivo y alteran sus 
 {
   id: "modo-arena",
   name: "Modo arena",
-  chakra: { neutralChakra: 1 },
+  cost: { negro: 1 },
   targetType: "self",
   effects: [{ type: "replaceSkill", duration: 2, targets: "self", baseSkillId: "sand-armor", skillId: "sand-storm" }]
 }
@@ -218,7 +218,7 @@ La habilidad reemplazante debe existir:
 {
   id: "sand-storm",
   name: "Tormenta de arena",
-  chakra: { neutralChakra: 2 },
+  cost: { negro: 2 },
   targetType: "enemies",
   effects: [{ type: "damage", value: 20, targets: "target" }],
   isExtraSkill: true,
@@ -275,12 +275,12 @@ Una habilidad pasiva de inicio de combate se ejecuta automaticamente al comenzar
 
 ```js
 {
-  id: "bloodline-instinct",
+  id: "rojo-instinct",
   name: "Instinto de sangre",
   passive: true,
   trigger: "battleStart",
   targetType: "self",
-  chakra: {},
+  cost: {},
   effects: [
     { type: "complex", duration: -1, targets: "self", effects: [{ type: "modifyDamage", value: 5, targets: "self" }] }
   ],
@@ -299,7 +299,7 @@ Ejemplo de pasivo por muerte enemiga:
   passive: true,
   startsActive: true,
   targetType: "self",
-  chakra: {},
+  cost: {},
   effects: [{
     type: "onEnemyDeath",
     duration: -1,

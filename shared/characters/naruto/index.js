@@ -8,7 +8,7 @@ export const naruto = {
     {
       id: "oodama-rasengan",
       name: "Oodama Rasengan",
-      chakra: { taijutsu: 1, ninjutsu: 1 },
+      cost: { verde: 1, azul: 1 },
       targetType: "enemy",
       description: "Naruto inflige 40 de daño a un enemigo. Ignora invulnerabilidad. Durante el siguiente turno despues de usar Poder del Kyubi, esta habilidad aturde 1 turno.",
       effects: [
@@ -21,7 +21,7 @@ export const naruto = {
     {
       id: "multi-shadow-clones",
       name: "Multi clones de sombra",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "enemies",
       description: "Naruto inflige 20 de daño a todos los enemigos. Por 1 turno ignora aturdimientos y efectos negativos, aunque esos estados sigan apareciendo sobre Naruto.",
       effects: [
@@ -64,13 +64,13 @@ export const naruto = {
     {
       id: "kyuubi-chakra",
       name: "Poder del Kyubi",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      cost: { rojo: 1, negro: 1 },
       targetType: "self",
       description: "Naruto gana 1 Recurso Fisico y 1 Recurso Energetico. Naruto pierde 15 puntos de vida. Durante el siguiente turno Oodama Rasengan aturde 1 turno.",
       effects: [
         { type: "payLife", value: 15, targets: "self", notKill: true },
-        { type: "gain-chakra", value: 1, chakraType: "taijutsu", targets: "self" },
-        { type: "gain-chakra", value: 1, chakraType: "ninjutsu", targets: "self" },
+        { type: "gain-chakra", value: 1, chakraType: "verde", targets: "self" },
+        { type: "gain-chakra", value: 1, chakraType: "azul", targets: "self" },
         {
           type: "complex",
           duration: 1,
@@ -81,12 +81,12 @@ export const naruto = {
         }
       ],
       cooldown: 2,
-      family: ["special", "strategic", "instant"]
+      family: ["strategic", "instant"]
     },
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -98,7 +98,7 @@ export const naruto = {
       name: "Posesion Kurama",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Pasiva oculta: si Naruto llega a 30% de vida o menos, obtiene 50% de reduccion de daño permanentemente.",
       effects: [{

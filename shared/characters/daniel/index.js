@@ -8,7 +8,7 @@ export const daniel = {
     {
       id: "shadow-kick",
       name: "Patada de sombra",
-      chakra: { taijutsu: 1, neutralChakra: 1 },
+      cost: { verde: 1, negro: 1 },
       targetType: "enemy",
       description: "Daniel-san usa su patada de sombra para infligir 25 puntos de daño a un enemigo.",
       effects: [
@@ -19,7 +19,7 @@ export const daniel = {
     {
       id: "cats-blessing",
       name: "Bendición de Mai",
-      chakra: { genjutsu: 1, taijutsu: 1 },
+      cost: { blanco: 1, verde: 1 },
       targetType: "self",
       description: `Daniel-san invoca a su gata para que lo proteja. 
           Durante 2 turnos, Patada de sombra ataca a todos los objetivos. Daniel-san obtiene 20 puntos de reduccion de daño durante este tiempo.`,
@@ -38,7 +38,7 @@ export const daniel = {
     {
       id: "crackling-curtain",
       name: "Cortina crujiente",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      cost: { rojo: 1, negro: 1 },
       targetType: "enemies",
       description: `Daniel usa la cortina del primo para atacar y cubrir a sus aliados. Inflige 15 puntos de daño a todos los enemigos y otorga 15 puntos de escudo a todos los aliados. No puede acumularse consigo mismo. `,
       effects: [
@@ -51,7 +51,7 @@ export const daniel = {
     {
       id: "nine-lives",
       name: "Nueve vidas",
-      chakra: { neutralChakra: 3 },
+      cost: { negro: 3 },
       targetType: "self",
       description: "Usando la energia vital de su gata, Daniel recupera 35 puntos de vida y se vuelve invulnerable 1 turno.",
       effects: [

@@ -8,7 +8,7 @@ export const ichigo = {
     {
       id: "combo-zangetsu",
       name: "Combo Zangetsu",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Ichigo inflige 15 de daño a un enemigo por 2 turnos. Durante este tiempo Ichigo es invulnerable a habilidades fisicas y Getsuga Tensho cuesta 1 neutral. Si se usa sobre un enemigo afectado por Getsuga Tensho, Ichigo gana 1 recurso fisico.",
       effects: [
@@ -30,12 +30,12 @@ export const ichigo = {
           duration: 2,
           targets: "self",
           skillIds: ["getsuga-tensho"],
-          chakra: { neutralChakra: 1 }
+          chakra: { negro: 1 }
         },
         {
           type: "gain-chakra",
           value: 1,
-          chakraType: "taijutsu",
+          chakraType: "verde",
           targets: "self",
           require: { scope: "target", type: "hasStatusEffect", effectId: "getsuga-tensho" }
         }
@@ -46,7 +46,7 @@ export const ichigo = {
     {
       id: "getsuga-tensho",
       name: "Getsuga Tensho",
-      chakra: { ninjutsu: 1 },
+      cost: { azul: 1 },
       targetType: "enemy",
       description: "Ichigo inflige 15 de daño a un enemigo por 2 turnos. Durante este tiempo Ichigo es invulnerable a habilidades especiales y Combo Zangetsu cuesta 1 neutral. Si se usa sobre un enemigo afectado por Combo Zangetsu, lo aturde 1 turno.",
       effects: [
@@ -68,7 +68,7 @@ export const ichigo = {
           duration: 2,
           targets: "self",
           skillIds: ["combo-zangetsu"],
-          chakra: { neutralChakra: 1 }
+          chakra: { negro: 1 }
         },
         {
           type: "stun",
@@ -83,7 +83,7 @@ export const ichigo = {
     {
       id: "hollow-possession",
       name: "Posesion Hueco",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       uses: 1,
       hideSkillUses:true,
@@ -151,7 +151,7 @@ export const ichigo = {
     {
       id: "bankai-block",
       name: "Bloqueo con Bankai",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Ichigo se vuelve invulnerable por 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -162,7 +162,7 @@ export const ichigo = {
       id: "hollow-possession-effect",
       name: "Posesion Hueco - Efecto",
       passive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Ichigo gana 50 de escudo. Si se rompe todo el escudo, Posesion Hueco - Efecto termina. Combo Zangetsu se reemplaza con Vortice Negro y Getsuga Tensho con Getsuga Tensho Negro.",
       effects: [
@@ -182,7 +182,7 @@ export const ichigo = {
     {
       id: "black-vortex",
       name: "Vortice Negro",
-      chakra: { ninjutsu: 1, neutralChakra: 2 },
+      cost: { azul: 1, negro: 2 },
       targetType: "enemies",
       description: "Ichigo inflige 30 de daño perforante a todos los enemigos.",
       effects: [{ type: "damage", value: 30, damageType: "piercing", targets: "target" }],
@@ -194,7 +194,7 @@ export const ichigo = {
     {
       id: "black-getsuga-tensho",
       name: "Getsuga Tensho Negro",
-      chakra: { ninjutsu: 1, genjutsu: 1 },
+      cost: { azul: 1, blanco: 1 },
       targetType: "enemy",
       description: "Ichigo inflige 45 de daño perforante a un enemigo.",
       effects: [{ type: "damage", value: 45, damageType: "piercing", targets: "target" }],

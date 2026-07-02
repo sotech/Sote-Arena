@@ -8,7 +8,7 @@ export const mai = {
     {
       id: "cat-scratch",
       name: "Aranazo de gato",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "enemy",
       cooldown: 1,
       description: "Mai arana a un enemigo, infligiendo 5 de daño perforante. Cada uso aumenta permanentemente el daño de esta habilidad en 5.",
@@ -21,11 +21,11 @@ export const mai = {
     {
       id: "prrr",
       name: "Prrr",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "ally",
       description: "Mai mejora el estado de animo de un aliado. Durante 2 turnos, sus habilidades cuestan 1 recurso neutral menos.",
       effects: [
-        { type: "modifyChakraCost", chakra: { neutralChakra: -1 }, duration: 2, targets: "target" }
+        { type: "modifyChakraCost", chakra: { negro: -1 }, duration: 2, targets: "target" }
       ],
       cooldown: 4,
       family: ["mental", "strategic", "instant"]
@@ -33,7 +33,7 @@ export const mai = {
     {
       id: "licks",
       name: "Lamidas",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "otherAlly",
       description: "Mai lame a un aliado que no sea ella misma. Durante 2 turnos, ese aliado recupera 15 de salud. Esta habilidad puede ser interrumpida.",
       effects: [
@@ -48,7 +48,7 @@ export const mai = {
       name: "Proteccion de aliado",
       passive: true,
       trigger: "battleStart",
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Por cada aliado vivo, sin incluir a Mai, Mai gana 5 de reduccion de daño y 5 de escudo cada turno. El escudo no puede superar 5 por aliado vivo.",
       effects: [

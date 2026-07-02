@@ -8,7 +8,7 @@ export const sasuke = {
     {
       id: "kusanagi-sword",
       name: "Espada de Kusanagi",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Sasuke inflige 15 de daño perforante a un enemigo por 2 turnos. Esta habilidad puede ser interrumpida. Durante este tiempo cambia a Agarre serpiente.",
       effects: [
@@ -21,7 +21,7 @@ export const sasuke = {
     {
       id: "kirin",
       name: "Kirin",
-      chakra: { ninjutsu: 2 },
+      cost: { azul: 2 },
       targetType: "enemy",
       uncountereable: true,
       nonReflectable: true,
@@ -36,7 +36,7 @@ export const sasuke = {
     {
       id: "mangekyou-sharingan",
       name: "Mangekyou Sharingan",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      cost: { rojo: 1, negro: 1 },
       targetType: "self",
       description: "Durante 3 turnos Sasuke gana 50% reduccion de daño. Durante este tiempo esta habilidad es reemplazada por Amaterasu.",
       effects: [
@@ -56,7 +56,7 @@ export const sasuke = {
     {
       id: "snake-grab",
       name: "Agarre serpiente",
-      chakra: {taijutsu: 1},
+      cost: {verde: 1},
       targetType: "enemy",
       hideUntilReplaced: true,
       isExtraSkill: true,
@@ -71,7 +71,7 @@ export const sasuke = {
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Sasuke se vuelve invulnerable 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -81,7 +81,7 @@ export const sasuke = {
     {
       id: "amaterasu",
       name: "Amaterasu",
-      chakra: {ninjutsu: 1, neutralChakra: 1},
+      cost: {azul: 1, negro: 1},
       targetType: "enemy",
       hideUntilReplaced: true,
       isExtraSkill: true,
@@ -91,7 +91,7 @@ export const sasuke = {
       effects: [
         { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, damageType: "affliction", targets: "self", ignoreInvulnerable: true }] }
       ],
-      family: ["special", "offensive", "instant"]
+      family: ["affliction", "offensive", "instant"]
     }
   ]
 };

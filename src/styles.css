@@ -472,6 +472,10 @@ character-patch ul {
   background: #e91805;
 }
 
+.patch-tag.rework {
+  background: #18d5db;
+}
+
 .patch-notes-content subheader {
   color: #17202a;
   display: block;
@@ -1032,7 +1036,7 @@ label {
   align-items: stretch;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 260px;
   margin: 0 auto;
   max-width: 1160px;
 }
@@ -1048,7 +1052,7 @@ label {
   display: grid;
   gap: 12px;
   grid-column: 1;
-  grid-template-columns: minmax(0, 1.75fr) minmax(272px, 0.72fr);
+  grid-template-columns: minmax(0, 1.75fr) minmax(252px, 0.67fr);
 }
 
 .battle-turn-left {
@@ -1747,7 +1751,7 @@ label {
   gap: 12px;
   grid-column: 1;
   grid-row: 2;
-  grid-template-columns: minmax(0, 1.75fr) minmax(272px, 0.72fr);
+  grid-template-columns: minmax(0, 1.75fr) minmax(252px, 0.67fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -2041,11 +2045,11 @@ label {
 
 .enemy-team .fighter {
   align-content: start;
-  grid-template-columns: 168px;
+  grid-template-columns: 156px;
   justify-content: end;
   justify-items: stretch;
   overflow: hidden;
-  width: min(100%, 272px);
+  width: min(100%, 252px);
 }
 
 .enemy-team .fighter-card-main {
@@ -2062,7 +2066,7 @@ label {
   justify-self: end;
   justify-items: end;
   text-align: right;
-  width: 168px;
+  width: 156px;
 }
 
 .speech-bubble {

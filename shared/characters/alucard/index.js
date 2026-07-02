@@ -9,7 +9,7 @@ export const alucard = {
     {
       id: "casull-jackal",
       name: "Casull & Jackal",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      cost: { rojo: 1, negro: 1 },
       targetType: "enemy",
       description: `Alucard dispara ambas pistolas insignia hacia un enemigo. 
         Inflige 20 de daño a un enemigo durante 2 turnos y recupera 10 de vida si inflingieron daño. 
@@ -44,7 +44,7 @@ export const alucard = {
     {
       id: "mist-form",
       name: "Forma de Niebla",
-      chakra: { bloodline: 2 },
+      cost: { rojo: 2 },
       targetType: "enemies",
       description: `Alucard se disuelve en niebla y atraviesa a sus enemigos. 
         Inflige 15 de daño de afliccion a todos los enemigos, obtiene invulnerabilidad por 1 turno y recupera 15 de vida.`,
@@ -54,12 +54,12 @@ export const alucard = {
         { type: "self-heal", value: 15, targets: "self" }
       ],
       cooldown: 4,
-      family: ["special", "offensive", "instant"]
+      family: ["affliction", "offensive", "instant"]
     },
     {
       id: "restriction-level-zero",
       name: "Nivel de Restriccion 0",
-      chakra: { bloodline: 2 },
+      cost: { rojo: 2 },
       targetType: "self",
       description: `Teniendo la aprobación, Alucard despliega su forma final, sin restricciones pero quedando expuesto.
         Casull & Jackal y Forma de niebla hacen el doble de daño. 
@@ -106,7 +106,7 @@ export const alucard = {
     {
       id: "undead-king",
       name: "Rey sin vida",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Alucard obtiene invulnerabilidad durante 1 turno. PASIVA: La primera vez que Alucard llega a 0 HP, revive con 50 HP. Si revive, Nivel de Restriccion 0 queda deshabilitado permanentemente.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -118,7 +118,7 @@ export const alucard = {
       name: "Rey sin vida pasiva",
       passive: true,
       startsActive: true,
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "La primera vez que Alucard llega a 0 HP, revive con 50 HP y deshabilita Nivel de Restriccion 0.",
       effects: [{ type: "reviveOnDeath", value: 50, hp: 50, duration: -1, targets: "self", disableSkillIds: ["restriction-level-zero"] }],

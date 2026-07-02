@@ -1,15 +1,15 @@
-export const CHAKRA_TYPES = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
-export const NEUTRAL_CHAKRA = "neutralChakra";
+export const CHAKRA_TYPES = ["verde", "azul", "rojo", "blanco"];
+export const NEUTRAL_CHAKRA = "negro";
 const RESOURCE_LABELS = {
-  taijutsu: "Fisico",
-  ninjutsu: "Energetico",
-  genjutsu: "Mental",
-  bloodline: "Especial",
-  neutralChakra: "neutral"
+  verde: "verde",
+  azul: "azul",
+  blanco: "blanco",
+  rojo: "rojo",
+  negro: "negro"
 };
 
 export function emptyChakra() {
-  return { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 };
+  return { verde: 0, azul: 0, rojo: 0, blanco: 0 };
 }
 
 export function cloneChakra(chakra) {
@@ -46,16 +46,16 @@ export function specificChakraCost(cost = {}) {
   }, emptyChakra());
 }
 
-export function neutralChakraCost(cost = {}) {
+export function negroCost(cost = {}) {
   return Math.max(0, Number(cost[NEUTRAL_CHAKRA] || 0));
 }
 
 export function requiredChakraTotal(cost = {}) {
-  return totalChakra(specificChakraCost(cost)) + neutralChakraCost(cost);
+  return totalChakra(specificChakraCost(cost)) + negroCost(cost);
 }
 
-export function queuedNeutralChakraCost(player) {
-  return (player?.queue || []).reduce((total, action) => total + neutralChakraCost(action.chakra), 0);
+export function queuedNegroCost(player) {
+  return (player?.queue || []).reduce((total, action) => total + negroCost(action.chakra), 0);
 }
 
 export function canPaySkillCost(chakra, cost = {}, reservedNeutral = 0) {
@@ -110,13 +110,15 @@ export function applyChakraRemoval(player, amount, chakraType) {
   return removed;
 }
 
-export function grantTurnChakra(player, setAmount) {
+export function grantTurnChakra(player, setAmount, aliveCountOverride = null) {
   if (setAmount) {
     grantPlayerRandomChakra(player);
     return;
   }
 
-  const aliveCount = player.team.filter((member) => member.hp > 0).length;
+  const aliveCount = Number.isFinite(aliveCountOverride)
+    ? Math.max(0, Math.floor(aliveCountOverride))
+    : player.team.filter((member) => member.hp > 0).length;
   for (let i = 0; i < aliveCount; i += 1) {
     grantPlayerRandomChakra(player);
   }

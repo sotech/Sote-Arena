@@ -8,7 +8,7 @@ export const kakashi = {
     {
       id: "raikiri",
       name: "Raikiri",
-      chakra: { taijutsu: 1, ninjutsu: 1 },
+      cost: { verde: 1, azul: 1 },
       targetType: "enemy",
       description: "Usando su habilidad ilustre, Kakashi inflige 40 de daño perforante a un enemigo.",
       effects: [
@@ -21,7 +21,7 @@ export const kakashi = {
     {
       id: "kakashi-sharingan",
       name: "Sharingan de Kakashi",
-      chakra: { bloodline: 1 },
+      cost: { rojo: 1 },
       targetType: "self",
       isSecret: true,
       description: "Kakashi activa su Sharingan en secreto. Durante 1 turno, todas las habilidades usadas sobre Kakashi seran reflejadas.",
@@ -34,7 +34,7 @@ export const kakashi = {
     {
       id: "ninken-trap",
       name: "Trampa Ninken",
-      chakra: { ninjutsu: 2 },
+      cost: { azul: 2 },
       targetType: "enemy",
       description: "Kakashi usa sus ninken para aturdir un enemigo 2 turnos. Mientras el objetivo este afectado, Raikiri lo matara instantaneamente.",
       effects: [
@@ -46,7 +46,7 @@ export const kakashi = {
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],

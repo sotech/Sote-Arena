@@ -8,7 +8,7 @@ export const cacho = {
     {
       id: "cacho-lariat",
       name: "Lariat de Cacho",
-      chakra: { taijutsu: 1, neutralChakra: 1 },
+      cost: { verde: 1, negro: 1 },
       targetType: "enemy",
       description: "Cacho utiliza un Lariat sobre el enemigo e inflige 20 de daño a un enemigo.",
       effects: [
@@ -19,7 +19,7 @@ export const cacho = {
     {
       id: "smoke-hazard",
       name: "Humo peligroso",
-      chakra: { genjutsu: 1, neutralChakra: 1 },
+      cost: { blanco: 1, negro: 1 },
       targetType: "enemies",
       description: "Cacho lanza humos de nicotina sobre los enemigos infligiendo 10 de daño de afliccion y aturdiendo sus habilidades fisicas por 1 turno. Ademas Cacho recibe 10 puntos de daño de afliccion.",
       effects: [
@@ -28,12 +28,12 @@ export const cacho = {
         { type: "damage", value: 10, damageType: "affliction", targets: "self" }
         ],
       cooldown: 3,
-      family:["special","offensive","instant"]
+      family:["affliction","offensive","instant"]
     },
     {
       id: "cigarrette-care",
       name: "Cuidados de cigarrillo",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "self",
       description: "Cacho fuma unos puchos. Cacho se restaura 15 de vida y gana 15 puntos de reduccion de daño durante 2 turnos.",
       effects: [
@@ -48,7 +48,7 @@ export const cacho = {
       name: "Ira de Cacho",
       passive: true,
       trigger: "battleStart",
-      chakra: {},
+      cost: {},
       targetType: "self",
       description: "Cacho posee una ira primigenea. Lariat de Cacho aumenta en 5 por cada 20 puntos de vida que le falte a Cacho.",
       effects: [

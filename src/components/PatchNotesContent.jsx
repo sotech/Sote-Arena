@@ -55,9 +55,26 @@ export function Bot({ children }) {
   return <TaggedPatchItem type="bot" label="Bot">{children}</TaggedPatchItem>;
 }
 
+export function Rework({ children }) {
+  return <TaggedPatchItem type="rework" label="Rework">{children}</TaggedPatchItem>;
+}
+
 export function PatchNotesContent() {
   return (
     <>
+      <PatchNotesPatch patch="2.2.0">
+        <CharacterPatch id="gojo">
+          <New>Agregado Gojo Satoru</New>
+        </CharacterPatch>
+        <CharacterPatch id="chiyo">
+          <Balance>Manipulacion aliada ahora otorga 5 de reduccion de daño a aliados controlados.</Balance>
+          <Nerf>Manipulacion aliada ya no anula la primera habilidad ofensiva usada contra el aliado controlado.</Nerf>
+        </CharacterPatch>
+        <CharacterPatch id="yugi">
+          <Rework>El coste de Slifer, El Dragon Celestial aumenta en 1 rojo y ahora es 20 por 3 turnos y 10 de daño adicional si el personaje usa una habilidad ofensiva.</Rework>
+          <Nerf>Aumentado coste de Robar, Gran Escudo Gardna, Mago Oscuro y Espadas de Luz reveladoras en 1 neutral</Nerf>
+        </CharacterPatch>
+      </PatchNotesPatch>
       <PatchNotesPatch patch="2.1.0">
         <CharacterPatch id="yugi">
           <New>Agregado Yugi Muto</New>

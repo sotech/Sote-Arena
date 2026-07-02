@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { characters, getCharacterById, getSkillNameById } from "../shared/characters.js";
 import { naruto } from "../shared/characters/naruto/index.js";
 import { effectTypes, skillClassesLabel, supportedEffectTypes } from "../shared/effects.js";
-import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, exchangeChakra, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn, undoChakraExchange } from "../server/index.js";
+import { addStatus, addedEffectsForSkill, applyQueuedSkill, canEffectAffectTarget, damageBonusForTarget, damageBuffValue, exchangeChakra, expireStartTurnSecretEffects, expireStatusEffects, isSkillCountereable, isSkillReflectable, isSkillStunned, modifiedDamageType, modifiedTargetCount, modifiedTargetType, publicRoom, queueSkill, reflectedEffect, reflectedSkill, replacementEffectsForSkill, resolveTurn, undoChakraExchange } from "../server/index.js";
 import { modifiedSkillChakraCost } from "../shared/chakraCostModifiers.js";
 import { createTeam } from "../server/players.js";
-import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter, inspectableSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
+import { actionSkillsForMember, activeSkillsForMember, allSkillsForCharacter, baseSkillsForCharacter, chakraUsageSkillsForCharacter, inspectableSkillsForCharacter, visibleBaseSkillsForCharacter, visibleSkillsForMember } from "../shared/skillReplacements.js";
 import { eligibleTargetsForSkill, isSkillOutOfUses, meetsSkillRequirements, playerHealthShare, skillUsesRemaining } from "../src/game/battleRules.js";
 import { effectDescription, groupStatusEffects, statusEffectGroupValue } from "../src/game/labels.js";
 
-const chakraTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu"];
+const chakraTypes = ["verde", "azul", "rojo", "blanco"];
 
 test("catalog exposes the playable characters", () => {
   assert.equal(characters.length, 12);
@@ -69,6 +69,91 @@ test("hideSkillUses hides only the remaining uses tooltip", () => {
   }
 });
 
+test("chakra usage includes Yugi deck cards", () => {
+  const yugi = getCharacterById("yugi");
+  const usageSkillIds = chakraUsageSkillsForCharacter(yugi).map((skill) => skill.id);
+
+  assert.deepEqual(usageSkillIds, [
+    "yugi-card-a",
+    "yugi-card-b",
+    "robar",
+    "gran-escudo-gardna",
+    "guardian-celta",
+    "slifer-el-dragon-celestial",
+    "kuriboh",
+    "cilindros-magicos",
+    "espadas-de-luz-reveladoras",
+    "mago-oscuro"
+  ]);
+  assert.deepEqual(yugi.skills.find((skill) => skill.id === "kuriboh").cost, { negro: 1 });
+});
+
+test("Slifer damages enemies over time and punishes offensive skills", () => {
+  const yugi = getCharacterById("yugi");
+  const slifer = yugi.skills.find((skill) => skill.id === "slifer-el-dragon-celestial");
+  const yugiMember = { id: "yugi", characterId: "yugi", hp: 100, statusEffects: [], skillCooldowns: {}, character: yugi };
+  const narutoMember = { id: "naruto", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {}, character: getCharacterById("naruto") };
+  const player = { id: "p1", name: "P1", team: [yugiMember] };
+  const opponent = { id: "p2", name: "P2", team: [narutoMember] };
+  const room = { players: [player, opponent], turn: 1, log: [] };
+
+  assert.equal(slifer.uncounterable, true);
+  assert.equal(slifer.nonReflectable, true);
+  assert.equal(slifer.effects.some((effect) => (
+    effect.type === "complex"
+    && effect.duration === 3
+    && effect.effects.some((child) => child.type === "damage" && child.value === 15)
+  )), true);
+  assert.equal(slifer.effects.some((effect) => (
+    effect.type === "applyEffectsOntriggerEvent"
+    && effect.duration === 3
+    && effect.triggerEvent === "useOffensiveSkill"
+    && effect.showStatusEffect === true
+    && effect.charges === -1
+    && effect.effects.some((child) => child.type === "damage" && child.value === 5 && child.targets === "statusMember")
+  )), true);
+  assert.equal(
+    effectDescription(slifer.effects.find((effect) => effect.type === "applyEffectsOntriggerEvent")),
+    "Si este personaje usa una habilidad ofensiva, recibe 5 de dano por Slifer, el Dragon Celestial."
+  );
+
+  addStatus(narutoMember, {
+    id: "slifer-punishment",
+    type: "applyEffectsOntriggerEvent",
+    turns: 3,
+    triggerEvent: "useOffensiveSkill",
+    showStatusEffect: true,
+    charges: -1,
+    effects: [{ type: "damage", value: 5, targets: "statusMember" }],
+    sourceSkillId: "slifer-el-dragon-celestial",
+    sourceSkillName: slifer.name,
+    sourceActorName: "Yugi Muto",
+    originActorId: "yugi",
+    originCharacterId: "yugi",
+    createdTurn: 1,
+    descriptions: ["Si este personaje usa una habilidad ofensiva, recibe 5 de dano por Slifer, el Dragon Celestial."]
+  });
+  assert.equal(narutoMember.statusEffects[0].showStatusEffect, true);
+  assert.equal(narutoMember.statusEffects[0].tooltipDescription, undefined);
+  assert.deepEqual(narutoMember.statusEffects[0].descriptions, [
+    "Si este personaje usa una habilidad ofensiva, recibe 5 de dano por Slifer, el Dragon Celestial."
+  ]);
+
+  const log = applyQueuedSkill(room, opponent, {
+    actorId: "naruto",
+    targetId: "yugi",
+    skillId: "oodama-rasengan",
+    actorName: "Naruto Uzumaki",
+    targetName: "Yugi Muto",
+    skillName: "Oodama Rasengan"
+  });
+
+  assert.equal(yugiMember.hp, 60);
+  assert.equal(narutoMember.hp, 95);
+  assert.match(log, /Slifer, el Dragon Celestial hizo 5 de dano normal/);
+  assert.equal(narutoMember.statusEffects.some((effect) => effect.type === "applyEffectsOntriggerEvent" && effect.charges === -1), true);
+});
+
 test("skill families have class labels for descriptions", () => {
   assert.equal(skillClassesLabel(["physical", "offensive", "instant"]), "fisica, ofensiva, instantanea");
   assert.equal(skillClassesLabel(["special", "strategic", "channeled"]), "especial, estrategica, canalizada");
@@ -121,7 +206,7 @@ test("skill use limits disable exhausted skills in UI rules", () => {
 test("chakra exchange can be retried after undoing it", () => {
   const player = {
     id: "p1",
-    chakra: { taijutsu: 5, ninjutsu: 0, bloodline: 0, genjutsu: 0 },
+    chakra: { verde: 5, azul: 0, rojo: 0, blanco: 0 },
     queue: [],
     team: []
   };
@@ -132,12 +217,12 @@ test("chakra exchange can be retried after undoing it", () => {
     players: [player]
   };
 
-  assert.equal(exchangeChakra(room, "p1", "ninjutsu", { taijutsu: 5 }), null);
-  assert.deepEqual(player.chakra, { taijutsu: 0, ninjutsu: 1, bloodline: 0, genjutsu: 0 });
+  assert.equal(exchangeChakra(room, "p1", "azul", { verde: 5 }), null);
+  assert.deepEqual(player.chakra, { verde: 0, azul: 1, rojo: 0, blanco: 0 });
   assert.equal(undoChakraExchange(room, "p1"), null);
-  assert.deepEqual(player.chakra, { taijutsu: 5, ninjutsu: 0, bloodline: 0, genjutsu: 0 });
-  assert.equal(exchangeChakra(room, "p1", "bloodline", { taijutsu: 5 }), null);
-  assert.deepEqual(player.chakra, { taijutsu: 0, ninjutsu: 0, bloodline: 1, genjutsu: 0 });
+  assert.deepEqual(player.chakra, { verde: 5, azul: 0, rojo: 0, blanco: 0 });
+  assert.equal(exchangeChakra(room, "p1", "rojo", { verde: 5 }), null);
+  assert.deepEqual(player.chakra, { verde: 0, azul: 0, rojo: 1, blanco: 0 });
 });
 
 test("every character can fight with four configured skills", () => {
@@ -147,7 +232,7 @@ test("every character can fight with four configured skills", () => {
     assert.equal(character.maxHp, expectedMaxHp);
     assert.equal(character.role, undefined);
     assert.equal(baseSkills.length, ["cacho", "mai"].includes(character.id) ? 3 : 4);
-    assert.ok(character.skills.every((skill) => skill.passive === true || Object.values(skill.chakra).some((amount) => amount > 0)));
+    assert.ok(character.skills.every((skill) => skill.passive === true || Object.values(skill.cost).some((amount) => amount > 0)));
     assert.ok(character.skills.every((skill) => Array.isArray(skill.effects) && skill.effects.length > 0));
   }
 });
@@ -229,7 +314,7 @@ test("skill effects use the documented effect system", () => {
         } else if (effect.type === "applyEffectsOntriggerEvent") {
           assert.ok(effect.duration > 0 || effect.duration === -1);
           assert.ok(effect.triggerEvent);
-          assert.ok(effect.condition);
+          if (!["useSkill", "useOffensiveSkill"].includes(effect.triggerEvent)) assert.ok(effect.condition);
           assert.ok(Array.isArray(effect.effects) && effect.effects.length > 0);
         } else if (effect.type === "onEnemyDeath") {
           assert.ok(effect.duration > 0 || effect.duration === -1);
@@ -464,14 +549,14 @@ test("Hinata skills match the requested effects", () => {
   const chakraSeal = hinata.skills.find((skill) => skill.id === "chakra-seal");
 
   assert.equal(gentleFist.cooldown, 1);
-  assert.deepEqual(gentleFist.chakra, { taijutsu: 1, neutralChakra: 1 });
+  assert.deepEqual(gentleFist.cost, { verde: 1, negro: 1 });
   assert.deepEqual(gentleFist.effects, [
     { type: "complex", duration: 2, targets: "target", effects: [{ type: "damage", value: 15, targets: "self" }] }
   ]);
   assert.equal(byakuganGuard.cooldown, 4);
-  assert.deepEqual(byakuganGuard.chakra, { bloodline: 1 });
+  assert.deepEqual(byakuganGuard.cost, { rojo: 1 });
   assert.equal(byakuganGuard.targetType, "self");
-  assert.deepEqual(chakraSeal.chakra, { bloodline: 1, neutralChakra: 1 });
+  assert.deepEqual(chakraSeal.cost, { rojo: 1, negro: 1 });
   assert.deepEqual(chakraSeal.effects, [{ type: "damage", value: 15, targets: "target" }]);
 });
 
@@ -480,7 +565,7 @@ test("Byakugan Guard modifies Hinata skills through reusable effects", () => {
   const ally = { id: "ally", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
   const enemy = { id: "enemy", characterId: "sakura", hp: 100, statusEffects: [], skillCooldowns: {} };
   const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [hinataMember, ally] };
-  const opponent = { id: "p2", name: "P2", chakra: { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0 }, queue: [], team: [enemy] };
+  const opponent = { id: "p2", name: "P2", chakra: { verde: 0, azul: 0, rojo: 0, blanco: 0 }, queue: [], team: [enemy] };
   const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
 
   applyQueuedSkill(room, player, {
@@ -495,11 +580,11 @@ test("Byakugan Guard modifies Hinata skills through reusable effects", () => {
   const chakraSeal = getCharacterById("hinata").skills.find((skill) => skill.id === "chakra-seal");
   assert.equal(damageBuffValue(hinataMember, chakraSeal, 2), 5);
   assert.deepEqual(modifiedSkillChakraCost(hinataMember, chakraSeal), {
-    taijutsu: 0,
-    ninjutsu: 0,
-    bloodline: 1,
-    genjutsu: 0,
-    neutralChakra: 0
+    verde: 0,
+    azul: 0,
+    rojo: 1,
+    blanco: 0,
+    negro: 0
   });
   assert.deepEqual(addedEffectsForSkill(hinataMember, chakraSeal, 2), [
     { type: "shield", value: 15, targets: "allies", isStackable: false }
@@ -529,10 +614,10 @@ test("Aizen skills match the requested effects", () => {
   const corpse = aizen.skills.find((skill) => skill.id === "false-corpse");
 
   assert.equal(aizen.maxHp, 100);
-  assert.deepEqual(massacre.chakra, { genjutsu: 1, neutralChakra: 1 });
+  assert.deepEqual(massacre.cost, { blanco: 1, negro: 1 });
   assert.equal(massacre.cooldown, 1);
   assert.equal(massacre.family.includes("physical"), true);
-  assert.deepEqual(kyouka.chakra, { bloodline: 1, neutralChakra: 1 });
+  assert.deepEqual(kyouka.cost, { rojo: 1, negro: 1 });
   assert.equal(kyouka.isSecret, true);
   assert.equal(kyouka.effects[1].type, "counter");
   assert.deepEqual(kyouka.effects[1].familiesAffected, ["offensive"]);
@@ -545,11 +630,11 @@ test("Aizen skills match the requested effects", () => {
     randomTargetCount: 1,
     statusNoticeDescription: "Este objetivo recibio dano de Dispersate, Kyouka Suijetsu de Aizen."
   }]);
-  assert.deepEqual(hado.chakra, { ninjutsu: 1, neutralChakra: 1 });
+  assert.deepEqual(hado.cost, { azul: 1, negro: 1 });
   assert.equal(hado.cooldown, 3);
   assert.equal(hado.effects[0].mode, "cancelable");
   assert.equal(hado.effects[1].cancelIfOriginStunned, true);
-  assert.deepEqual(corpse.chakra, { neutralChakra: 1 });
+  assert.deepEqual(corpse.cost, { negro: 1 });
   assert.equal(corpse.cooldown, 4);
 });
 
@@ -746,7 +831,7 @@ test("Mai skills match the requested effects", () => {
     { type: "modifyDamage", value: 5, duration: -1, targets: "self", skillIds: ["cat-scratch"], isStackable: true }
   ]);
   assert.deepEqual(prrr.effects, [
-    { type: "modifyChakraCost", chakra: { neutralChakra: -1 }, duration: 4, targets: "target" }
+    { type: "modifyChakraCost", chakra: { negro: -1 }, duration: 4, targets: "target" }
   ]);
   assert.equal(prrr.cooldown, 5);
   assert.equal(licks.targetType, "otherAlly");
@@ -822,12 +907,12 @@ test("Mai Prrr reduces neutral costs and Ally Protection scales with living alli
     targetName: "Naruto Uzumaki",
     skillName: "Prrr"
   });
-  assert.deepEqual(modifiedSkillChakraCost(allyOne, { id: "rasengan", chakra: { ninjutsu: 1, neutralChakra: 1 } }), {
-    taijutsu: 0,
-    ninjutsu: 1,
-    bloodline: 0,
-    genjutsu: 0,
-    neutralChakra: 0
+  assert.deepEqual(modifiedSkillChakraCost(allyOne, { id: "rasengan", cost: { azul: 1, negro: 1 } }), {
+    verde: 0,
+    azul: 1,
+    rojo: 0,
+    blanco: 0,
+    negro: 0
   });
 
   applyQueuedSkill(room, player, {
@@ -1403,11 +1488,11 @@ test("Chiyo hides Life Reincarnation until Ally Puppetry replaces it", () => {
   const opponent = { id: "p2", name: "P2", team: [{ id: "enemy", characterId: "sasuke", hp: 100, statusEffects: [], skillCooldowns: {} }] };
   const room = { players: [player, opponent], turn: 1 };
 
-  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "white-secret-attack-rampage").chakra), ["neutralChakra"]);
-  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "sanbou-kyuukai").chakra), ["neutralChakra"]);
-  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "ally-puppetry").chakra), ["neutralChakra"]);
-  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "chakra-shield").chakra), ["neutralChakra"]);
-  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "ones-own-life-reincarnation").chakra), ["neutralChakra"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "white-secret-attack-rampage").cost), ["negro"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "sanbou-kyuukai").cost), ["negro"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "ally-puppetry").cost), ["negro"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "chakra-shield").cost), ["negro"]);
+  assert.deepEqual(Object.keys(chiyo.skills.find((skill) => skill.id === "ones-own-life-reincarnation").cost), ["negro"]);
   assert.equal(chiyo.skills.find((skill) => skill.id === "ones-own-life-reincarnation").hideUntilReplaced, true);
   assert.equal(inspectableSkillsForCharacter(chiyo).some((skill) => skill.id === "ones-own-life-reincarnation"), false);
   assert.equal(visibleSkillsForMember(member, chiyo).some((skill) => skill.id === "ones-own-life-reincarnation"), false);
@@ -1427,6 +1512,39 @@ test("Chiyo hides Life Reincarnation until Ally Puppetry replaces it", () => {
     "ones-own-life-reincarnation",
     "chakra-shield"
   ]);
+  assert.equal(ally.statusEffects.some((effect) => (
+    effect.type === "damage-reduction"
+    && effect.value === 5
+    && effect.turns === 3
+  )), true);
+});
+
+test("Chiyo Ally Puppetry grants damage and damage reduction to the ally", () => {
+  const chiyoMember = { id: "chiyo", characterId: "chiyo", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const ally = { id: "ally", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = { id: "p1", name: "P1", team: [chiyoMember, ally] };
+  const opponent = { id: "p2", name: "P2", team: [{ id: "enemy", characterId: "sasuke", hp: 100, statusEffects: [], skillCooldowns: {} }] };
+  const room = { players: [player, opponent], turn: 1 };
+
+  applyQueuedSkill(room, player, {
+    actorId: "chiyo",
+    targetId: "ally",
+    skillId: "ally-puppetry",
+    actorName: "Abuela Chiyo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Manipulacion aliada"
+  });
+
+  assert.equal(ally.statusEffects.some((effect) => (
+    effect.type === "modifyDamageMultiplier"
+    && effect.multiplier === 1.25
+    && effect.turns === 3
+  )), true);
+  assert.equal(ally.statusEffects.some((effect) => (
+    effect.type === "damage-reduction"
+    && effect.value === 5
+    && effect.turns === 3
+  )), true);
 });
 
 test("Chiyo White Secret Attack delays secret damage on another available enemy", () => {
@@ -1554,6 +1672,143 @@ test("Chiyo Life Reincarnation heals by Chiyo current HP", () => {
 
   assert.equal(ally.hp, 35);
   assert.equal(chiyoMember.hp, 0);
+});
+
+test("Gojo applies Limitless and unlocks Purple with Blue and Red", () => {
+  const gojo = getCharacterById("gojo");
+  assert.ok(gojo);
+  assert.deepEqual(gojo.skills.find((skill) => skill.id === "cursed-technique-blue").cost, { azul: 1 });
+  assert.deepEqual(gojo.skills.find((skill) => skill.id === "cursed-technique-red").cost, { rojo: 1, negro: 1 });
+  assert.deepEqual(gojo.skills.find((skill) => skill.id === "infinite-void-domain").cost, { rojo: 1, azul: 1 });
+  assert.deepEqual(gojo.skills.find((skill) => skill.id === "cursed-technique-purple").cost, { azul: 1, rojo: 1, negro: 1 });
+  assert.equal(inspectableSkillsForCharacter(gojo).some((skill) => skill.id === "cursed-technique-purple"), true);
+
+  const gojoMember = { id: "gojo", characterId: "gojo", hp: 100, statusEffects: [], skillCooldowns: {}, character: gojo };
+  const enemy = { id: "enemy", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {}, character: getCharacterById("naruto") };
+  const player = { id: "p1", name: "P1", chakra: {}, queue: [], team: [gojoMember] };
+  const opponent = { id: "p2", name: "P2", chakra: {}, queue: [], team: [enemy] };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  applyQueuedSkill(room, player, {
+    passive: true,
+    actorId: "gojo",
+    targetId: "gojo",
+    skillId: "limitless-void",
+    actorName: "Satoru Gojo",
+    targetName: "Satoru Gojo",
+    skillName: "El Vacio"
+  });
+
+  assert.equal(gojoMember.statusEffects.some((effect) => effect.type === "damage-reduction" && effect.value === 40 && effect.percent === true), true);
+
+  applyQueuedSkill(room, player, {
+    actorId: "gojo",
+    targetId: "enemy",
+    skillId: "cursed-technique-blue",
+    actorName: "Satoru Gojo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Hechiceria maldita: Azul"
+  });
+  applyQueuedSkill(room, player, {
+    actorId: "gojo",
+    targetId: "enemy",
+    skillId: "cursed-technique-red",
+    actorName: "Satoru Gojo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Hechiceria maldita: Rojo"
+  });
+
+  assert.equal(gojoMember.statusEffects.some((effect) => effect.sourceSkillId === "cursed-technique-blue" && effect.sourceSkillName === "Hechiceria maldita: Azul"), true);
+  assert.equal(gojoMember.statusEffects.some((effect) => effect.sourceSkillId === "cursed-technique-red" && effect.sourceSkillName === "Hechiceria maldita: Rojo"), true);
+  assert.equal(activeSkillsForMember(gojoMember, gojo).some((skill) => skill.id === "cursed-technique-purple"), true);
+  assert.equal(visibleSkillsForMember(gojoMember, gojo).some((skill) => skill.id === "limitless-void"), false);
+
+  applyQueuedSkill(room, player, {
+    actorId: "gojo",
+    targetId: "enemy",
+    skillId: "infinite-void-domain",
+    actorName: "Satoru Gojo",
+    targetName: "Naruto Uzumaki",
+    skillName: "Expansion de Dominio: Vacio infinito"
+  });
+
+  assert.equal(gojoMember.statusEffects.some((effect) => effect.sourceSkillId === "cursed-technique-blue"), false);
+  assert.equal(gojoMember.statusEffects.some((effect) => effect.sourceSkillId === "cursed-technique-red"), false);
+  assert.equal(gojoMember.statusEffects.some((effect) => effect.sourceSkillId === "gojo-purple-ready"), false);
+});
+
+test("Zoro cannot use Enma Release while Enma Release is already active", () => {
+  const zoro = getCharacterById("zoro");
+  const enmaRelease = zoro.skills.find((skill) => skill.id === "enma-release");
+  const zoroMember = { id: "zoro", characterId: "zoro", hp: 100, statusEffects: [], skillCooldowns: {}, character: zoro };
+  const player = {
+    id: "p1",
+    name: "P1",
+    chakra: { verde: 0, azul: 1, rojo: 0, blanco: 0, negro: 0 },
+    queue: [],
+    team: [zoroMember]
+  };
+  const opponent = {
+    id: "p2",
+    name: "P2",
+    chakra: {},
+    queue: [],
+    team: [{ id: "enemy", characterId: "naruto", hp: 100, statusEffects: [], skillCooldowns: {} }]
+  };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  assert.equal(meetsSkillRequirements(enmaRelease, player, opponent, zoroMember, [zoroMember]), true);
+
+  addStatus(zoroMember, {
+    id: "enma-release-active",
+    type: "addEffectToBase",
+    turns: -1,
+    sourceSkillId: "enma-release",
+    sourceSkillName: "Liberacion de Enma",
+    sourceActorName: "Roronoa Zoro",
+    createdTurn: 1
+  });
+
+  assert.equal(meetsSkillRequirements(enmaRelease, player, opponent, zoroMember, [zoroMember]), false);
+  assert.equal(queueSkill(room, "p1", "zoro", "zoro", "enma-release"), "Liberacion de Enma ya esta activa.");
+});
+
+test("turn chakra is based on alive characters before resolving the previous player's queue", () => {
+  const gojoMember = { id: "gojo", characterId: "gojo", hp: 100, statusEffects: [], skillCooldowns: {}, character: getCharacterById("gojo") };
+  const enemyOne = { id: "enemy-1", characterId: "naruto", hp: 50, statusEffects: [], skillCooldowns: {} };
+  const enemyTwo = { id: "enemy-2", characterId: "sasuke", hp: 50, statusEffects: [], skillCooldowns: {} };
+  const enemyThree = { id: "enemy-3", characterId: "sakura", hp: 100, statusEffects: [], skillCooldowns: {} };
+  const player = {
+    id: "p1",
+    name: "P1",
+    chakra: {},
+    queue: [{
+      id: "gojo-domain-action",
+      actorId: "gojo",
+      targetId: "enemy-1",
+      skillId: "infinite-void-domain",
+      actorName: "Satoru Gojo",
+      targetName: "Equipo enemigo",
+      skillName: "Expansion de Dominio: Vacio infinito"
+    }],
+    team: [gojoMember]
+  };
+  const opponent = {
+    id: "p2",
+    name: "P2",
+    chakra: { verde: 0, azul: 0, rojo: 0, blanco: 0, negro: 0 },
+    queue: [],
+    team: [enemyOne, enemyTwo, enemyThree]
+  };
+  const room = { phase: "battle", activePlayerId: "p1", players: [player, opponent], turn: 1, log: [] };
+
+  resolveTurn(room, "p1");
+
+  assert.equal(room.activePlayerId, "p2");
+  assert.equal(enemyOne.hp, 0);
+  assert.equal(enemyTwo.hp, 0);
+  assert.equal(enemyThree.hp, 40);
+  assert.equal(Object.values(opponent.chakra).reduce((total, amount) => total + amount, 0), 3);
 });
 
 test("replaceSkill duration -1 swaps a base skill permanently", () => {
@@ -2162,14 +2417,14 @@ test("chakra cost modifiers clamp skill costs at zero", () => {
       id: "cheap-gentle-fist",
       type: "modifyChakraCost",
       turns: 2,
-      chakra: { taijutsu: -2, neutralChakra: 1 },
+      chakra: { verde: -2, negro: 1 },
       skillIds: ["gentle-fist"]
     }]
   };
 
   assert.deepEqual(
-    modifiedSkillChakraCost(member, { id: "gentle-fist", name: "Puno suave", chakra: { taijutsu: 1, neutralChakra: 1 } }),
-    { taijutsu: 0, ninjutsu: 0, bloodline: 0, genjutsu: 0, neutralChakra: 2 }
+    modifiedSkillChakraCost(member, { id: "gentle-fist", name: "Puno suave", cost: { verde: 1, negro: 1 } }),
+    { verde: 0, azul: 0, rojo: 0, blanco: 0, negro: 2 }
   );
 });
 
@@ -2179,18 +2434,18 @@ test("substituteChakraCost replaces the original skill cost", () => {
       id: "replacement-cost",
       type: "substituteChakraCost",
       turns: 2,
-      chakra: { taijutsu: 0, ninjutsu: 2, bloodline: 0, genjutsu: 0, neutralChakra: 1 },
+      chakra: { verde: 0, azul: 2, rojo: 0, blanco: 0, negro: 1 },
       skillIds: ["gentle-fist"]
     }]
   };
 
   assert.deepEqual(
-    modifiedSkillChakraCost(member, { id: "gentle-fist", name: "Puno suave", chakra: { taijutsu: 1, neutralChakra: 1 } }),
-    { taijutsu: 0, ninjutsu: 2, bloodline: 0, genjutsu: 0, neutralChakra: 1 }
+    modifiedSkillChakraCost(member, { id: "gentle-fist", name: "Puno suave", cost: { verde: 1, negro: 1 } }),
+    { verde: 0, azul: 2, rojo: 0, blanco: 0, negro: 1 }
   );
   assert.equal(
-    effectDescription({ type: "substituteChakraCost", chakra: { ninjutsu: 2, neutralChakra: 1 }, targets: "self", skillIds: ["gentle-fist"] }),
-    "Sustituye coste: 2 de ninjutsu, 1 neutral (Puño suave)"
+    effectDescription({ type: "substituteChakraCost", chakra: { azul: 2, negro: 1 }, targets: "self", skillIds: ["gentle-fist"] }),
+    "Sustituye coste: 2 azul, 1 negro (Puño suave)"
   );
 });
 

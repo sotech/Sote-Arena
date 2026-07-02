@@ -8,7 +8,7 @@ export const kakuzu = {
     {
       id: "fuuton-pressure-damage",
       name: "Estilo de viento: Presion",
-      chakra: { ninjutsu: 1, neutralChakra: 1 },
+      cost: { azul: 1, negro: 1 },
       targetType: "enemy",
       description: "Kakuzu inflige 25 de daño a un enemigo y lo aturde 1 turno. Al usarse, esta habilidad cambia a Estilo de fuego: Fuego infernal hasta usar otra habilidad de cambio.",
       effects: [
@@ -21,7 +21,7 @@ export const kakuzu = {
     {
       id: "raiton-false-lightning",
       name: "Estilo de rayo: Falso relampago",
-      chakra: { genjutsu: 1, neutralChakra: 1 },
+      cost: { blanco: 1, negro: 1 },
       targetType: "enemy",
       description: "Kakuzu inflige 30 puntos de daño perforante a un enemigo. Al usarse, esta habilidad cambia a Estilo de agua: Muro de agua hasta usar otra habilidad de cambio.",
       effects: [
@@ -33,7 +33,7 @@ export const kakuzu = {
     {
       id: "heart-steal",
       name: "Robo de corazones",
-      chakra: { neutralChakra: 2 },
+      cost: { negro: 2 },
       targetType: "enemy",
       description: "Kakuzu le roba el corazon a un enemigo con 20 de vida o menos, matandolo instantaneamente. Kakuzu recupera 50 de salud.",
       requires: [{ scope: "target", type: "hp", operator: "lte", value: 20, message: "Robo de corazones requiere un objetivo enemigo con 20 de vida o menos." }],
@@ -47,7 +47,7 @@ export const kakuzu = {
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
@@ -57,7 +57,7 @@ export const kakuzu = {
     {
       id: "katon-inferno-fire",
       name: "Estilo de fuego: Fuego infernal",
-      chakra: { bloodline: 1 },
+      cost: { rojo: 1 },
       targetType: "enemies",
       description: "Kakuzu inflige 15 de daño de afliccion a todos los enemigos. Al usarse, esta habilidad cambia a Estilo de viento: Presion hasta usar otra habilidad de cambio.",
       effects: [
@@ -66,12 +66,12 @@ export const kakuzu = {
       ],
       isExtraSkill: true,
       hideUntilReplaced: true,
-      family: ["special", "offensive", "instant"],
+      family: ["affliction", "offensive", "instant"],
     },
     {
       id: "suiton-suijenki",
       name: "Estilo de agua: Muro de agua",
-      chakra: { bloodline: 1, ninjutsu: 1 },
+      cost: { rojo: 1, azul: 1 },
       targetType: "allies",
       description: "Kakuzu levanta un muro defensivo a sus aliados. Otorga a todos los aliados 30 puntos de escudo. No se puede acumular consigo misma. Al usarse, esta habilidad cambia a Estilo de rayo: Falso relampago hasta usar otra habilidad de cambio.",
       effects: [

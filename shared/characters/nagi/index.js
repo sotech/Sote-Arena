@@ -9,9 +9,9 @@ export const nagi = {
     {
       id: "volley-shot",
       name: "Remate de volea",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
-      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 20 de daño y obtiene Flow, aumentando Remate de Cinco Etapas en 15.",
+      description: "Nagi controla el balon y ejecuta una volea perfecta. Inflige 20 de daño y obtiene 1 acumulación de La Zona, aumentando Remate de Cinco Etapas en 15.",
       effects: [
         { type: "damage", value: 20, targets: "target" },
         {
@@ -35,7 +35,7 @@ export const nagi = {
     {
       id: "flow",
       name: "La Zona",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Otorga 1 acumulacion de La Zona. Cada acumulacion aumenta Five-Stage Volley en 15 de daño. Maximo: 3 acumulaciones.",
       effects: [{
@@ -58,7 +58,7 @@ export const nagi = {
     {
       id: "five-stage-volley",
       name: "Remate de Cinco Etapas",
-      chakra: { taijutsu: 2 },
+      cost: { verde: 2 },
       targetType: "enemy",
       description: "Nagi ejecuta un remate imposible. Inflige 25 de daño mas el bono de La Zona y elimina 1 grupo de acumulaciones de La Zona. No puede ser contrarestada, reflejada e ignora invulnerabilidad.",
       effects: [
@@ -73,12 +73,12 @@ export const nagi = {
     {
       id: "lazy-genius",
       name: "Genio Perezoso",
-      chakra: { genjutsu: 1, neutralChakra: 1 },
+      cost: { blanco: 1, negro: 1 },
       targetType: "self",
       description: "Nagi obtiene 50% de reduccion de daño durante 3 turnos. Por este tiempo, Remate de volea cuesta 1 recurso fisico menos.",
       effects: [
         { type: "damage-reduction", value: 50, percent: true, duration: 3, targets: "self" },
-        { type: "modifyChakraCost", chakra: { taijutsu: -1 }, duration: 3, targets: "self", skillIds: ["volley-shot"] }
+        { type: "modifyChakraCost", chakra: { verde: -1 }, duration: 3, targets: "self", skillIds: ["volley-shot"] }
       ],
       cooldown: 4,
       family: ["mental", "strategic", "instant"]

@@ -15,6 +15,7 @@ import {
   damageReductionDescriptions,
   modifierDescriptions,
   shieldDescriptions,
+  simpleEffectDescription,
   statusDescription
 } from "./effects/descriptions.js";
 import {
@@ -38,9 +39,9 @@ import {
   cloneChakra,
   emptyChakra,
   grantTurnChakra,
-  neutralChakraCost,
+  negroCost,
   payChakra,
-  queuedNeutralChakraCost,
+  queuedNegroCost,
   refundChakra,
   specificChakraCost,
   totalChakra
@@ -161,11 +162,61 @@ function hasCustomDescriptions(effect) {
   return Array.isArray(effect?.descriptions) && effect.descriptions.length > 0;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function durationLabel(effect) {
+  const duration = effect?.duration ?? effect?.turns;
+  if (duration === -1) return "permanente";
+  if (Number.isFinite(Number(duration))) return `${duration} turno(s)`;
+  return "sin duracion definida";
+}
+
+function triggerEventLabel(eventType = "reachHp") {
+  if (eventType === "useOffensiveSkill") return "al usar una habilidad ofensiva";
+  if (eventType === "useSkill") return "al usar una habilidad";
+  if (eventType === "reachHp") return "al alcanzar el umbral de vida";
+  return String(eventType);
+}
+
+function triggerConditionLabel(effect) {
+  const triggerEvent = effect?.triggerEvent || effect?.event || effect?.eventType || "reachHp";
+  if (triggerEvent !== "reachHp") return triggerEventLabel(triggerEvent);
+  const condition = effect.condition || {};
+  const metric = condition.type || condition.metric || (condition.hpPercent !== undefined || effect.hpPercent !== undefined ? "hp%" : "hp");
+  const comparator = condition.comparator || condition.operator || effect.comparator || effect.operator || "<=";
+  const value = condition.value ?? condition.threshold ?? condition.hpPercent ?? condition.hp ?? effect.value ?? effect.threshold ?? effect.hpPercent ?? effect.hp ?? 0;
+  return `${triggerEventLabel(triggerEvent)} (${metric} ${comparator} ${value})`;
+}
+
+function applyEffectsOnTriggerTooltip(effect) {
+  if (effect?.type !== "applyEffectsOntriggerEvent") return null;
+  if (hasCustomDescriptions(effect)) return null;
+  const effectDescriptions = (effect.effects || []).map(simpleEffectDescription);
+  const charges = effect.charges === -1
+    ? "sin limite mientras dure"
+    : `${Math.max(1, Number(effect.charges ?? 1))} activacion(es)`;
+  const items = [
+    `Se activa ${triggerConditionLabel(effect)}.`,
+    `Duracion: ${durationLabel(effect)}.`,
+    `Activaciones: ${charges}.`,
+    ...effectDescriptions.map((description) => `Al activarse: ${description}`)
+  ];
+  return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
 function tooltipDescriptionForEffect(effect) {
   return effect?.tooltipDescription
     ?? effect?.tooltipDescripcion
     ?? effect?.tooltipHtml
     ?? effect?.["tooltip descripcion"]
+    ?? applyEffectsOnTriggerTooltip(effect)
     ?? null;
 }
 
@@ -357,6 +408,15 @@ function triggerEventMatches(member, status, eventType = null) {
   if (eventType && triggerEvent !== eventType) return false;
   if (triggerEvent === "reachHp") return triggerConditionMet(member, status);
   return false;
+}
+
+function skillUseTriggerMatches(status, skill) {
+  const triggerEvent = status.triggerEvent || status.event || status.eventType;
+  if (triggerEvent === "useSkill") return true;
+  if (triggerEvent !== "useOffensiveSkill") return false;
+  if (!(skill?.family || []).includes("offensive")) return false;
+  const familiesAffected = Array.isArray(status.familiesAffected) ? status.familiesAffected : [];
+  return familiesAffected.length === 0 || familiesAffected.some((family) => (skill.family || []).includes(family));
 }
 
 function clearDefeatedStatusEffects(room) {
@@ -703,12 +763,12 @@ export function undoChakraExchange(room, playerId) {
   return null;
 }
 
-function advanceTurn(room) {
+function advanceTurn(room, chakraAliveCount = null) {
   const currentIndex = room.players.findIndex((player) => player.id === room.activePlayerId);
   const next = room.players[(currentIndex + 1) % room.players.length];
   next.queue = [];
   next.chakraExchange = null;
-  grantTurnChakra(next);
+  grantTurnChakra(next, false, chakraAliveCount);
   restoreDamageReduction(next);
   room.activePlayerId = next.id;
   room.turn += 1;
@@ -1680,32 +1740,36 @@ function requireCandidates(requirement, player, opponent, actor, selectedTargets
   return actor ? [actor] : [];
 }
 
+function requirementResult(requirement, result) {
+  return requirement.not || requirement.negate ? !result : result;
+}
+
 function memberMeetsRequirement(member, requirement) {
   const type = normalizeRequireType(requirement.type || requirement.condition);
   if (type === "hasStatusEffect") {
     const effectId = requirement.effectId || requirement.statusEffectId || requirement.id;
-    return Boolean(effectId && memberHasStatusEffect(member, effectId));
+    return requirementResult(requirement, Boolean(effectId && memberHasStatusEffect(member, effectId)));
   }
   if (type === "hasSkill") {
     const skillId = requirement.skillId || requirement.id || requirement.value;
     const character = getCharacterById(member.characterId) || member.character;
-    return Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId));
+    return requirementResult(requirement, Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId)));
   }
   if (type === "characterId") {
     const expected = requirement.characterId ?? requirement.id ?? requirement.value;
     const operator = requirement.operator || requirement.comparison || "eq";
-    return operator === "ne" ? member.characterId !== expected : member.characterId === expected;
+    return requirementResult(requirement, operator === "ne" ? member.characterId !== expected : member.characterId === expected);
   }
   if (type === "hp") {
-    return compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value);
+    return requirementResult(requirement, compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value));
   }
   if (type === "hasMinHp") {
     const minHp = Number(requirement.minHp ?? requirement.hp ?? requirement.value ?? 0);
-    return member.hp >= minHp;
+    return requirementResult(requirement, member.hp >= minHp);
   }
   if (type === "hasMaxHp") {
     const maxHp = Number(requirement.maxHp ?? requirement.hp ?? requirement.value ?? 0);
-    return member.hp <= maxHp;
+    return requirementResult(requirement, member.hp <= maxHp);
   }
   return false;
 }
@@ -2150,7 +2214,7 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   if (usesLimit > 0 && (actor.skillUses?.[skill.id] || 0) >= usesLimit) return `${skill.name} ya no tiene usos disponibles.`;
   if (queuedSkillFor(player, actor.id, skill.id)) return `${skill.name} ya esta en cola.`;
   const chakraCost = modifiedSkillChakraCost(actor, skill);
-  if (!canPaySkillCost(player.chakra, chakraCost, queuedNeutralChakraCost(player))) return `No tienes recursos suficientes: requiere ${chakraLabel(chakraCost)}.`;
+  if (!canPaySkillCost(player.chakra, chakraCost, queuedNegroCost(player))) return `No tienes recursos suficientes: requiere ${chakraLabel(chakraCost)}.`;
 
   const targets = targetsForSkill(room, player, actor, targetId, skill);
   const allowsDeadTargets = ["deadAlly", "deadOtherAlly", "anyOtherAlly"].includes(skill.targetType);
@@ -2161,7 +2225,7 @@ function validateSkillAction(room, playerId, actorId, targetId, skillId) {
   return { player, opponent, actor, actorCharacter, skill, chakraCost, targetName: targetNameForSkill(room, player, actor, targetId, skill) };
 }
 
-function queueSkill(room, playerId, actorId, targetId, skillId) {
+export function queueSkill(room, playerId, actorId, targetId, skillId) {
   const validation = validateSkillAction(room, playerId, actorId, targetId, skillId);
   if (typeof validation === "string") return validation;
 
@@ -2581,11 +2645,28 @@ function resolveTriggerSkillStatuses(room, eventType = null) {
         if (!matches) continue;
         const triggeredEvents = applyTriggeredStatusEffects(room, member, status, room.turn);
         events.push(...triggeredEvents);
+        if (status.charges === -1) continue;
         status.charges = Math.max(0, Number(status.charges ?? 1) - 1);
         if (status.charges <= 0) {
           member.statusEffects = (member.statusEffects || []).filter((effect) => effect !== status);
         }
       }
+    }
+  }
+  return events;
+}
+
+function resolveSkillUseTriggerStatuses(room, actor, skill) {
+  const events = [];
+  for (const status of [...(actor.statusEffects || [])]) {
+    if (status.type !== "applyEffectsOntriggerEvent" || statusIsIgnored(status)) continue;
+    if (!(status.turns > 0 || status.turns === -1)) continue;
+    if (!skillUseTriggerMatches(status, skill)) continue;
+    events.push(...applyTriggeredStatusEffects(room, actor, status, room.turn));
+    if (status.charges === -1) continue;
+    status.charges = Math.max(0, Number(status.charges ?? 1) - 1);
+    if (status.charges <= 0) {
+      actor.statusEffects = (actor.statusEffects || []).filter((effect) => effect !== status);
     }
   }
   return events;
@@ -2812,7 +2893,10 @@ export function applyQueuedSkill(room, player, action) {
     consumeNullifyStatus(nullify.status, room.turn);
     setSkillCooldown(actor, skill.id, skill.cooldown || 0);
     const nullifierName = getCharacterById(nullify.member.characterId)?.name || "El objetivo";
-    return `${actorCharacter.name} uso ${skill.name}, pero ${nullifierName} anulo la habilidad.`;
+    return [
+      `${actorCharacter.name} uso ${skill.name}, pero ${nullifierName} anulo la habilidad.`,
+      ...resolveSkillUseTriggerStatuses(room, actor, effectiveSkill)
+    ].join(" ");
   }
 
   const counter = firstCounterForAction(actor, selectedTargets, effectiveSkill, room.turn);
@@ -2822,7 +2906,8 @@ export function applyQueuedSkill(room, player, action) {
     setSkillCooldown(actor, skill.id, skill.cooldown || 0);
     return [
       `${actorCharacter.name} uso ${skill.name}, pero fue cancelada por un counter.`,
-      ...(triggeredEvents || [])
+      ...(triggeredEvents || []),
+      ...resolveSkillUseTriggerStatuses(room, actor, effectiveSkill)
     ].join(" ");
   }
 
@@ -3538,6 +3623,7 @@ export function applyQueuedSkill(room, player, action) {
 
   events.push(...resolveTriggerSkillStatuses(room, "reachHp"));
   events.push(...resolveTriggerSkillStatuses(room));
+  events.push(...resolveSkillUseTriggerStatuses(room, actor, effectiveSkill));
 
   if (totalDamage > 0) events.push(`${actorCharacter.name} uso ${skill.name} e hizo ${formatDamageSummary(damageByType)}.`);
   recordBalanceStats(room, actor, { damage: totalDamage, healing: totalHeal });
@@ -3568,7 +3654,7 @@ export function applyQueuedSkill(room, player, action) {
   return skillLogEntry(player, skill, events.join(" ") || `${actorCharacter.name} uso ${skill.name}.`);
 }
 
-export function resolveTurn(room, playerId, neutralChakraPayment = {}, resolveOrder = []) {
+export function resolveTurn(room, playerId, negroPayment = {}, resolveOrder = []) {
   if (room.phase !== "battle") return "La batalla todavia no esta activa.";
   if (room.activePlayerId !== playerId) return "No es tu turno.";
   const beforeDeathsByPlayerId = deathSnapshotsForRoom(room);
@@ -3576,8 +3662,9 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}, resolveOr
 
   const player = findPlayer(room, playerId);
   const opponent = opponentOf(room, playerId);
-  const requiredNeutral = queuedNeutralChakraCost(player);
-  const neutralPayment = cleanChakraSelection(neutralChakraPayment);
+  const nextTurnChakraAliveCount = aliveMembers(opponent).length;
+  const requiredNeutral = queuedNegroCost(player);
+  const neutralPayment = cleanChakraSelection(negroPayment);
 
   if (requiredNeutral > 0) {
     if (totalChakra(neutralPayment) !== requiredNeutral) {
@@ -3648,7 +3735,7 @@ export function resolveTurn(room, playerId, neutralChakraPayment = {}, resolveOr
     room.log.unshift(`${player.name} gano la partida.`);
   } else {
     expireStatusEffects(player, room.turn, room);
-    advanceTurn(room);
+    advanceTurn(room, nextTurnChakraAliveCount);
     expireStartTurnSecretEffects(findPlayer(room, room.activePlayerId), room.turn, room);
     const beforeStartTurnDeathsByPlayerId = deathSnapshotsForRoom(room);
     applyStartTurnEffects(room, requestedResolveOrder);

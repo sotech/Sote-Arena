@@ -169,32 +169,36 @@ function requireCandidates(requirement, me, opponent, actor, selectedTargets = [
   return actor ? [actor] : [];
 }
 
+function requirementResult(requirement, result) {
+  return requirement.not || requirement.negate ? !result : result;
+}
+
 function memberMeetsRequirement(member, requirement) {
   const type = normalizeRequireType(requirement.type || requirement.condition);
   if (type === "hasStatusEffect") {
     const effectId = requirement.effectId || requirement.statusEffectId || requirement.id;
-    return Boolean(effectId && memberHasStatusEffect(member, effectId));
+    return requirementResult(requirement, Boolean(effectId && memberHasStatusEffect(member, effectId)));
   }
   if (type === "hasSkill") {
     const skillId = requirement.skillId || requirement.id || requirement.value;
     const character = member.character;
-    return Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId));
+    return requirementResult(requirement, Boolean(skillId && (character?.skills || []).some((skill) => skill.id === skillId || skill.name === skillId)));
   }
   if (type === "characterId") {
     const expected = requirement.characterId ?? requirement.id ?? requirement.value;
     const operator = requirement.operator || requirement.comparison || "eq";
-    return operator === "ne" ? member.characterId !== expected : member.characterId === expected;
+    return requirementResult(requirement, operator === "ne" ? member.characterId !== expected : member.characterId === expected);
   }
   if (type === "hp") {
-    return compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value);
+    return requirementResult(requirement, compareHp(member.hp, requirement.operator || requirement.comparison, requirement.hp ?? requirement.value));
   }
   if (type === "hasMinHp") {
     const minHp = Number(requirement.minHp ?? requirement.hp ?? requirement.value ?? 0);
-    return member.hp >= minHp;
+    return requirementResult(requirement, member.hp >= minHp);
   }
   if (type === "hasMaxHp") {
     const maxHp = Number(requirement.maxHp ?? requirement.hp ?? requirement.value ?? 0);
-    return member.hp <= maxHp;
+    return requirementResult(requirement, member.hp <= maxHp);
   }
   return false;
 }

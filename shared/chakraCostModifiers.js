@@ -1,4 +1,4 @@
-export const chakraCostTypes = ["taijutsu", "ninjutsu", "bloodline", "genjutsu", "neutralChakra"];
+export const chakraCostTypes = ["verde", "azul", "rojo", "blanco", "negro"];
 export const chakraCostModifierTypes = ["modifyChakraCost", "substituteChakraCost"];
 
 export function normalizeChakraCost(cost = {}) {
@@ -40,5 +40,5 @@ export function modifiedSkillChakraCost(actor, skill) {
       }
       return appliesToCostModifiedSkill(effect, skill) ? [effect] : [];
     });
-  return applyChakraCostModifiers(skill?.chakra || {}, modifiers);
+  return applyChakraCostModifiers(skill?.cost || {}, modifiers);
 }

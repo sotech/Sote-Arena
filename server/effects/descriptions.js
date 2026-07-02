@@ -3,11 +3,11 @@ import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
 import { skillFamiliesLabel, stunFamiliesAffected, stunScopeLabel } from "../../shared/effects.js";
 
 const resourceLabels = {
-  taijutsu: "Fisico",
-  ninjutsu: "Energetico",
-  genjutsu: "Mental",
-  bloodline: "Especial",
-  neutralChakra: "neutral"
+  verde: "verde",
+  azul: "azul",
+  blanco: "blanco",
+  rojo: "rojo",
+  negro: "negro"
 };
 
 function hasCustomDescriptions(effect) {
@@ -243,7 +243,10 @@ export function simpleEffectDescription(effect) {
   if (effect.type === "conditionalEffects") return "Aplica efectos condicionales.";
   if (effect.type === "onEnemyDeath") return "Se activa cuando muere un enemigo.";
   if (effect.type === "triggerSkills") return "Se activa cuando se cumple una condicion.";
-  if (effect.type === "applyEffectsOntriggerEvent") return "Se activa cuando ocurre un evento.";
+  if (effect.type === "applyEffectsOntriggerEvent") {
+    if (hasCustomDescriptions(effect)) return effect.descriptions.join(" ");
+    return "Se activa cuando ocurre un evento.";
+  }
   if (effect.type === "changeAvatarImage") return "Cambia la imagen del personaje.";
   if (effect.type === "stun") {
     const affectedFamilies = stunFamiliesAffected(effect);

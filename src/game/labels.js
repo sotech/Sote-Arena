@@ -4,11 +4,11 @@ import { chakraCostModifierTypes } from "../../shared/chakraCostModifiers.js";
 import { skillFamiliesLabel, stunFamiliesAffected, stunScopeLabel } from "../../shared/effects.js";
 
 const resourceLabels = {
-  taijutsu: "Fisico",
-  ninjutsu: "Energetico",
-  genjutsu: "Mental",
-  bloodline: "Especial",
-  neutralChakra: "neutral"
+  verde: "verde",
+  azul: "azul",
+  blanco: "blanco",
+  rojo: "rojo",
+  negro: "negro"
 };
 
 export function chakraCostLabel(chakra = {}) {
@@ -228,7 +228,10 @@ export function effectDescription(effect) {
   if (effect.type === "conditionalEffects") return "Efectos condicionales";
   if (effect.type === "onEnemyDeath") return "Se activa al derrotar enemigos";
   if (effect.type === "triggerSkills") return "Se activa al cumplir una condicion";
-  if (effect.type === "applyEffectsOntriggerEvent") return "Se activa al ocurrir un evento";
+  if (effect.type === "applyEffectsOntriggerEvent") {
+    if (Array.isArray(effect.descriptions) && effect.descriptions.length > 0) return effect.descriptions.join(" ");
+    return "Se activa al ocurrir un evento";
+  }
   if (effect.type === "changeAvatarImage") return "Cambia la imagen del personaje";
   if (effect.type === "counter") return `Counter: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;
   if (effect.type === "reflect") return `Reflejo: ${effect.duration === -1 ? "permanente" : `${effect.duration} turno(s)`}`;

@@ -11,7 +11,7 @@ export const aizen = {
     {
       id: "flash-step-massacre",
       name: "Masacre paso flash",
-      chakra: { genjutsu: 1, neutralChakra: 1 },
+      cost: { blanco: 1, negro: 1 },
       targetType: "enemy",
       description: `Aizen marca a un enemigo. 
         Durante 1 turno Aizen sera invulnerable. 
@@ -35,7 +35,7 @@ export const aizen = {
     {
       id: "kyouka-suijetsu-scatter",
       name: "Dispersate, Kyouka Suijetsu",
-      chakra: { bloodline: 1, neutralChakra: 1 },
+      cost: { rojo: 1, negro: 1 },
       targetType: "enemy",
       isSecret: true,
       description: `Usando su Zanpakutou, Aizen crea una ilusion para un enemigo. 
@@ -68,7 +68,7 @@ export const aizen = {
     {
       id: "hado-90-black-coffin",
       name: "Hado 90: Cofre negro",
-      chakra: { ninjutsu: 1, neutralChakra: 1 },
+      cost: { azul: 1, negro: 1 },
       targetType: "enemy",
       description: `Aizen conjura un Hado sin encantamientos, aturdiendo a un objetivo por 2 turnos. 
         Por 2 turnos, el objetivo recibe 15 de daño. 
@@ -104,7 +104,7 @@ export const aizen = {
     {
       id: "false-corpse",
       name: "Cadaver falso",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Aizen se vuelve invulnerable por 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],

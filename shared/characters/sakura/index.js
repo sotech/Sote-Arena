@@ -8,7 +8,7 @@ export const sakura = {
     {
       id: "chakra-punch",
       name: "Puno de chakra",
-      chakra: { taijutsu: 1 },
+      cost: { verde: 1 },
       targetType: "enemy",
       description: "Sakura inflige 25 puntos de daño perforante a un enemigo.",
       effects: [
@@ -19,7 +19,7 @@ export const sakura = {
     {
       id: "medical-kunoichi",
       name: "Medical kunoichi",
-      chakra: { ninjutsu: 1 },
+      cost: { azul: 1 },
       targetType: "otherAlly",
       description: "Sakura cura a un aliado, excepto a si misma, el 50% de sus puntos de vida faltantes.",
       effects: [
@@ -31,7 +31,7 @@ export const sakura = {
     {
       id: "strength-seal-100",
       name: "Sello de Fuerza de 100",
-      chakra: { bloodline: 1 },
+      cost: { rojo: 1 },
       targetType: "self",
       description: "Sakura recupera 15 puntos de salud. Durante 2 turnos, Puno de chakra hace 15 mas de daño y Sakura recibe 40% reduccion de daño. Esta habilidad puede usarse solo 3 veces.",
       effects: [
@@ -57,7 +57,7 @@ export const sakura = {
     {
       id: "substitution-jutsu",
       name: "Jutsu de sustitucion",
-      chakra: { neutralChakra: 1 },
+      cost: { negro: 1 },
       targetType: "self",
       description: "Vuelve invulnerable al lanzador durante 1 turno.",
       effects: [{ type: "complex", duration: 1, targets: "self", effects: [{ type: "invulnerable", value: 1, targets: "self" }] }],
