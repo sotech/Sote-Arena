@@ -109,7 +109,16 @@ main {
 }
 
 .topbar h1 {
+  align-items: center;
+  display: flex;
   text-align: center;
+}
+
+.brand-logo {
+  display: block;
+  height: clamp(72px, 9vw, 112px);
+  object-fit: contain;
+  width: auto;
 }
 
 .desktop-mobile-preview-button {
@@ -122,15 +131,15 @@ main {
 
 .topbar-brand {
   align-items: center;
-  background: #fff;
-  border: 1px solid #d8e0e8;
-  border-radius: 8px;
-  box-shadow: 0 12px 34px rgba(29, 42, 55, 0.08);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   display: inline-flex;
   gap: 10px;
   grid-column: 2;
   justify-self: center;
-  padding: 8px 12px;
+  padding: 0;
 }
 
 .version-tag {
@@ -1288,16 +1297,20 @@ label {
 }
 
 .character-detail-view {
+  box-sizing: border-box;
   display: grid;
   gap: 18px;
+  margin: 0 auto;
+  max-width: 900px;
   padding: 20px;
+  width: 100%;
 }
 
 .character-detail-toolbar {
   align-items: center;
   display: flex;
   gap: 10px;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
 .character-detail-hero {
@@ -1544,8 +1557,12 @@ label {
 }
 
 .combat-log {
+  height: clamp(575px, calc(100vh - 95px), 820px);
   grid-template-rows: auto minmax(0, 1fr);
+  max-height: 100%;
   margin-top: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .side-main .log,
@@ -1555,8 +1572,13 @@ label {
 }
 
 .side-main .log {
+  align-content: start;
+  flex: 1 1 auto;
+  max-height: 100%;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .log p,
@@ -1641,14 +1663,22 @@ label {
 }
 
 .combat-log .collapsible-content {
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   overflow: hidden;
 }
 
 .combat-log .log {
+  align-content: start;
+  height: 100%;
   margin-top: 0;
+  max-height: 100%;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .chat-panel .collapsible-content {
@@ -2523,6 +2553,10 @@ main.mobile-preview .topbar-actions button {
 
 main.mobile-preview h1 {
   font-size: 28px;
+}
+
+main.mobile-preview .brand-logo {
+  height: 76px;
 }
 
 main.mobile-preview h2 {
@@ -3667,7 +3701,6 @@ main.mobile-preview .skill-footer-meta {
   .topbar {
     align-items: center;
     gap: 10px;
-    margin-bottom: 14px;
   }
 
   .topbar-actions {
@@ -3686,6 +3719,10 @@ main.mobile-preview .skill-footer-meta {
 
   h1 {
     font-size: 28px;
+  }
+
+  .brand-logo {
+    height: 76px;
   }
 
   h2 {
@@ -4511,7 +4548,7 @@ main.mobile-preview .skill-footer-meta {
     grid-column: 1;
     justify-self: stretch;
     justify-content: center;
-    min-height: 60px;
+    min-height: 88px;
   }
 
   .topbar.home-topbar .topbar-brand,
@@ -4556,6 +4593,11 @@ main.mobile-preview .skill-footer-meta {
   h1,
   main.mobile-preview h1 {
     font-size: 52px;
+  }
+
+  .brand-logo,
+  main.mobile-preview .brand-logo {
+    height: 122px;
   }
 
   h2,

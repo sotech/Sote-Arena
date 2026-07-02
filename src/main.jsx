@@ -6,6 +6,7 @@ import messageSound from "./assets/sounds/message.mp3";
 import ninjaSound from "./assets/sounds/ninja.mp3";
 import notifierSound from "./assets/sounds/notifier.mp3";
 import deathSound from "./assets/sounds/death.mp3";
+import logoUrl from "./assets/logos/logo.png";
 import { ChakraCost, ChakraIcon, ChakraPool, Health, SquareImage } from "./components/common.jsx";
 import { ChatPanel, CollapsiblePanel } from "./components/ChatPanel.jsx";
 import { MainMenu } from "./components/MainMenu.jsx";
@@ -936,7 +937,9 @@ function App() {
     <main className={mobilePreview ? "mobile-preview" : ""}>
       <section className={`topbar ${!room ? "home-topbar" : ""} ${room?.phase === "lobby" ? "lobby-topbar" : ""}`}>
         <div className="topbar-brand">
-          <h1>Sote Arena</h1>
+          <h1 aria-label="Sote Arena">
+            <img className="brand-logo" src={logoUrl} alt="" aria-hidden="true" />
+          </h1>
           <span className="version-tag">v{GAME_VERSION}</span>
         </div>
         <div className="topbar-actions">
@@ -1007,7 +1010,7 @@ function App() {
         <section className="panel entry">
           <button type="button" className="secondary back-button" onClick={() => setHomeView("menu")}>
             <ChevronLeft size={18} />
-            Volver
+            Menu
           </button>
           <div className="entry-copy">
             <Swords size={44} />
@@ -1235,7 +1238,7 @@ function BalanceTestView({ loading, result, onBack, onRerun }) {
     <section className="panel balance-test-view">
       <button type="button" className="secondary back-button" onClick={onBack}>
         <ChevronLeft size={18} />
-        Volver
+        Menu
       </button>
       {loading && (
         <div className="balance-test-loading" role="status" aria-live="polite">
@@ -1373,7 +1376,7 @@ function CharacterDetailView({ character, selected = false, canSelect = false, s
       <div className="character-detail-toolbar">
         <button type="button" className="secondary back-button" onClick={onBack}>
           <ChevronLeft size={18} />
-          Volver
+          Atras
         </button>
         {canSelect && (
           <button
@@ -1464,7 +1467,7 @@ function CharactersCatalog({ characters, onBack }) {
           <h2>Lista de personajes ({characters.length})</h2>
         </div>
         <button type="button" className="secondary" onClick={onBack}>
-          Atras
+          Menu
         </button>
       </div>
       <CharacterSearch value={search} onChange={setSearch} placeholder="Buscar personaje" />
@@ -1840,7 +1843,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           canPrepareSkill={canPrepareSkill}
           onRemoveQueuedSkill={onRemoveQueuedSkill}
           onMoveQueuedSkill={onMoveQueuedSkill}
-          speechMessage={visibleChatBubble?.playerId === me?.id ? visibleChatBubble.message : ""}
+          speechMessage={visibleChatBubble?.playerId === me?.id ? visibleChatBubble?.message || "" : ""}
         />
         <Team
           title={opponent?.name || "Oponente"}
@@ -1854,7 +1857,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
           onInspect={inspectMember}
           onPick={pickFighter}
           targetable
-          speechMessage={visibleBotMessage || (visibleChatBubble?.playerId === opponent?.id ? visibleChatBubble.message : "")}
+          speechMessage={visibleBotMessage || (visibleChatBubble?.playerId === opponent?.id ? visibleChatBubble?.message || "" : "")}
         />
       </div>
       <aside className={`side-stack ${room.mode !== "pvp" ? "single-panel" : ""}`}>
