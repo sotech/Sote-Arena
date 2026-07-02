@@ -101,9 +101,9 @@ export const gojo = {
     {
       id: "infinite-void-domain",
       name: "Expansion de Dominio: Vacio infinito",
-      cost: { rojo: 1, azul: 1 },
+      cost: { rojo: 2, azul: 2 },
       targetType: "enemies",
-      description: "Gojo expande Vacio infinito e inflige 60 de dano perforante a todos los enemigos. Este dano no puede ser reducido por reduccion de dano. Consume Hechiceria maldita: Azul y Hechiceria maldita: Rojo sobre Gojo.",
+      description: "Gojo expande Vacio infinito e inflige 60 de dano perforante a todos los enemigos. Este dano no puede ser reducido por reduccion de dano.",
       effects: [
         { type: "damage", value: 60, damageType: "piercing", targets: "enemies" },        
       ],

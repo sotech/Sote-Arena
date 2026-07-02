@@ -240,19 +240,19 @@ function App() {
 
   useEffect(() => {
     if (turnAudioRef.current && turnAudioRef.current.paused) {
-      turnAudioRef.current.volume = sfxVolume;
+      setAudioVolume(turnAudioRef.current, sfxVolume);
     }
     if (messageAudioRef.current && messageAudioRef.current.paused) {
-      messageAudioRef.current.volume = sfxVolume;
+      setAudioVolume(messageAudioRef.current, sfxVolume);
     }
     if (bgmAudioRef.current && !bgmAudioRef.current.paused) {
-      bgmAudioRef.current.volume = musicVolume * BGM_VOLUME_RATIO;
+      setAudioVolume(bgmAudioRef.current, musicVolume * BGM_VOLUME_RATIO);
     }
     if (resultAudioRef.current && resultAudioRef.current.paused) {
-      resultAudioRef.current.volume = sfxVolume;
+      setAudioVolume(resultAudioRef.current, sfxVolume);
     }
     if (deathAudioRef.current && deathAudioRef.current.paused) {
-      deathAudioRef.current.volume = sfxVolume;
+      setAudioVolume(deathAudioRef.current, sfxVolume);
     }
   }, [sfxVolume, musicVolume]);
 
@@ -345,13 +345,25 @@ function App() {
     }
   }
 
+  function clampAudioVolume(value) {
+    const volume = Number(value);
+    if (!Number.isFinite(volume)) return 0;
+    return Math.min(1, Math.max(0, volume));
+  }
+
+  function setAudioVolume(audio, volume) {
+    if (!audio) return;
+    audio.volume = clampAudioVolume(volume);
+  }
+
   function fadeAudioTo(audio, targetVolume, durationMs, onDone) {
     const startedAt = performance.now();
     const initialVolume = audio.volume;
+    const finalVolume = clampAudioVolume(targetVolume);
 
     function tick(now) {
       const progress = Math.min(1, (now - startedAt) / durationMs);
-      audio.volume = initialVolume + (targetVolume - initialVolume) * progress;
+      setAudioVolume(audio, initialVolume + (finalVolume - initialVolume) * progress);
       if (progress < 1) {
         audioFadeFrameRef.current = window.requestAnimationFrame(tick);
         return;
@@ -371,17 +383,18 @@ function App() {
 
     const startedAt = performance.now();
     const initialVolume = audio.volume;
+    const finalVolume = clampAudioVolume(targetVolume);
     const duration = Math.max(0, durationMs);
 
     if (duration === 0) {
-      audio.volume = targetVolume;
+      setAudioVolume(audio, finalVolume);
       onDone?.();
       return;
     }
 
     function tick(now) {
       const progress = Math.min(1, (now - startedAt) / duration);
-      audio.volume = initialVolume + (targetVolume - initialVolume) * progress;
+      setAudioVolume(audio, initialVolume + (finalVolume - initialVolume) * progress);
       if (progress < 1) {
         frameRef.current = window.requestAnimationFrame(tick);
         return;
@@ -471,7 +484,7 @@ function App() {
       bgmAudioRef.current = audio;
       bgmCurrentTrackRef.current = track;
       bgmCurrentStateRef.current = state;
-      audio.volume = 0;
+      setAudioVolume(audio, 0);
       audio.loop = false;
       audio.play()
         .then(() => {
@@ -586,7 +599,7 @@ function App() {
     const audio = new Audio(src);
     deathAudioRef.current = audio;
     audio.currentTime = Math.max(0, Number(config?.start || 0));
-    audio.volume = config?.shouldFadeIn ? 0 : sfxVolume;
+    setAudioVolume(audio, config?.shouldFadeIn ? 0 : sfxVolume);
 
     const stopAtEnd = () => {
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
@@ -640,7 +653,7 @@ function App() {
     const audio = new Audio(ninjaSound);
     resultAudioRef.current = audio;
     audio.currentTime = 0;
-    audio.volume = 0;
+    setAudioVolume(audio, 0);
     scheduleResultAudioEnd(audio);
     audio.play()
       .then(() => fadeAudioWithFrame(audio, sfxVolume, RESULT_AUDIO_FADE_MS, resultFadeFrameRef))
@@ -667,7 +680,7 @@ function App() {
       }
       audio.pause();
       audio.currentTime = NOTIFIER_START_TIME;
-      audio.volume = sfxVolume;
+      setAudioVolume(audio, sfxVolume);
     }, remainingMs);
   }
 
@@ -680,7 +693,7 @@ function App() {
     clearAudioTimers();
     audio.pause();
     audio.currentTime = NOTIFIER_START_TIME;
-    audio.volume = 0;
+    setAudioVolume(audio, 0);
 
     const scheduleWhenReady = () => scheduleNotifierEnd(audio);
     if (Number.isFinite(audio.duration)) {
@@ -708,7 +721,7 @@ function App() {
     }
     audio.pause();
     audio.currentTime = MESSAGE_SOUND_START_TIME;
-    audio.volume = sfxVolume;
+    setAudioVolume(audio, sfxVolume);
 
     audio.play().catch(() => {
       // Browsers can block audio until the user interacts with the page.
@@ -1630,7 +1643,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   const [visibleBotMessage, setVisibleBotMessage] = useState("");
   const [visibleChatBubble, setVisibleChatBubble] = useState(null);
   const [chakraExchangeOpen, setChakraExchangeOpen] = useState(false);
-  const [negroOpen, setnegroOpen] = useState(false);
+  const [negroOpen, setNegroOpen] = useState(false);
   const [emptyQueueConfirmOpen, setEmptyQueueConfirmOpen] = useState(false);
   const inspectedMember = [me, opponent]
     .flatMap((player) => player?.team || [])
@@ -1789,7 +1802,7 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
   function clickEndTurn() {
     if (!isMyTurn || room.phase === "finished") return;
     if (defaultResolveOrder.length > 0 || queuedNegro > 0) {
-      setnegroOpen(true);
+      setNegroOpen(true);
       return;
     }
     if (!hasQueuedSkills) {
@@ -1896,14 +1909,14 @@ function Battle({ room, me, opponent, isMyTurn, actorId, targetId, selectedActor
         />
       )}
       {negroOpen && (
-        <negroModal
+        <NegroModal
           chakra={me?.chakra}
           required={queuedNegro}
           resolveItems={defaultResolveOrder}
-          onClose={() => setnegroOpen(false)}
+          onClose={() => setNegroOpen(false)}
           onConfirm={async (spent, resolveOrder) => {
             const ok = await onEndTurn(spent, resolveOrder);
-            if (ok) setnegroOpen(false);
+            if (ok) setNegroOpen(false);
           }}
         />
       )}
@@ -2097,7 +2110,7 @@ function ChakraExchangeModal({ chakra, onClose, onConfirm }) {
   );
 }
 
-function negroModal({ chakra, required, resolveItems = [], onClose, onConfirm }) {
+function NegroModal({ chakra, required, resolveItems = [], onClose, onConfirm }) {
   const [spent, setSpent] = useState(() => emptyChakra());
   const [orderedItems, setOrderedItems] = useState(resolveItems);
   const spentTotal = totalChakra(spent);
@@ -2139,15 +2152,15 @@ function negroModal({ chakra, required, resolveItems = [], onClose, onConfirm })
   }));
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="neutral-chakra-title">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="negro-chakra-title">
       <div className="chakra-exchange-modal neutral-chakra-modal">
         <header>
           <div>
             <p className="eyebrow">Finalizar turno</p>
-            <h2 id="neutral-chakra-title">Orden de resolucion</h2>
-            <p className="modal-copy">{required > 0 ? `Completa ${required} recurso neutral con tus recursos disponibles.` : "No hay recurso neutral pendiente."}</p>
+            <h2 id="negro-chakra-title">Orden de resolucion</h2>
+            <p className="modal-copy">{required > 0 ? `Completa ${required} recurso negro con tus recursos disponibles.` : "No hay recurso negro pendiente."}</p>
           </div>
-          <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar pago neutral">
+          <button type="button" className="icon-button modal-close" onClick={onClose} aria-label="Cerrar pago negro">
             <X size={18} />
           </button>
         </header>
@@ -2159,7 +2172,7 @@ function negroModal({ chakra, required, resolveItems = [], onClose, onConfirm })
               const remaining = (chakra?.[type.id] || 0) - paid;
               return (
                 <div className="exchange-payment-row" key={type.id}>
-                  <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={paid <= 0} aria-label={`Quitar ${type.label} del pago neutral`}>
+                  <button type="button" className="icon-button" onClick={() => removePayment(type.id)} disabled={paid <= 0} aria-label={`Quitar ${type.label} del pago negro`}>
                     <Minus size={16} />
                   </button>
                   <span className={`chakra-dot ${type.className}`} />
@@ -2171,7 +2184,7 @@ function negroModal({ chakra, required, resolveItems = [], onClose, onConfirm })
                     <b>{paid}</b>
                     <small>pagando</small>
                   </span>
-                  <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || remaining <= 0} aria-label={`Agregar ${type.label} al pago neutral`}>
+                  <button type="button" className="icon-button" onClick={() => addPayment(type.id)} disabled={spentTotal >= required || remaining <= 0} aria-label={`Agregar ${type.label} al pago negro`}>
                     <Plus size={16} />
                   </button>
                 </div>
